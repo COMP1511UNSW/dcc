@@ -1,0 +1,468 @@
+#!/usr/bin/env python3
+
+# andrewt@unsw.edu.au May 2013-2017
+# compile a C program with runtime checking enabled
+# run-time errors are intercepted and an explanation
+# printed in a form comprehensible to beginner programmers
+# using  information obtained from  gdb
+
+# This program is executed in 3 ways
+#
+# 1) Invoked by the user from the command line to do the compilation
+#    the binary produce includes code triggered by a runtime error
+#
+# 2) invoked from the C binary when a runtime error occurs - it then runs gdb
+#
+# 3) invoked via gdb to print details of the oroigram state when the runtime error occurred
+
+# The above 3 execution modes have been bundled into one file to simplify installation 
+
+import collections, os, re, signal, subprocess, sys, traceback
+
+debug = int(os.environ.get('DCC_DEBUG', '0'))
+dcc_path = os.path.realpath(sys.argv[0])
+
+#
+# Compile the user's program adding some C code
+#
+def compile():
+    commandline_args = sys.argv[1:]
+    if not commandline_args:
+        print("Usage: %s [--undefined|-u] <c-files>" % sys.argv[0], file=sys.stderr)
+        sys.exit(1)
+    c_compiler = "clang"
+    c_compiler_args = "-std=gnu99 -g  -lm -Wno-unused -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments ".split()
+    sanitize_memory = False
+    incremental_compilation = False
+    for (i, arg) in enumerate(commandline_args):
+        if arg in ['-u', '--undefined', '-fsanitize=memory']:
+            sanitize_memory = True
+            continue
+        if arg  == '-c':
+            incremental_compilation = True
+        if arg == '-o' and i + 1 < len(commandline_args):
+            object_filename = commandline_args[i + 1]
+            if object_filename.endswith('.c') and os.path.exists(object_filename):
+                print("%s: will not overwrite %s with machine code" % object_filename, file=sys.stderr)
+                sys.exit(1)
+        c_compiler_args.append(arg)
+    
+    # Run  with -O enabled for better warnings but compile without -O for better debugging
+    exit_status = subprocess.call([c_compiler, '-O', '-Wall'] + c_compiler_args)
+    if exit_status:
+        sys.exit(exit_status)
+    if sanitize_memory:
+        which_sanitizer = "memory"
+        c_compiler_args += ['-fsanitize=memory']
+    else:
+        c_compiler_args += ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
+        which_sanitizer = "address"
+    if incremental_compilation:
+        command = [c_compiler] + c_compiler_args
+        if debug: print(command, file=sys.stderr)
+        sys.exit(subprocess.call(command))
+    else:
+        command = [c_compiler] + c_compiler_args + ['-x', 'c', '-']
+        source = dcc_c_source.replace('__DCC_PATH', '"'+dcc_path+'"')
+        source = source.replace('__DCC_SANITIZER', '"'+which_sanitizer+'"')
+        if debug:
+            print(" ".join(command), '<<eof', file=sys.stderr)
+            print(source)
+            print("eof")
+        p = subprocess.Popen(command, stdin=subprocess.PIPE)
+        p.communicate(input=source.encode('utf8'))
+        sys.exit(p.wait())
+
+#
+# C code to intercept runtime errors and run this program
+#
+
+dcc_c_source = r"""
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include <stdlib.h>
+
+static int debug = 0;
+
+static void _explain_error(void) {
+    if (debug) fprintf(stderr, "running %s\n", __DCC_PATH);
+    system(__DCC_PATH);
+    if (debug) fprintf(stderr, "kill()\n");
+    // exit or _exit keeps executing sanitizer code - including perhaps superfluous output
+    // SIGINT avoids killed message from bash
+    signal(SIGINT, SIG_DFL);
+    kill(getpid(), SIGINT);
+    // if SIGINT fails
+    kill(getpid(), SIGKILL);
+    // should never reach here
+    _exit(1);
+}
+
+static void setenvd(char *n, char *v) {
+    setenv(n, v, 1);
+    if (debug) fprintf(stderr, "setenv %s=%s\n", n, v);
+}
+
+static void _signal_handler(int signum) {
+    signal(SIGABRT, SIG_IGN);
+    signal(SIGSEGV, SIG_IGN);
+    signal(SIGINT, SIG_IGN);
+    signal(SIGXCPU, SIG_IGN);
+    signal(SIGXFSZ, SIG_IGN);
+    signal(SIGFPE, SIG_IGN);
+    signal(SIGILL, SIG_IGN);
+    char signum_buffer[1024];
+    sprintf(signum_buffer, "%d", (int)signum);
+    setenvd("DCC_SIGNAL", signum_buffer);
+    _explain_error();
+}
+
+void __dcc_start(void) __attribute__((constructor));
+
+void __dcc_start(void) {
+    debug = getenv("DCC_DEBUG") != NULL;
+    setenvd("DCC_SANITIZER", __DCC_SANITIZER);
+    if (debug) fprintf(stderr, "__dcc_start\n");
+    char pid_buffer[1024];
+    sprintf(pid_buffer, "%d", (int)getpid());
+    setenvd("DCC_PID", pid_buffer);
+    signal(SIGABRT, _signal_handler);
+    signal(SIGSEGV, _signal_handler);
+    signal(SIGINT, _signal_handler);
+    signal(SIGXCPU, _signal_handler);
+    signal(SIGXFSZ, _signal_handler);
+    signal(SIGFPE, _signal_handler);
+    signal(SIGILL, _signal_handler);
+}
+
+// intercept ASAN explanation
+void _Unwind_Backtrace(void *a, ...) {
+    if (debug) fprintf(stderr, "_Unwind_Backtrace\n");
+    _explain_error();
+}
+
+
+// intercept ASAN explanation
+void __asan_on_error() {
+    if (debug) fprintf(stderr, "__asan_on_error\n");
+    setenvd("DCC_ASAN_ERROR", "1");
+    _explain_error();
+}
+
+char *__ubsan_default_options() {
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1";
+}
+
+char *__asan_default_options() {
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1";
+}
+
+char *__msan_default_options() {
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
+}
+""" 
+
+
+#
+# Code below is executed from gdb.
+# It prints details of the program state likely to be of interest to
+# a beginner programmer
+#
+
+
+hash_define = collections.defaultdict(dict)
+source = {}
+
+def debug_print(level, *args, **kwargs):
+    if debug >= level:
+        kwargs['file'] = sys.stderr
+        print(*args, **kwargs)
+
+class Location():
+    def __init__(self, filename, line_number, column='', function='', params='', variable=''):
+        self.filename = filename
+        self.line_number = int(line_number)
+        self.column = column
+        self.function = function
+        self.params = params
+        self.variable = variable
+    def __str__(self):
+        return "Location(%s,%s,column=%s,function=%s,params=%s,variable=%s)" % (self.filename, self.line_number, self.column, self.function, self.params, self.variable)
+    def description(self):
+        params = self.params
+        if self.function == 'main' and params.startswith('argc=1,'):
+            params = ''
+        return "in %s(%s) at\n%s:%s: %s" % (self.function, params, self.filename, self.line_number, self.source_line())
+    def long_description(self):
+        params = self.params
+        if self.function == 'main' and params.startswith('argc=1,'):
+            params = ''
+        return "in %s(%s) in %s at line %s:\n\n" % (self.function, params, self.filename, self.line_number) + self.surrounding_source(markMiddle='-->')
+    def source_line(self, clean=False):
+        return fileline(self.filename, self.line_number, clean)
+    def surrounding_source(self, radius=2, clean=False, markMiddle=''):
+        source = ''
+        for offset in range(-radius, radius+1):
+            line = fileline(self.filename, self.line_number+offset, clean=clean)
+            if markMiddle and offset == 0:
+                line = re.sub(r'^ {0,3}', markMiddle, line)
+            source += line
+        return source
+    def is_user_location(self):
+        if not re.match(r'^[a-zA-Z]', self.function): return False 
+        if re.match(r'^/(usr|build)/', self.filename): return False 
+        if re.match(r'^\?', self.filename): return False 
+        return True
+      
+    
+def fileline(filename, line_number, clean=False):
+    line_number = int(line_number)
+    if filename in source:
+        if line_number < 0 or line_number > len(source[filename]):
+            return ''
+        if clean:
+            return clean_c_source(source[filename][line_number - 1])
+        return source[filename][line_number - 1]
+    try:
+        with open(filename) as f:
+            source[filename] = f.readlines()
+            for line in source[filename]:
+                m = re.match(r'^\s*#\s*define\s*(\w+)\s*(.*\S)', line)
+                if m:
+                    hash_define[filename][m.group(1)] = (line.rstrip(), m.group(2))
+        line = source[filename][line_number - 1].rstrip() + "\n"
+        if clean:
+            line = clean_c_source(line)
+        return line
+    except IOError:
+        debug_print(1, "fileline error can not open: %s" % (filename))
+    except IndexError:
+        pass
+    return ""
+
+# remove comments and truncate strings & character constants to zero-length
+def clean_c_source(c_source, leave_white_space=False):
+    c_source = re.sub("\\[\"']", '', c_source)
+    c_source = re.sub(r'".*?"', '', c_source)
+    c_source = re.sub(r"'.*?'", '', c_source)
+    c_source = re.sub(r'/[/\*].*', '', c_source)
+    if leave_white_space:
+        return c_source
+    return c_source.strip() + "\n"
+
+def gdb_execute(command):
+    debug_print(2, 'gdb.execute:', command)
+    str = gdb.execute(command, to_string=True)
+    debug_print(2, 'gdb.execute:', '->', str)
+    return str
+    
+def gdb_evaluate(expression):
+    debug_print(1, 'gdb_evaluate:', expression,)
+    value = gdb_execute('print %s' % expression)
+    value = re.sub('^[^=]*=\s*', '', value).strip()
+    debug_print(1, '->', value,)
+    return value.strip()
+
+def parse_gdb_stack_frame(line):
+    # note don't match function names starting with _ these are not user functions
+    m = re.match(
+        r'^\s*#(?P<frame_number>\d+)\s+0x[0-9a-f]+\s+in+\s+'
+        r'(?P<function>[a-zA-Z][^\s\(]*).*\((?P<params>.*)\)\s+at\s+'
+        r'(?P<filename>[^\s:]+):(?P<line_number>\d+)\s*$',
+            line)
+    debug_print(1, m, line)
+    if m:
+        filename = m.group('filename')
+        if filename.startswith("/usr/") or filename.startswith("../sysdeps/"): 
+            m = None
+    return m
+    
+def gdb_set_frame():
+    stack = gdb_execute('where')
+    debug_print(1, "\nStack:\n",stack, "\n")
+    stack_lines = stack.splitlines()
+    frame = None
+    for line in stack_lines:
+        frame = parse_gdb_stack_frame(line)
+        if frame and os.path.exists(frame.group('filename')):
+            break
+    if not frame:
+        for line in reversed(stack_lines):
+            frame = parse_gdb_stack_frame(line) or frame
+    if not frame:
+        debug_print(1, 'gdb_set_frame no frame number')
+        return None
+    gdb_execute('frame %s' % frame.group('frame_number'))
+    return Location(frame.group('filename'), frame.group('line_number'), function=frame.group('function'), params=frame.group('params'))
+    
+def relevant_variables(c_source, arrays=[]):
+    expressions = extract_expressions(c_source)
+#    arrays=[r'[a-z][a-zA-Z0-9_]*']
+#    debug_print(1, 'relevant_variables', arrays, c_source)
+#    for array in arrays:
+#        indices = extract_indices(array, c_source)
+#        expressions += indices
+    done = set(['NULL', 'char','int', 'double', 'while', 'if', 'for', 'while', 'return']) # avoid trying to evaluate types/keywords for effiency
+    explanation = ''
+    debug_print(1, 'relevant_variables expressions=', c_source, expressions)
+    for expression in sorted(expressions, key=lambda e: (len(re.findall(r'\w+', e)), e)):
+        try:
+            expression = expression.strip()
+            if expression in done: continue
+            done.add(expression)
+            if re.match(r'^-?\s*[\d\.]+$', expression): continue      # don't print(numbers)
+            debug_print(1, 'expression:', expression)
+            if re.search(r'[a-zA-Z0-9_]\s*\(', expression): continue  # don't evaluate function calls
+            expression_type = gdb_execute('whatis %s' % expression)
+            expression_type = re.sub(r'\s*type\s*=\s*', '',  expression_type).strip()
+            debug_print(1, 'expresion_type=', expression_type)
+            if re.search(r'\<|\)$', expression_type): continue 
+
+            expression_value = gdb_evaluate(expression)
+
+            if '_IO_FILE' in  expression_value: continue
+            if expression_value == '<optimized out>': continue
+            if expression_value == '<optimized out>': continue
+            if len(expression_value) > 128: continue
+            expression_value = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', expression_value)
+            if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value): continue 
+            expression_value = re.sub(r'^\s*\(\S+\s+\*\)\s*0x0\s*$', 'NULL', expression_value)
+            if expression_type == 'char':
+                m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
+                if m:
+                    ascii = int(m.group(1))
+                    if (0 < ascii < 9) or (13 < ascii < 32)  or (ascii == 127):
+                         expression_value = '%d (non-printable ASCII character)' % ascii
+                    elif ascii < 0 or ascii > 128:
+                         expression_value = '%d (not valid ASCII)' % ascii
+                    elif ascii == 0:
+                         expression_value = "0 = '\\0'"
+                    else:
+                         expression_value = "%s = '%s'" % m.groups()
+            expression_value = re.sub(r"'\000'", r"'\\0'", expression_value)
+            explanation +=  "%s = %s\n" % (expression, expression_value)
+        except RuntimeError as e:
+            debug_print(1, 'print_variables_expressions: RuntimeError', e)
+            pass
+    if explanation:
+        explanation = 'Values when execution stopped:\n\n' + explanation
+    return explanation
+    
+
+def balance_bracket(str, depth=0):
+#    debug_print(1, 'balance_bracket(%s, %s)' % (str, depth))
+    if not str:
+        return ""
+    elif str[0] == ']' or str[0] == ')':
+        depth -= 1
+    elif str[0] == '[' or str[0] == '(':
+        depth += 1
+    if depth < 0 and (len(str) == 1 or str[1] != '['):
+        return ""
+    return str[0] +  balance_bracket(str[1:], depth)
+
+    
+def extract_expressions(c_source):
+    expressions = []
+    # match declaration
+    m = re.match(r'[a-z][a-zA-Z0-9_]*\s+[a-z][a-zA-Z0-9_]*\s*\[(.*)', c_source, re.DOTALL)
+    if m:
+         return extract_expressions(m.group(1))
+    m = re.match(r'([a-z][a-zA-Z0-9_]*)\s*\[(.*)', c_source, re.DOTALL)
+    if m:
+        index = balance_bracket(m.group(2))
+        if index:
+            expressions = [m.group(1), index, m.group(1) + '[' + index + ']']
+        remainder = m.group(2)
+    else:
+        m = re.match(r'([a-zA-Z][a-zA-Z0-9_]*)(.*)', c_source, re.DOTALL)
+        if m:
+            expressions = [m.group(1)]
+            remainder = m.group(2)
+        else:
+            m = re.match(r'^[^a-zA-Z]+(.*)', c_source, re.DOTALL)
+            if m:
+                remainder = m.group(1)
+            else:
+                return []
+    return expressions + extract_expressions(remainder)
+    
+def explain_signal(signal_number):
+    if signal_number == signal.SIGINT:
+        return "Execution was interrupted"
+    elif signal_number == signal.SIGFPE:
+        return 'Execution stopped due to an arithmetic exception.\nOften this is caused by division (or %) by zero.'
+    elif signal_number == signal.SIGXCPU:
+        return "Execution stopped due to reaching a CPU time limit"
+    elif signal_number == signal.SIGXFSZ:
+        return "Execution stopped because it had written too much data"
+    else:
+        return "Execution terminated by signal %s" % signal_number
+
+def explain_location(loc):
+    if not isinstance(loc, Location):
+        return "Execution stopped at '%s'" % (loc)
+    else:
+        return 'Execution stopped here ' + loc.long_description()
+
+def handler(signum, frame):
+    debug_print(1, 'signal caught')
+    sys.exit(0)
+
+def explain_error():
+    #subprocess.call("echo explain_error_gdb.py starting >/dev/tty", shell=True)
+    debug_print(1, 'explain_error_gdb.py starting')
+    pid = None
+    try:
+        signal.signal(signal.SIGINT, handler)
+        pid = int(os.environ.get('DCC_PID', 0))
+        debug_print(1, 'attaching gdb to ', pid)
+        gdb.execute('attach %s' % pid)
+        # file descriptor 3 is a dup of stderr (see below)
+        # stdout & stderr have been diverted to /dev/null
+        output_stream = os.fdopen(3, "w")
+        print(file=output_stream)
+        loc = gdb_set_frame()
+        signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
+        if signal_number != signal.SIGABRT:
+             print(explain_signal(signal_number), file=output_stream)
+        elif "DCC_ASAN_ERROR" in os.environ:
+            if loc:
+                print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
+            print("runtime error - illegal array, pointer or other operation", file=output_stream)
+        elif os.environ.get('DCC_SANITIZER', '') == 'memory':
+            if loc:
+                print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
+            print("runtime error - uninitialized variable used", file=output_stream)
+        if loc:
+            print(explain_location(loc), file=output_stream)
+            print(relevant_variables(loc.surrounding_source(clean=True)), file=output_stream)
+        gdb.flush(gdb.STDOUT)
+        gdb.flush(gdb.STDERR)
+    except:
+        if debug: traceback.print_exc(file=output_stream)
+
+   
+if __name__ == '__main__':
+    if debug: print(sys.argv, 'DCC_RUN_INSIDE_GDB="%s" DCC_SANITIZER="%s"' % (os.environ.get('DCC_RUN_INSIDE_GDB', ''), os.environ.get('DCC_PID', '')))
+    if not sys.argv[1:] and 'DCC_RUN_INSIDE_GDB' in os.environ:
+        # we are invoked by gdb 
+        import gdb
+        explain_error()
+    elif not sys.argv[1:] and 'DCC_PID' in os.environ:
+        # we are invoked from a C binary after a runtime error
+        os.environ['DCC_RUN_INSIDE_GDB'] = 'true'
+        command = ["/usr/bin/gdb", "--nx", "--batch", "-iex", "python exec(open('%s').read())" % dcc_path]
+        # gdb puts confusing messages on stderr & stdout  so send these to /dev/null
+        # and use file descriptor 3 for our messages
+        os.dup2(2, 3)
+        if debug:
+            p = subprocess.Popen(command, stdin=subprocess.DEVNULL, close_fds=False)
+        else:
+            p = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=False)
+        p.communicate()
+        sys.exit(1)
+    else:
+        # we are invoked by user to compile a program
+        compile()
