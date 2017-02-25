@@ -9,11 +9,11 @@
 # This program is executed in 3 ways
 #
 # 1) Invoked by the user from the command line to do the compilation
-#    the binary produce includes code triggered by a runtime error
+#    the binary produced has code added which intercepts runtime errors and runs this program
 #
 # 2) invoked from the C binary when a runtime error occurs - it then runs gdb
 #
-# 3) invoked via gdb to print details of the oroigram state when the runtime error occurred
+# 3) invoked via gdb to print details of the program state when the runtime error occurred
 
 # The above 3 execution modes have been bundled into one file to simplify installation 
 
@@ -414,14 +414,14 @@ def explain_error():
     #subprocess.call("echo explain_error_gdb.py starting >/dev/tty", shell=True)
     debug_print(1, 'explain_error_gdb.py starting')
     pid = None
+    # file descriptor 3 is a dup of stderr (see below)
+    # stdout & stderr have been diverted to /dev/null
+    output_stream = os.fdopen(3, "w")
     try:
         signal.signal(signal.SIGINT, handler)
         pid = int(os.environ.get('DCC_PID', 0))
         debug_print(1, 'attaching gdb to ', pid)
         gdb.execute('attach %s' % pid)
-        # file descriptor 3 is a dup of stderr (see below)
-        # stdout & stderr have been diverted to /dev/null
-        output_stream = os.fdopen(3, "w")
         print(file=output_stream)
         loc = gdb_set_frame()
         signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
@@ -440,8 +440,17 @@ def explain_error():
             print(relevant_variables(loc.surrounding_source(clean=True)), file=output_stream)
         gdb.flush(gdb.STDOUT)
         gdb.flush(gdb.STDERR)
+    except gdb.error as e:
+        if 'ptrace' in str(e).lower() and os.path.exists('/.dockerenv'):
+            print('\ndcc : can not provide information about variables because docker not run with --cap-add=SYS_PTRACE\n' , file=output_stream)
+        elif debug:
+            traceback.print_exc(file=output_stream)
+        else:
+            print(e, file=output_stream)    
+        sys.exit(1)
     except:
         if debug: traceback.print_exc(file=output_stream)
+        sys.exit(1)
 
    
 if __name__ == '__main__':
