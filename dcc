@@ -17,7 +17,7 @@
 
 # The above 3 execution modes have been bundled into one file to simplify installation 
 
-import collections, os, re, signal, subprocess, sys, traceback
+import collections, os, re, shutil, signal, subprocess, sys, traceback
 
 debug = int(os.environ.get('DCC_DEBUG', '0'))
 dcc_path = os.path.realpath(sys.argv[0])
@@ -30,7 +30,9 @@ def compile():
     if not commandline_args:
         print("Usage: %s [--undefined|-u] <c-files>" % sys.argv[0], file=sys.stderr)
         sys.exit(1)
-    c_compiler = "clang"
+    for c_compiler in ["clang-3.9", "clang-3.8", "clang"]:
+        if shutil.which(c_compiler):
+            break
     c_compiler_args = "-std=gnu99 -g  -lm -Wno-unused -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments ".split()
     sanitize_memory = False
     incremental_compilation = False
@@ -91,6 +93,8 @@ static void _explain_error(void) {
     if (debug) fprintf(stderr, "kill()\n");
     // exit or _exit keeps executing sanitizer code - including perhaps superfluous output
     // SIGINT avoids killed message from bash
+    signal(SIGPIPE, SIG_DFL);
+    kill(getpid(), SIGPIPE);
     signal(SIGINT, SIG_DFL);
     kill(getpid(), SIGINT);
     // if SIGINT fails
@@ -151,11 +155,11 @@ void __asan_on_error() {
 }
 
 char *__ubsan_default_options() {
-    return "verbosity=0:print_stacktrace=1:halt_on_error=1";
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
 }
 
 char *__asan_default_options() {
-    return "verbosity=0:print_stacktrace=1:halt_on_error=1";
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
 }
 
 char *__msan_default_options() {
@@ -303,7 +307,7 @@ def relevant_variables(c_source, arrays=[]):
 #    for array in arrays:
 #        indices = extract_indices(array, c_source)
 #        expressions += indices
-    done = set(['NULL', 'char','int', 'double', 'while', 'if', 'for', 'while', 'return']) # avoid trying to evaluate types/keywords for effiency
+    done = set(['NULL', 'char','int', 'double', 'while', 'if', 'else', 'for', 'while', 'return']) # avoid trying to evaluate types/keywords for efficency
     explanation = ''
     debug_print(1, 'relevant_variables expressions=', c_source, expressions)
     for expression in sorted(expressions, key=lambda e: (len(re.findall(r'\w+', e)), e)):
@@ -462,7 +466,8 @@ if __name__ == '__main__':
     elif not sys.argv[1:] and 'DCC_PID' in os.environ:
         # we are invoked from a C binary after a runtime error
         os.environ['DCC_RUN_INSIDE_GDB'] = 'true'
-        command = ["/usr/bin/gdb", "--nx", "--batch", "-iex", "python exec(open('%s').read())" % dcc_path]
+        os.environ['PATH'] = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '')
+        command = ["gdb", "--nx", "--batch", "-iex", "python exec(open('%s').read())" % dcc_path]
         # gdb puts confusing messages on stderr & stdout  so send these to /dev/null
         # and use file descriptor 3 for our messages
         os.dup2(2, 3)
@@ -474,4 +479,5 @@ if __name__ == '__main__':
         sys.exit(1)
     else:
         # we are invoked by user to compile a program
+        os.environ['PATH'] = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '') 
         compile()
