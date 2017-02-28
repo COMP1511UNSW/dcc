@@ -17,7 +17,11 @@
 
 # The above 3 execution modes have been bundled into one file to simplify installation 
 
-import collections, os, re, shutil, signal, subprocess, sys, traceback
+# Code needs to be Python 2 compatible for old versions of GDB
+from __future__ import print_function
+
+import collections, os, re, signal, subprocess, sys, traceback
+
 
 debug = int(os.environ.get('DCC_DEBUG', '0'))
 dcc_path = os.path.realpath(sys.argv[0])
@@ -31,9 +35,9 @@ def compile():
         print("Usage: %s [--undefined|-u] <c-files>" % sys.argv[0], file=sys.stderr)
         sys.exit(1)
     for c_compiler in ["clang-3.9", "clang-3.8", "clang"]:
-        if shutil.which(c_compiler):
+        if os.path.exists(os.path.join(os.sep, 'usr', 'bin', c_compiler)):  # shutil.which not available in Python 2
             break
-    c_compiler_args = "-std=gnu99 -g  -lm -Wno-unused -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments ".split()
+    c_compiler_args = "-std=gnu11 -g  -lm -Wno-unused -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments ".split()
     sanitize_memory = False
     incremental_compilation = False
     for (i, arg) in enumerate(commandline_args):
@@ -49,10 +53,16 @@ def compile():
                 sys.exit(1)
         c_compiler_args.append(arg)
     
-    # Run  with -O enabled for better warnings but compile without -O for better debugging
-    exit_status = subprocess.call([c_compiler, '-O', '-Wall'] + c_compiler_args)
+    # Run  with -O enabled for better compile-time warnings but compile again without -O for better debugging
+    command = [c_compiler, '-O', '-Wall'] + c_compiler_args
+    if debug:
+        print(" ".join(command), file=sys.stderr)
+    exit_status = subprocess.call(command)
     if exit_status:
         sys.exit(exit_status)
+    # backport C-lang-3.8 on CSE systems fails immediately without -target i386-pc-linux-gnu (02/17)
+    if os.path.exists(os.path.join(os.sep, 'usr', 'bin', 'acc')):
+        c_compiler_args = ['-target', 'i386-pc-linux-gnu'] + c_compiler_args
     if sanitize_memory:
         which_sanitizer = "memory"
         c_compiler_args += ['-fsanitize=memory']
@@ -61,10 +71,13 @@ def compile():
         which_sanitizer = "address"
     if incremental_compilation:
         command = [c_compiler] + c_compiler_args
-        if debug: print(command, file=sys.stderr)
+        if debug:
+            print(" ".join(command), file=sys.stderr)
         sys.exit(subprocess.call(command))
     else:
         command = [c_compiler] + c_compiler_args + ['-x', 'c', '-']
+        if debug:
+            print(" ".join(command), file=sys.stderr)
         source = dcc_c_source.replace('__DCC_PATH', '"'+dcc_path+'"')
         source = source.replace('__DCC_SANITIZER', '"'+which_sanitizer+'"')
         if debug:
