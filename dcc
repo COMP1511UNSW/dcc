@@ -84,7 +84,12 @@ def compile():
     elif which_sanitizer == "memory":
         sanitizer_args = ['-fsanitize=memory']
     else:
-        sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
+        # fixme add code to check version
+        if c_compiler == 'clang':
+            # assume  older version of clang
+            sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined']
+        else:
+            sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
         which_sanitizer = "address"
     if os.path.exists('/usr/bin/acc') and platform.architecture()[0][0:2] == '32':
         # backport clang-3.8 on CSE  machines needs this
@@ -94,8 +99,8 @@ def compile():
         if debug:
             print(" ".join(command), file=sys.stderr)
         sys.exit(subprocess.call(command))
-        
-    command +=  ['-Wl,-wrap,main', '-x', 'c', '-']
+    if c_compiler != 'clang':  
+        command +=  ['-Wl,-wrap,main', '-x', 'c', '-']
     if debug:
         print(" ".join(command), file=sys.stderr)
     if debug > 1:
