@@ -576,6 +576,10 @@ def handler(signum, frame):
 def run_gdb():
     os.environ['DCC_RUN_INSIDE_GDB'] = 'true'
     os.environ['PATH'] = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '')
+    if not search_path('gdb'):
+        print('\ngdb not available to print variable values\n', file=sys.stderr)
+        kill_program()
+        return
     command = ["gdb", "--nx", "--batch", "-ex", "python exec(open('%s').read())" % dcc_path, os.environ['DCC_BINARY']]
     debug_print(1, 'running:', command)
     # gdb puts confusing messages on stderr & stdout  so send these to /dev/null
