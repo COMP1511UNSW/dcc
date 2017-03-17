@@ -255,7 +255,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
     char fd_buffer[1024];
     sprintf(fd_buffer, "--log-fd=%d", (int)fileno(valgrind_error_pipe));
 //  char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--max-stackframe=16000000", fd_buffer, "--track-origins=yes", "--vgdb-error=1"};
-    char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--max-stackframe=16000000", fd_buffer, "--vgdb-error=1"};
+    char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--max-stackframe=16000000", "--partial-loads-ok=no", fd_buffer, "--vgdb-error=1"};
     int valgrind_command_len = sizeof valgrind_command / sizeof valgrind_command[0];
     char *valgrind_argv[argc + 1 + valgrind_command_len];
     for (i = 0; i < valgrind_command_len; i++)
@@ -497,11 +497,11 @@ def explain_signal(signal_number):
     if signal_number == signal.SIGINT:
         return "Execution was interrupted"
     elif signal_number == signal.SIGFPE:
-        return 'Execution stopped due to an arithmetic exception.\nOften this is caused by division (or %) by zero.'
+        return 'Execution stopped by an arithmetic error.\nOften this is caused by division (or %) by zero.'
     elif signal_number == signal.SIGXCPU:
-        return "Execution stopped due to reaching a CPU time limit"
+        return "Execution stopped by a CPU time limit."
     elif signal_number == signal.SIGXFSZ:
-        return "Execution stopped because it had written too much data"
+        return "Execution stopped because too much data written."
     else:
         return "Execution terminated by signal %s" % signal_number
 
