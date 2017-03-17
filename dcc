@@ -614,7 +614,7 @@ if __name__ == '__main__':
                 break
             debug_print(1, 'valgrind: ', line)
             if 'vgdb me' in line:
-                os.environ['DCC_VALGRIND_ERROR'] = 'Execution stopped: uninitialized variable accessed.'
+                os.environ['DCC_VALGRIND_ERROR'] = 'Runtime error: uninitialized variable accessed.'
                 print('\n'+os.environ['DCC_VALGRIND_ERROR'], file=sys.stderr)
                 run_gdb()
     else:
