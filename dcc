@@ -150,7 +150,7 @@ def compile():
                         last_explanation_file_line = m.group(1)
                     print("\n".join(lines[i:i+n_explained_lines]),  file=sys.stderr)
                     if colorize_output:
-                        print("\033[0m\033[34mEXPLANATION:", explanation+'\033[0m\n', file=sys.stderr)
+                        print("\033[0m\033[34mEXPLANATION:\033[0m", explanation+'\n', file=sys.stderr)
                     else:
                         print("EXPLANATION:", explanation+'\n', file=sys.stderr)
                     messages_explained = messages_explained + 1
@@ -1502,9 +1502,10 @@ def relevant_variables(c_source, arrays=[]):
             debug_print(1, 'print_variables_expressions: RuntimeError', e)
             pass
     if explanation:
+        prefix = 'Values when execution stopped:'
         if colorize_output:
-            explanation = '\033[34m' + explanation + '\033[0m'
-        explanation = 'Values when execution stopped:\n\n' + explanation
+            prefix = '\033[34m' + prefix + '\033[0m'
+        explanation = prefix + '\n\n' + explanation
     return explanation
     
 
