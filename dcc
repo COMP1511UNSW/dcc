@@ -122,7 +122,7 @@ def compile():
             explanation_made = {}
             last_explanation_file_line = ''
             while i < len(lines) and print_explanations:
-                matching_error_messages = help(colourless_lines[i:])
+                matching_error_messages = help_dcc(colourless_lines[i:]) or help(colourless_lines[i:])
                 if not matching_error_messages: 
                     break
                 matched_error_messages, explanation = matching_error_messages
@@ -130,7 +130,7 @@ def compile():
                 if re.match(r'not quite sure', explanation[0], flags=re.I):
                     break
                 explanation = "\n ".join([e for e in explanation if 'cs50' not in e])
-                explanation = explanation.replace("`clang`", 'the compiler').replace("`%f`","`%lf`").replace("`%i`","`%d`")
+                explanation = explanation.replace("`clang`", 'the compiler')
                 # Don't repeat explanations
                 n_explained_lines = len(matched_error_messages)
                 # some help messages miss the caret
@@ -341,6 +341,45 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
     return 0;
 }
 """ 
+#
+# some extra helpers 
+
+def help_dcc(lines):
+    # $ clang foo.c
+    # /tmp/foo-1ce1b9.o: In function `main':
+    # foo.c:5:19: warning: format specifies type 'int *' but the argument has type 'int' [-Wformat]
+    #    printf("%d\n", "hello!");
+    #            ~~     ^~~~~~~~
+    #            %s
+    # TODO: pattern match on argument's type
+    matches = match(r"format specifies type '(?P<type>int|double) \*' but the argument has type '(?P=type)'", lines[0])
+    if matches:
+        argument = caret_extract(lines[1:3])
+        if argument and re.match(r'^[a-zA-Z]', argument):
+            response = [
+                "Perhaps you have forgotten an `&` before the argument `{}` on line {} of `{}`.".format(argument, matches.line, matches.file)
+            ]
+            if len(lines) >= 4 and re.search(r"%", lines[3]):
+                return (lines[0:4], response)
+            return (lines[0:3], response)
+    # $ clang foo.c
+    # /tmp/foo-1ce1b9.o: In function `main':
+    # foo.c:5:19: error: format specifies type 'int' but the argument has type 'char *' [-Werror,-Wformat]
+    #    printf("%d\n", "hello!");
+    #            ~~     ^~~~~~~~
+    #            %s
+    # TODO: pattern match on argument's type
+    matches = match(r"format specifies type '[^:]+' but the argument has type '[^:]+'", lines[0])
+    if matches:
+        response = [
+            "Be sure to use the correct format code (e.g., `%d` for integers, `%lf` for floating-point values) in your format string on line {} of `{}`.".format(matches.line, matches.file)
+        ]
+        if len(lines) >= 3 and re.search(r"\^", lines[2]):
+            if len(lines) >= 4 and re.search(r"%", lines[3]):
+                return (lines[0:4], response)
+            return (lines[0:3], response)
+        return (lines[0:1], response)
+
 #
 # following code from
 # https://github.com/cs50/help50/blob/master/helpers/clang.py
@@ -1314,6 +1353,8 @@ def tilde_extract(lines):
     if len(lines[0]) < start + length:
         return
     return lines[0][start:start+length]
+
+# end help50 code
 
 #
 # Code below is executed from gdb.
