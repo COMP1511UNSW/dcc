@@ -1476,22 +1476,26 @@ def parse_gdb_stack_frame(line):
     return m
     
 def gdb_set_frame():
-    stack = gdb_execute('where')
-    debug_print(1, "\nStack:\n",stack, "\n")
-    stack_lines = stack.splitlines()
-    frame = None
-    for line in stack_lines:
-        frame = parse_gdb_stack_frame(line)
-        if frame and os.path.exists(frame.group('filename')):
-            break
-    if not frame:
-        for line in reversed(stack_lines):
-            frame = parse_gdb_stack_frame(line) or frame
-    if not frame:
-        debug_print(1, 'gdb_set_frame no frame number')
-        return None
-    gdb_execute('frame %s' % frame.group('frame_number'))
-    return Location(frame.group('filename'), frame.group('line_number'), function=frame.group('function'), params=frame.group('params'))
+    try:
+        stack = gdb_execute('where')
+        debug_print(1, "\nStack:\n",stack, "\n")
+        stack_lines = stack.splitlines()
+        frame = None
+        for line in stack_lines:
+            frame = parse_gdb_stack_frame(line)
+            if frame and os.path.exists(frame.group('filename')):
+                break
+        if not frame:
+            for line in reversed(stack_lines):
+                frame = parse_gdb_stack_frame(line) or frame
+        if not frame:
+            debug_print(1, 'gdb_set_frame no frame number')
+            return None
+        gdb_execute('frame %s' % frame.group('frame_number'))
+        return Location(frame.group('filename'), frame.group('line_number'), function=frame.group('function'), params=frame.group('params'))
+    except:
+        if debug: traceback.print_exc(file=output_stream)
+        loc = None
     
 def relevant_variables(c_source, arrays=[]):
     expressions = extract_expressions(c_source)
