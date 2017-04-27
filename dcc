@@ -145,7 +145,7 @@ def compile():
                     m = re.match(r'^([^:]+:\d+):', colourless_lines[i])
                     if m:
                         if m.group(1) == last_explanation_file_line:
-                            # stop if thereare two errors for one line - the second is probably wrong
+                            # stop if there are two errors for one line - the second is probably wrong
                             break
                         last_explanation_file_line = m.group(1)
                     print("\n".join(lines[i:i+n_explained_lines]),  file=sys.stderr)
@@ -379,6 +379,25 @@ def help_dcc(lines):
                 return (lines[0:4], response)
             return (lines[0:3], response)
         return (lines[0:1], response)
+    # $ clang foo.c
+    # /usr/bin/../lib/gcc/x86_64-linux-gnu/6.3.0/../../../x86_64-linux-gnu/crt1.o: In function `_start':
+    # (.text+0x20): undefined reference to `main'
+    # clang: error: linker command failed with exit code 1 (use -v to see invocation)
+    if lines[1:] and re.search(r"undefined reference to `main'", lines[1]):
+        response = [
+            "Your program does not contain a main function - a C program must contain a main function."
+        ]
+        return (lines, response)
+    # $ clang a.c b.c
+    # /tmp/b-9a488a.o: In function `main':
+    # /home/andrewt/b.c:1: multiple definition of `main'
+    # /tmp/a-583396.o:/home/andrewt/a.c:1: first defined here
+    # clang: error: linker command failed with exit code 1 (use -v to see invocation)
+    if lines[1:] and re.search(r"multiple definition of `main'", lines[1]):
+        response = [
+            "Your program contains more than one main function - a C program can only contain one main function."
+        ]
+        return (lines, response)
 
 #
 # following code from
@@ -1494,8 +1513,7 @@ def gdb_set_frame():
         gdb_execute('frame %s' % frame.group('frame_number'))
         return Location(frame.group('filename'), frame.group('line_number'), function=frame.group('function'), params=frame.group('params'))
     except:
-        if debug: traceback.print_exc(file=output_stream)
-        loc = None
+        if debug: traceback.print_exc(file=sys.stderr)
     
 def relevant_variables(c_source, arrays=[]):
     expressions = extract_expressions(c_source)
