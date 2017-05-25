@@ -46,6 +46,7 @@ def compile():
             break
     which_sanitizer = "address"
     incremental_compilation = False
+    leak_check = False
 #    linking_object_files = False
     user_supplied_compiler_args = []
     for (i, arg) in enumerate(commandline_args):
@@ -54,6 +55,10 @@ def compile():
             continue
         elif arg == '--valgrind':
             which_sanitizer = "valgrind"
+            continue
+        elif arg == '--leak-check':
+            which_sanitizer = "valgrind"
+            leak_check = True
             continue
         elif arg == '--explanation':
             print_explanations = True
@@ -89,6 +94,7 @@ def compile():
     if which_sanitizer == "valgrind":
         sanitizer_args = []
         wrapper_source = valgrind_wrapper_source.replace('__DCC_MONITOR_VALGRIND', '"'+dcc_path+' --watch-stdin-for-valgrind-errors"')
+        wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK', "yes" if leak_check else "no")
     elif which_sanitizer == "memory":
         sanitizer_args = ['-fsanitize=memory']
     else:
@@ -328,7 +334,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
     char fd_buffer[1024];
     sprintf(fd_buffer, "--log-fd=%d", (int)fileno(valgrind_error_pipe));
 //  char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--max-stackframe=16000000", fd_buffer, "--track-origins=yes", "--vgdb-error=1"};
-    char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--max-stackframe=16000000", "--partial-loads-ok=no", fd_buffer, "--vgdb-error=1"};
+    char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--leak-check=__DCC_LEAK_CHECK", "--max-stackframe=16000000", "--partial-loads-ok=no", fd_buffer, "--vgdb-error=1"};
     int valgrind_command_len = sizeof valgrind_command / sizeof valgrind_command[0];
     char *valgrind_argv[argc + 1 + valgrind_command_len];
     for (i = 0; i < valgrind_command_len; i++)
@@ -1740,14 +1746,18 @@ if __name__ == '__main__':
                 print('\n'+os.environ['DCC_VALGRIND_ERROR'], file=sys.stderr)
                 sys.stderr.flush()
                 run_gdb()
-    elif sys.argv[1:] == ['--watch-stdin-for-clang-errors']:
-        # valgrind is being used - we have been invoked vi the binary to watch for valgrind errors
-        # which have been directed to our stdin
-        while True:
-            line = sys.stdin.readline()
-            if not line:
-                break
-            sys.out.write(line)
+            elif 'loss record' in line:
+                line = sys.stdin.readline()
+                if 'malloc' in line:
+                    line = sys.stdin.readline()
+                    m = re.search(r'(\S+)\s*\((.+):(\d+)', line)
+                    if m:
+                        print('Error: free not called for memory allocated with malloc in function {} in {} at line {}.'.format(m.group(0),m.group(1),m.group(2)), file=sys.stderr)
+                    else:
+                        print('Error: free not called for memory allocated with malloc.', file=sys.stderr)
+                else:
+                    print('Error: memory allocated not de-allocated.', file=sys.stderr)
+                sys.exit(0)
     else:
         # we are invoked by user to compile a program
         os.environ['PATH'] = os.path.dirname(os.path.realpath(sys.argv[0])) + ':/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '') 
