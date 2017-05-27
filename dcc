@@ -27,6 +27,8 @@ import collections, os, platform, re, signal, subprocess, sys, traceback
 
 debug = int(os.environ.get('DCC_DEBUG', '0'))
 dcc_path = os.path.realpath(sys.argv[0])
+dcc_path = re.sub(r'/tmp_amd/\w+/\w+ort/\w+/\d+/', '/home/', dcc_path)  # clean out CSE mount path which break under some cirumstances
+
 colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 
 extra_c_compiler_args = "-std=gnu11 -g -lm -Wno-unused -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
