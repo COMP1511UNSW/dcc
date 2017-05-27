@@ -105,7 +105,7 @@ def compile():
         else:
             sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
         which_sanitizer = "address"
-    if os.path.exists('/usr/bin/acc') and platform.architecture()[0][0:2] == '32':
+    if c_compiler == 'clang-3.8' and platform.architecture()[0][0:2] == '32':
         # backport clang-3.8 on CSE  machines needs this
         sanitizer_args +=  ['-target', 'i386-pc-linux-gnu']
     # First run  with -O enabled for better compile-time warnings 
