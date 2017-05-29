@@ -27,7 +27,8 @@ import collections, os, platform, re, signal, subprocess, sys, traceback
 
 debug = int(os.environ.get('DCC_DEBUG', '0'))
 dcc_path = os.path.realpath(sys.argv[0])
-dcc_path = re.sub(r'/tmp_amd/\w+/\w+ort/\w+/\d+/', '/home/', dcc_path)  # clean out CSE mount path which break under some cirumstances
+# replace CSE mount path wit /home - because breaks sometimes with ssh jobs
+dcc_path = re.sub(r'/tmp_amd/\w+/\w+ort/\w+/\d+/', '/home/', dcc_path)  
 
 colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 
@@ -1754,7 +1755,7 @@ if __name__ == '__main__':
                     line = sys.stdin.readline()
                     m = re.search(r'(\S+)\s*\((.+):(\d+)', line)
                     if m:
-                        print('Error: free not called for memory allocated with malloc in function {} in {} at line {}.'.format(m.group(0),m.group(1),m.group(2)), file=sys.stderr)
+                        print('Error: free not called for memory allocated with malloc in function {} in {} at line {}.'.format(m.group(1),m.group(2),m.group(3)), file=sys.stderr)
                     else:
                         print('Error: free not called for memory allocated with malloc.', file=sys.stderr)
                 else:
