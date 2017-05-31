@@ -50,9 +50,11 @@ def compile():
     which_sanitizer = "address"
     incremental_compilation = False
     leak_check = False
+    suppressions_file = os.devnull
 #    linking_object_files = False
     user_supplied_compiler_args = []
-    for (i, arg) in enumerate(commandline_args):
+    while commandline_args:
+        arg = commandline_args.pop(0)
         if arg in ['-u', '--undefined', '--uninitialized', '--uninitialised', '-fsanitize=memory', '--memory']:
             which_sanitizer = "memory"
             continue
@@ -62,6 +64,9 @@ def compile():
         elif arg == '--leak-check':
             which_sanitizer = "valgrind"
             leak_check = True
+            continue
+        elif arg.startswith('--suppressions='):
+            suppressions_file = arg[len('--suppressions='):]
             continue
         elif arg == '--explanation':
             print_explanations = True
@@ -78,8 +83,8 @@ def compile():
             colorize_output = True
         elif arg == '-fno-color-diagnostics':
             colorize_output = False
-        elif arg == '-o' and i + 1 < len(commandline_args):
-            object_filename = commandline_args[i + 1]
+        elif arg == '-o' and commandline_args:
+            object_filename = commandline_args[0]
             if object_filename.endswith('.c') and os.path.exists(object_filename):
                 print("%s: will not overwrite %s with machine code" % (os.path.basename(sys.argv[0]), object_filename), file=sys.stderr)
                 sys.exit(1)
@@ -98,6 +103,7 @@ def compile():
         sanitizer_args = []
         wrapper_source = valgrind_wrapper_source.replace('__DCC_MONITOR_VALGRIND', '"'+dcc_path+' --watch-stdin-for-valgrind-errors"')
         wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK', "yes" if leak_check else "no")
+        wrapper_source = wrapper_source.replace('__DCC_SUPRESSIONS_FILE', suppressions_file)
     elif which_sanitizer == "memory":
         sanitizer_args = ['-fsanitize=memory']
     else:
@@ -337,7 +343,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
     char fd_buffer[1024];
     sprintf(fd_buffer, "--log-fd=%d", (int)fileno(valgrind_error_pipe));
 //  char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--max-stackframe=16000000", fd_buffer, "--track-origins=yes", "--vgdb-error=1"};
-    char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--leak-check=__DCC_LEAK_CHECK", "--max-stackframe=16000000", "--partial-loads-ok=no", fd_buffer, "--vgdb-error=1"};
+    char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--leak-check=__DCC_LEAK_CHECK", "--suppressions=__DCC_SUPRESSIONS_FILE", "--max-stackframe=16000000", "--partial-loads-ok=no", fd_buffer, "--vgdb-error=1"};
     int valgrind_command_len = sizeof valgrind_command / sizeof valgrind_command[0];
     char *valgrind_argv[argc + 1 + valgrind_command_len];
     for (i = 0; i < valgrind_command_len; i++)
