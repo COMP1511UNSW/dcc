@@ -125,6 +125,14 @@ def compile():
         print(" ".join(command), file=sys.stderr)
     process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
     (output) = process.communicate()[0]
+    if "undefined reference to `__mulodi4'" in output:
+            sanitizer_args = [c for c in sanitizer_args if not c in ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']]
+            command = [c_compiler, '-O', '-Wall']  + sanitizer_args + extra_c_compiler_args + user_supplied_compiler_args
+            if debug:
+                print("undefined reference to `__mulodi4'", file=sys.stderr)
+                print("recompiling", " ".join(command), file=sys.stderr)
+            process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
+            (output) = process.communicate()[0]
     if output:
         # remove any ANSI codes
         # http://stackoverflow.com/a/14693789
@@ -1556,7 +1564,7 @@ def relevant_variables(c_source, arrays=[]):
             expression_value = gdb_evaluate(expression)
 
             if '_IO_FILE' in  expression_value: continue
-            if expression_value == '<optimized out>': continue
+            if 'here_cg_arc_record' in  expression_value: continue
             if expression_value == '<optimized out>': continue
             if len(expression_value) > 128: continue
             expression_value = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', expression_value)
