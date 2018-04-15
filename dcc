@@ -32,7 +32,7 @@ dcc_path = re.sub(r'/tmp_amd/\w+/\w+ort/\w+/\d+/', '/home/', dcc_path)
 
 colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 
-extra_c_compiler_args = "-std=gnu11 -g -lm -Wno-unused -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+extra_c_compiler_args = "-std=gnu11 -g -lm -Wno-unused  -Wunused-comparison -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 
 #
 # Compile the user's program adding some C code
@@ -1080,7 +1080,7 @@ def help(lines):
 	matches = match(r"only one parameter on 'main' declaration", lines[0])
 	if matches:
 		response = [
-		"Looks like your declaration of `main` on line {} of `{}` isn't quite right. The declaration of `main` should be `int main(void)` or `int main(int argc, string argv[])` or some equivalent.".format(matches.line, matches.file)
+		"Looks like your declaration of `main` on line {} of `{}` isn't quite right. The declaration of `main` should be `int main(void)` or `int main(int argc, char *argv[])` or some equivalent.".format(matches.line, matches.file)
 	]
 		return (lines[0:1], response)
 
@@ -1125,7 +1125,7 @@ def help(lines):
 	if matches:
 		response = [
 			"Looks like your declaration of `main` isn't quite right.",
-			"Be sure its second parameter is `string argv[]` or some equivalent!"
+			"Be sure its second parameter is `char *argv[]` or some equivalent!"
 		]
 		return (lines[0:1], response)
 
