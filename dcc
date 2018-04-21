@@ -136,7 +136,7 @@ def compile():
 		colourless_output = re.sub(r'\x1b[^m]*m', '', output)
 		lines = output.splitlines()
 		colourless_lines = colourless_output.splitlines()
-		messages_explained = 0
+		errors_explained = 0
 		try:
 			i = 0
 			explanation_made = {}
@@ -173,12 +173,13 @@ def compile():
 						print("\033[0m\033[34mEXPLANATION:\033[0m", explanation+'\n', file=sys.stderr)
 					else:
 						print("EXPLANATION:", explanation+'\n', file=sys.stderr)
-					messages_explained = messages_explained + 1
+					if 'warning:' not in lines[i]:
+						errors_explained += 1
 				i += n_explained_lines
-				if messages_explained >= 3:
+				if errors_explained >= 3:
 					break
-			if not messages_explained:
-				sys.stderr.write(output)
+			if not errors_explained:
+				sys.stderr.write('\n'.join(lines[i:])+"\n")
 		except Exception:
 			etype, evalue, etraceback = sys.exc_info()
 			eformatted = "\n".join(traceback.format_exception_only(etype, evalue))
