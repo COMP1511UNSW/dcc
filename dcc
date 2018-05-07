@@ -34,7 +34,7 @@ dcc_path = re.sub(r'^/import/\w+/\d+/', '/home/', dcc_path)
 
 colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 
-extra_c_compiler_args = "-std=gnu11 -g -lm -Wno-unused  -Wunused-comparison -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+extra_c_compiler_args = "-std=gnu11 -g -lm -Wno-unused  -Wunused-comparison  -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 
 #
 # Compile the user's program adding some C code
@@ -279,17 +279,29 @@ static void _signal_handler(int signum) {
 	_explain_error();
 }
 
-void __dcc_start(void) __attribute__((constructor));
 
+void __dcc_start(void) __attribute__((constructor))
+#if __has_attribute(optnone)
+ __attribute__((optnone))
+#endif
+;
+
+#define STACK_BYTES_TO_CLEAR 4096000
 void __dcc_start(void) {
+	// leave 0xbe for uninitialized variables which get fresh stack pages
+	char a[STACK_BYTES_TO_CLEAR];
+	memset(a, 0xbe, sizeof a);
 	debug = getenv("DCC_DEBUG") != NULL;
 	if (debug) fprintf(stderr, "__dcc_start\n");
 	debug = getenv("DCC_DEBUG") != NULL;
 	setenvd("DCC_SANITIZER", __DCC_SANITIZER);
 	setenvd("DCC_PATH", __DCC_PATH);
-	char pid_buffer[1024];
-	sprintf(pid_buffer, "%d", (int)getpid());
+
+	char pid_buffer[32];
+	snprintf(pid_buffer, sizeof pid_buffer, "%d", (int)getpid());
 	setenvd("DCC_PID", pid_buffer);
+	memset(pid_buffer, 0xbe, sizeof pid_buffer);
+	
 	signal(SIGABRT, _signal_handler);
 	signal(SIGSEGV, _signal_handler);
 	signal(SIGINT, _signal_handler);
@@ -1517,7 +1529,7 @@ def gdb_evaluate(expression):
 def parse_gdb_stack_frame(line):
 	# note don't match function names starting with _ these are not user functions
 	m = re.match(
-		r'^\s*#(?P<frame_number>\d+)\s+0x[0-9a-f]+\s+in+\s+'
+		r'^\s*#(?P<frame_number>\d+)\s+(0x[0-9a-f]+\s+in+\s+)?'
 		r'(?P<function>[a-zA-Z][^\s\(]*).*\((?P<params>.*)\)\s+at\s+'
 		r'(?P<filename>[^\s:]+):(?P<line_number>\d+)\s*$',
 			line)
@@ -1594,6 +1606,11 @@ def relevant_variables(c_source, arrays=[]):
 					else:
 						 expression_value = "%s = '%s'" % m.groups()
 			expression_value = re.sub(r"'\000'", r"'\\0'", expression_value)
+			warning_text = " <-- warning appears to be uninitialized value"
+			if colorize_output:
+				warning_text = '\033[31m' + warning_text + '\033[0m'
+			for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)']:
+				expression_value = expression_value.replace(value, value + warning_text)
 			explanation +=	"%s = %s\n" % (expression, expression_value)
 		except RuntimeError as e:
 			debug_print(1, 'print_variables_expressions: RuntimeError', e)
