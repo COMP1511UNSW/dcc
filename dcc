@@ -340,18 +340,18 @@ char *__msan_default_options() {
 
 dcc_wrapper_source = r""" 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
-	extern int __real_main(int argc, char *argv[]);
+	extern int __real_main(int argc, char *argv[], char *envp[]);
 	int i;
 	char mypath[PATH_MAX];
 	realpath(argv[0], mypath);
 	setenvd("DCC_BINARY", mypath);
-	return __real_main(argc, argv);
+	return __real_main(argc, argv, envp);
 }
 """ 
 
 valgrind_wrapper_source = r""" 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
-	extern int __real_main(int argc, char *argv[]);
+	extern int __real_main(int argc, char *argv[], char *envp[]);
 	int i;
 	char mypath[PATH_MAX];
 	realpath(argv[0], mypath);
@@ -365,7 +365,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		setbuf(stdout, NULL);		   
 		signal(SIGPIPE, SIG_DFL);
 		if (debug) printf("running __real_main\n");
-		return __real_main(argc, argv);
+		return __real_main(argc, argv, envp);
 	}
 	if (debug) fprintf(stderr, "command=%s\n", __DCC_MONITOR_VALGRIND);
 	FILE *valgrind_error_pipe = popen(__DCC_MONITOR_VALGRIND, "w");
