@@ -34,7 +34,7 @@ dcc_path = re.sub(r'^/import/\w+/\d+/', '/home/', dcc_path)
 
 colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 
-extra_c_compiler_args = "-std=gnu11 -g -lm -Wno-unused  -Wunused-comparison  -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+extra_c_compiler_args = "-std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 
 #
 # Compile the user's program adding some C code
@@ -204,7 +204,7 @@ def compile():
 		print("eof")
 	process = subprocess.run(command, input=source + wrapper_source, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 	# workaround for  https://github.com/android-ndk/ndk/issues/184
-	# can  be triggered  not earlier
+	# can  be triggered	 not earlier
 	if "undefined reference to `__" in process.stdout:
 		command = [c for c in command if not c in ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']]
 		if debug:
@@ -330,7 +330,7 @@ char *__ubsan_default_options() {
 }
 
 char *__asan_default_options() {
-	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
+	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0:max_malloc_fill_size=4096000:quarantine_size_mb=16";
 }
 
 char *__msan_default_options() {
@@ -1574,44 +1574,11 @@ def relevant_variables(c_source, arrays=[]):
 	for expression in sorted(expressions, key=lambda e: (len(re.findall(r'\w+', e)), e)):
 		try:
 			expression = expression.strip()
-			if expression in done: continue
-			done.add(expression)
-			if re.match(r'^-?\s*[\d\.]+$', expression): continue	  # don't print(numbers)
-			debug_print(1, 'expression:', expression)
-			if re.search(r'[a-zA-Z0-9_]\s*\(', expression): continue  # don't evaluate function calls
-			expression_type = gdb_execute('whatis %s' % expression)
-			expression_type = re.sub(r'\s*type\s*=\s*', '',	 expression_type).strip()
-			debug_print(1, 'expresion_type=', expression_type)
-			if re.search(r'\<|\)$', expression_type): continue 
-
-			expression_value = gdb_evaluate(expression)
-
-			if '_IO_FILE' in  expression_value: continue
-			if 'here_cg_arc_record' in	expression_value: continue
-			if expression_value == '<optimized out>': continue
-			if len(expression_value) > 128: continue
-			expression_value = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', expression_value)
-			if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value): continue 
-			expression_value = re.sub(r'^\s*\(\S+\s+\*\)\s*0x0\s*$', 'NULL', expression_value)
-			if expression_type == 'char':
-				m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
-				if m:
-					ascii = int(m.group(1))
-					if (0 < ascii < 9) or (13 < ascii < 32)	 or (ascii == 127):
-						 expression_value = '%d (non-printable ASCII character)' % ascii
-					elif ascii < 0 or ascii > 128:
-						 expression_value = '%d (not valid ASCII)' % ascii
-					elif ascii == 0:
-						 expression_value = "0 = '\\0'"
-					else:
-						 expression_value = "%s = '%s'" % m.groups()
-			expression_value = re.sub(r"'\000'", r"'\\0'", expression_value)
-			warning_text = " <-- warning appears to be uninitialized value"
-			if colorize_output:
-				warning_text = '\033[31m' + warning_text + '\033[0m'
-			for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)']:
-				expression_value = expression_value.replace(value, value + warning_text)
-			explanation +=	"%s = %s\n" % (expression, expression_value)
+			if expression not in done:
+				done.add(expression)
+				expression_value = evaluate_expression(expression)
+				if expression_value is not None:
+					explanation +=	"%s = %s\n" % (expression, expression_value)
 		except RuntimeError as e:
 			debug_print(1, 'print_variables_expressions: RuntimeError', e)
 			pass
@@ -1621,7 +1588,53 @@ def relevant_variables(c_source, arrays=[]):
 			prefix = '\033[34m' + prefix + '\033[0m'
 		explanation = prefix + '\n\n' + explanation
 	return explanation
-	
+
+def evaluate_expression(expression):
+	debug_print(1, 'expression:', expression)
+	if re.match(r'^-?\s*[\d\.]+$', expression):
+		return None	  # don't print(numbers)
+	if re.search(r'[a-zA-Z0-9_]\s*\(', expression):
+		return None	 # don't evaluate function calls
+		
+	expression_type = gdb_execute('whatis %s' % expression)
+	expression_type = re.sub(r'\s*type\s*=\s*', '',	 expression_type).strip()
+	debug_print(1, 'expresion_type=', expression_type)
+	if re.search(r'\<|\)$', expression_type):
+		return None
+
+	expression_value = gdb_evaluate(expression)
+
+	if (
+		'_IO_FILE' in expression_value or
+		'here_cg_arc_record' in	expression_value or
+		expression_value == '<optimized out>' or
+		len(expression_value) > 128
+		):
+		return None
+		
+	expression_value = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', expression_value)
+	if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value):
+		return None 
+	expression_value = re.sub(r'^\s*\(\S+\s+\*\)\s*0x0\s*$', 'NULL', expression_value)
+	if expression_type == 'char':
+		m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
+		if m:
+			ascii = int(m.group(1))
+			if (0 < ascii < 9) or (13 < ascii < 32)	 or (ascii == 127):
+				 expression_value = '%d (non-printable ASCII character)' % ascii
+			elif ascii < 0 or ascii > 128:
+				 expression_value = '%d (not valid ASCII)' % ascii
+			elif ascii == 0:
+				 expression_value = "0 = '\\0'"
+			else:
+				 expression_value = "%s = '%s'" % m.groups()
+	expression_value = re.sub(r"'\000'", r"'\\0'", expression_value)
+	warning_text = " <-- warning appears to be uninitialized value"
+	if colorize_output:
+		warning_text = '\033[31m' + warning_text + '\033[0m'
+	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)']:
+		expression_value = expression_value.replace(value, value + warning_text)
+	return expression_value
 
 def balance_bracket(str, depth=0):
 #	 debug_print(1, 'balance_bracket(%s, %s)' % (str, depth))
