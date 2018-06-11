@@ -30,7 +30,7 @@ dcc_path = os.path.realpath(sys.argv[0])
 # replace CSE mount path with /home - otherwise breaks sometimes with ssh jobs
 dcc_path = re.sub(r'/tmp_amd/\w+/\w+ort/\w+/\d+/', '/home/', dcc_path)
 dcc_path = re.sub(r'^/tmp_amd/\w+/\w+ort/\d+/', '/home/', dcc_path)	
-dcc_path = re.sub(r'^/import/\w+/\d+/', '/home/', dcc_path)	
+dcc_path = re.sub(r'^/(import|export)/\w+/\d+/', '/home/', dcc_path)	
 
 colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 
