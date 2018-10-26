@@ -274,8 +274,8 @@ static void _signal_handler(int signum) {
 	signal(SIGFPE, SIG_IGN);
 	signal(SIGILL, SIG_IGN);
 	char signum_buffer[1024];
-	sprintf(signum_buffer, "%d", (int)signum);
-	setenvd("DCC_SIGNAL", signum_buffer);
+	sprintf(signum_buffer, "DCC_SIGNAL=%d", (int)signum);
+	putenv(signum_buffer); // less likely? to trigger another error than direct setenv
 	_explain_error();
 }
 
@@ -293,7 +293,6 @@ void __dcc_start(void) {
 	memset(a, 0xbe, sizeof a);
 	debug = getenv("DCC_DEBUG") != NULL;
 	if (debug) fprintf(stderr, "__dcc_start\n");
-	debug = getenv("DCC_DEBUG") != NULL;
 	setenvd("DCC_SANITIZER", __DCC_SANITIZER);
 	setenvd("DCC_PATH", __DCC_PATH);
 
@@ -321,7 +320,7 @@ void _Unwind_Backtrace(void *a, ...) {
 // intercept ASAN explanation
 void __asan_on_error() {
 	if (debug) fprintf(stderr, "__asan_on_error\n");
-	setenvd("DCC_ASAN_ERROR", "1");
+	putenv("DCC_ASAN_ERROR=1"); // less likely? to trigger another error than direct setenv
 	_explain_error();
 }
 
