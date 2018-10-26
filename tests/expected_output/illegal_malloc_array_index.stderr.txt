@@ -1,0 +1,16 @@
+=================================================================
+
+illegal_malloc_array_index.c:5 runtime error - illegal array, pointer or other operation
+Execution stopped here in main() in illegal_malloc_array_index.c at line 5:
+
+int main(int argc, char **argv) {
+	int *a = malloc(1000 * sizeof (int));
+-->	a[999 + argc] = 42;
+}
+
+Values when execution stopped:
+
+argc =  <deleted-value>
+999 + argc = 1000
+a[999 + argc] =  <deleted-value>
+

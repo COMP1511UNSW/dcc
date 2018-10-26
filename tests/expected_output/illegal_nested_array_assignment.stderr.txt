@@ -1,0 +1,19 @@
+illegal_nested_array_assignment.c:3:2: runtime error: index 4 out of bounds for type 'int [4]'
+
+Execution stopped here in main() in illegal_nested_array_assignment.c at line 3:
+
+int main(int argc, char **argv) {
+	int a[] = {1,2,3,4};
+-->	a[a[a[a[a[0]]]]] = 1;
+}
+
+Values when execution stopped:
+
+a =  <deleted-value>
+argc =  <deleted-value>
+a[0] =  <deleted-value>
+a[a[0]] =  <deleted-value>
+a[a[a[0]]] =  <deleted-value>
+a[a[a[a[0]]]] =  <deleted-value>
+a[a[a[a[a[0]]]]] =  <deleted-value>
+

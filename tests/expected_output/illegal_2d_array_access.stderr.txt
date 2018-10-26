@@ -1,0 +1,15 @@
+=================================================================
+
+illegal_2d_array_access.c:4 runtime error - illegal array, pointer or other operation
+Execution stopped here in twod(b=0x<deleted-hexadecimal-constant>) in illegal_2d_array_access.c at line 4:
+
+
+void twod(int b[5][4]) {
+--> printf("%d\n", b[5][2]);
+}
+
+
+Values when execution stopped:
+
+b[5][2] =  <deleted-value>
+
