@@ -5,7 +5,7 @@ if __name__ == '__main__':
 		# we are invoked by gdb 
 		import gdb
 		explain_error()
-		gdb_execute('call _exit()')
+		gdb_execute('call _exit(1)')
 		gdb_execute('quit')
 		kill_program()
 	elif not sys.argv[1:] and 'DCC_PID' in os.environ:
