@@ -14,7 +14,7 @@ REMOVE_NON_DETERMINATE_VALUES='
 	s/-*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*/<deleted-large-integer-constant>/g
 '
 
-dcc="${1:-dcc}"
+dcc="${1:-../dcc}"
 
 mkdir -p expected_output
 test_failed=0
@@ -54,4 +54,5 @@ do
 		continue
 	}
 done
+test $test_failed = 0 && echo All tests passed
 exit $test_failed
