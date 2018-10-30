@@ -1,11 +1,10 @@
 #if 0
-dcc_wrapper_source = r"""
+1//1;dcc_wrapper_source = r"""
 #endif
 
 //
 // C code to intercept runtime errors and run this program
 //
-
 
 #include <stdio.h>
 #include <unistd.h>
@@ -37,13 +36,18 @@ static void setenvd(char *n, char *v) {
 	if (debug) fprintf(stderr, "setenv %s=%s\n", n, v);
 }
 
+static void putenvd(char *s) {
+	putenv(s);
+	if (debug) fprintf(stderr, "putenv %s\n", s);
+}
+
 static void _explain_error(void) {
 	// if a program has exhausted file descriptor then we need to close some to run gdb etc,
 	// so as a precaution we close a pile of file descriptiors which may or may not be open
 	for (int i = 4; i < 32; i++)
 		close(i);
-	if (debug) fprintf(stderr, "running %s\n", __DCC_PATH__);
-	system(__DCC_PATH__);
+	if (debug) fprintf(stderr, "running %s\n", "__DCC_PATH__");
+	system("__DCC_PATH__");
 	_dcc_exit();
 }
 
@@ -57,8 +61,9 @@ static void _signal_handler(int signum) {
 	signal(SIGILL, SIG_IGN);
 	char signum_buffer[1024];
 	sprintf(signum_buffer, "DCC_SIGNAL=%d", (int)signum);
-	putenv(signum_buffer); // less likely? to trigger another error than direct setenv
+	putenvd(signum_buffer); // less likely? to trigger another error than direct setenv
 	_explain_error();
+	// not reached
 }
 
 
@@ -77,8 +82,8 @@ void __dcc_start(void) {
 #endif
 	debug = getenv("DCC_DEBUG") != NULL;
 	if (debug) fprintf(stderr, "__dcc_start\n");
-	setenvd("DCC_SANITIZER", __DCC_SANITIZER__);
-	setenvd("DCC_PATH", __DCC_PATH__);
+	setenvd("DCC_SANITIZER", "__DCC_SANITIZER__");
+	setenvd("DCC_PATH", "__DCC_PATH__");
 
 	char pid_buffer[32];
 	snprintf(pid_buffer, sizeof pid_buffer, "%d", (int)getpid());
@@ -113,9 +118,9 @@ void __asan_on_error() {
 	}
 	char report_description[8192];
 	snprintf(report_description, sizeof report_description, "DCC_ASAN_ERROR=%s", report);
-	putenv(report_description); // less likely? to trigger another error than direct setenv
-	if (debug) fprintf(stderr, "%s\n", report_description);
+	putenvd(report_description);
 	_explain_error();
+	// not reached
 }
 #endif
 
@@ -166,8 +171,8 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		return __real_main(argc, argv, envp);
 	}
 	
-	if (debug) fprintf(stderr, "command=%s\n", __DCC_MONITOR_VALGRIND__);
-	FILE *valgrind_error_pipe = popen(__DCC_MONITOR_VALGRIND__, "w");
+	if (debug) fprintf(stderr, "command=%s\n", "__DCC_MONITOR_VALGRIND__");
+	FILE *valgrind_error_pipe = popen("__DCC_MONITOR_VALGRIND__", "w");
 	setbuf(valgrind_error_pipe, NULL);			
 	setenvd("DCC_VALGRIND_RUNNING", "1");
 

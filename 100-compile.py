@@ -75,12 +75,12 @@ def compile():
 	colorize_output = args.colorize_output
 	debug = args.debug
 	wrapper_source = dcc_wrapper_source
-	wrapper_source = wrapper_source.replace('__DCC_PATH__', '"'+dcc_path+'"')
-	wrapper_source = wrapper_source.replace('__DCC_SANITIZER__', '"'+args.which_sanitizer+'"')
+	wrapper_source = wrapper_source.replace('__DCC_PATH__', dcc_path)
+	wrapper_source = wrapper_source.replace('__DCC_SANITIZER__', args.which_sanitizer)
 	if args.which_sanitizer == "valgrind":
 		sanitizer_args = []
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_VALGRIND__', '1')
-		wrapper_source = wrapper_source.replace('__DCC_MONITOR_VALGRIND__', '"'+dcc_path+' --watch-stdin-for-valgrind-errors"')
+		wrapper_source = wrapper_source.replace('__DCC_MONITOR_VALGRIND__', dcc_path+' --watch-stdin-for-valgrind-errors')
 		wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK__', "yes" if args.leak_check else "no")
 		wrapper_source = wrapper_source.replace('__DCC_SUPRESSIONS_FILE__', args.suppressions_file)
 	elif args.which_sanitizer == "memory":
