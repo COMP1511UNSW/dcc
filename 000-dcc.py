@@ -19,19 +19,15 @@
 
 # The above 4 execution modes have been bundled into one file to simplify installation 
 
-# Code needs to be Python 2 compatible for old versions of GDB
 from __future__ import print_function
 
 import collections, os, platform, re, signal, subprocess, sys, traceback
 
 
-debug = int(os.environ.get('DCC_DEBUG', '0'))
 dcc_path = os.path.realpath(sys.argv[0])
 # replace CSE mount path with /home - otherwise breaks sometimes with ssh jobs
 dcc_path = re.sub(r'/tmp_amd/\w+/\w+ort/\w+/\d+/', '/home/', dcc_path)
 dcc_path = re.sub(r'^/tmp_amd/\w+/\w+ort/\d+/', '/home/', dcc_path)	
 dcc_path = re.sub(r'^/(import|export)/\w+/\d+/', '/home/', dcc_path)	
 
-colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 
-extra_c_compiler_args = "-std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()

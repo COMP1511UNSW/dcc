@@ -1,3 +1,4 @@
+import collections, os, re, sys, signal, subprocess, traceback
 #
 # Code below is executed from gdb.
 # It prints details of the program state likely to be of interest to
@@ -290,21 +291,32 @@ def explain_error():
 		signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
 		if signal_number != signal.SIGABRT:
 			 print(explain_signal(signal_number), file=output_stream)
-		elif "DCC_ASAN_ERROR" in os.environ:
+		elif 'DCC_ASAN_ERROR' in os.environ:
 			if loc:
 				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
-			print("runtime error - illegal array, pointer or other operation", end=' ', file=output_stream)
-			if "DCC_ASAN_HEAP_BOF" in os.environ:
-				print("[heap buffer overflow]", file=output_stream)
-				print("Attempted to access past the end of allocated memory. Make sure you have allocated enough memory for the size of your struct/array (rather than size of a pointer).", file=output_stream)
-			elif "DCC_ASAN_HEAP_UAF" in os.environ:
-				print("[heap use-after-free]", file=output_stream)
-				print("Attempted to access memory that has already been freed.", file=output_stream)
-			elif "DCC_ASAN_HEAP_DBLFREE" in os.environ:
-				print("[double free]", file=output_stream)
-				print("Attempted to free memory that has already been freed.", file=output_stream)
+			report = os.environ.get('DCC_ASAN_ERROR')
+			if report:
+				report = report.replace('-', ' ')
+				report = report.replace('heap', 'malloc')
 			else:
-				print("", file=output_stream)
+				report = "illegal array, pointer or other operation"
+			print('runtime error -', report, file=output_stream)
+			if "malloc buffer overflow" in report:
+				print("""
+Explanation: access past the end of malloc'ed memory.
+Make sure you have allocated enough memory for the size of your struct/array.
+A common error is to use the size of a pointer instead of the size of the struct or array.
+""", file=output_stream)
+			if "stack buffer overflow" in report:
+				print("""
+Explanation: access past the end of a local variable.
+Make sure the size of your array is correct.
+Make sure your array indices are correct.
+""", file=output_stream)
+			elif "after use" in report:
+				print("\nExplanation: access to memory that has already been freed.\n", file=output_stream)
+			elif "double free" in report:
+				print("\nExplanation: attempt to free memory that has already been freed.\n", file=output_stream)
 		elif os.environ.get('DCC_SANITIZER', '') == 'memory':
 			if loc:
 				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)

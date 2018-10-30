@@ -56,8 +56,8 @@ static void _signal_handler(int signum) {
 	signal(SIGFPE, SIG_IGN);
 	signal(SIGILL, SIG_IGN);
 	char signum_buffer[1024];
-	sprintf(signum_buffer, "%d", (int)signum);
-	setenvd("DCC_SIGNAL", signum_buffer);
+	sprintf(signum_buffer, "DCC_SIGNAL=%d", (int)signum);
+	putenv(signum_buffer); // less likely? to trigger another error than direct setenv
 	_explain_error();
 }
 
@@ -77,7 +77,6 @@ void __dcc_start(void) {
 #endif
 	debug = getenv("DCC_DEBUG") != NULL;
 	if (debug) fprintf(stderr, "__dcc_start\n");
-	debug = getenv("DCC_DEBUG") != NULL;
 	setenvd("DCC_SANITIZER", __DCC_SANITIZER__);
 	setenvd("DCC_PATH", __DCC_PATH__);
 
@@ -101,30 +100,24 @@ void _Unwind_Backtrace(void *a, ...) {
 	_explain_error();
 }
 
+#if !__DCC_SANITIZER_IS_VALGRIND__
+extern char *__asan_get_report_description();
+extern  int __asan_report_present();
 
 // intercept ASAN explanation
 void __asan_on_error() {
 	if (debug) fprintf(stderr, "__asan_on_error\n");
-	setenvd("DCC_ASAN_ERROR", "1");
-#if !__DCC_SANITIZER_IS_VALGRIND__
-	extern char *__asan_get_report_description();
-  	char *desc = __asan_get_report_description();
-	if (debug) fprintf(stderr, "asan error: %s\n", desc);
-
-	if (!strcmp(desc, "heap-use-after-free")) {
-		putenv("DCC_ASAN_HEAP_UAF=1");
+	char *report = "";
+	if (__asan_report_present()) {
+		report = __asan_get_report_description();
 	}
-
-	if (!strcmp(desc, "double-free")) {
-		putenv("DCC_ASAN_HEAP_DBLFREE=1");
-	}
-
-	if (!strcmp(desc, "heap-buffer-overflow")) {
-		putenv("DCC_ASAN_HEAP_BOF=1");
-	}
-#endif
+	char report_description[8192];
+	snprintf(report_description, sizeof report_description, "DCC_ASAN_ERROR=%s", report);
+	putenv(report_description); // less likely? to trigger another error than direct setenv
+	if (debug) fprintf(stderr, "%s\n", report_description);
 	_explain_error();
 }
+#endif
 
 char *__ubsan_default_options() {
 	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";

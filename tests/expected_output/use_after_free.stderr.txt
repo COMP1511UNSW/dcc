@@ -10,8 +10,7 @@ use_after_free.c:7:7: warning: incompatible integer to pointer conversion assign
 2 warnings generated.
 =================================================================
 
-use_after_free.c:7 runtime error - illegal array, pointer or other operation [heap use-after-free]
-Attempted to access memory that has already been freed.
+use_after_free.c:7 runtime error - malloc use after free
 Execution stopped here in main() in use_after_free.c at line 7:
 
     *p = p;
