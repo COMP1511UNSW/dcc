@@ -293,7 +293,18 @@ def explain_error():
 		elif "DCC_ASAN_ERROR" in os.environ:
 			if loc:
 				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
-			print("runtime error - illegal array, pointer or other operation", file=output_stream)
+			print("runtime error - illegal array, pointer or other operation", end=' ', file=output_stream)
+			if "DCC_ASAN_HEAP_BOF" in os.environ:
+				print("[heap buffer overflow]", file=output_stream)
+				print("Attempted to access past the end of allocated memory. Make sure you have allocated enough memory for the size of your struct/array (rather than size of a pointer).", file=output_stream)
+			elif "DCC_ASAN_HEAP_UAF" in os.environ:
+				print("[heap use-after-free]", file=output_stream)
+				print("Attempted to access memory that has already been freed.", file=output_stream)
+			elif "DCC_ASAN_HEAP_DBLFREE" in os.environ:
+				print("[double free]", file=output_stream)
+				print("Attempted to free memory that has already been freed.", file=output_stream)
+			else:
+				print("", file=output_stream)
 		elif os.environ.get('DCC_SANITIZER', '') == 'memory':
 			if loc:
 				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)

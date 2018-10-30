@@ -1,3 +1,5 @@
+import os, platform, re, signal, subprocess, sys, traceback
+
 #
 # Compile the user's program adding some C code
 #
@@ -182,8 +184,4 @@ def search_path(program):
 		if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
 			return full_path
 
-#
-# C code to intercept runtime errors and run this program
-#
-
-dcc_wrapper_source = r"""
+dcc_wrapper_source = "this definition is for debugging  will be over-written"

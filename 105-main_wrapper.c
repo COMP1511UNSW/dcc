@@ -1,3 +1,12 @@
+#if 0
+dcc_wrapper_source = r"""
+#endif
+
+//
+// C code to intercept runtime errors and run this program
+//
+
+
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -97,6 +106,23 @@ void _Unwind_Backtrace(void *a, ...) {
 void __asan_on_error() {
 	if (debug) fprintf(stderr, "__asan_on_error\n");
 	setenvd("DCC_ASAN_ERROR", "1");
+#if !__DCC_SANITIZER_IS_VALGRIND__
+	extern char *__asan_get_report_description();
+  	char *desc = __asan_get_report_description();
+	if (debug) fprintf(stderr, "asan error: %s\n", desc);
+
+	if (!strcmp(desc, "heap-use-after-free")) {
+		putenv("DCC_ASAN_HEAP_UAF=1");
+	}
+
+	if (!strcmp(desc, "double-free")) {
+		putenv("DCC_ASAN_HEAP_DBLFREE=1");
+	}
+
+	if (!strcmp(desc, "heap-buffer-overflow")) {
+		putenv("DCC_ASAN_HEAP_BOF=1");
+	}
+#endif
 	_explain_error();
 }
 
@@ -171,4 +197,4 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 
 #endif
 
-// don't delete this line - its a terminator for inclusion of the code into Python """
+// don't delete this line - its a terminator for inclusion of the code into Python """[7:]

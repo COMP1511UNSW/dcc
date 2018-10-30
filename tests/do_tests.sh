@@ -20,7 +20,7 @@ mkdir -p expected_output
 test_failed=0
 for src_file in *.c
 do
-	expected_stderr_file=expected_output/"`basename $src_file .c`.stderr.txt"
+	expected_stderr_file="$tests_dir/expected_output/`basename $src_file .c`.stderr.txt"
 	dcc_flags=
 	eval `egrep '^//\w+=' "$src_file"|sed 's/..//'`
 	"$dcc" $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null &&

@@ -1,6 +1,7 @@
 =================================================================
 
-illegal_malloc_array_index.c:5 runtime error - illegal array, pointer or other operation
+illegal_malloc_array_index.c:5 runtime error - illegal array, pointer or other operation [heap buffer overflow]
+Attempted to access past the end of allocated memory. Make sure you have allocated enough memory for the size of your struct/array (rather than size of a pointer).
 Execution stopped here in main() in illegal_malloc_array_index.c at line 5:
 
 int main(int argc, char **argv) {

@@ -1,0 +1,12 @@
+=================================================================
+
+double_free.c:6 runtime error - illegal array, pointer or other operation [double free]
+Attempted to free memory that has already been freed.
+Execution stopped here in main() in double_free.c at line 6:
+
+    void *p = malloc(4);
+    free(p);
+--> free(p);
+}
+
+

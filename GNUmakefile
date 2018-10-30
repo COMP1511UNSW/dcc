@@ -4,5 +4,5 @@ dcc: ${SRCS}
 	cat $^ > $@
 	chmod +x $@ 
 
-tests: dcc
+test: dcc
 	tests/do_tests.sh
