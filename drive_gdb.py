@@ -231,7 +231,7 @@ def relevant_variables(c_source, arrays=[]):
 #	 for array in arrays:
 #		 indices = extract_indices(array, c_source)
 #		 expressions += indices
-	done = set(['NULL', 'char','int', 'double', 'while', 'if', 'else', 'for', 'while', 'return']) # avoid trying to evaluate types/keywords for efficency
+	done = set(['NULL', 'char','int', 'double', 'while', 'if', 'else', 'for', 'while', 'return']) # avoid trying to evaluate types/keywords for efficiency
 	explanation = ''
 	debug_print(1, 'relevant_variables expressions=', c_source, expressions)
 	for expression in sorted(expressions, key=lambda e: (len(re.findall(r'\w+', e)), e)):

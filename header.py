@@ -22,9 +22,9 @@ from __future__ import print_function
 # The above 4 execution modes have been bundled into one file to simplify installation 
 
 
-# Unless the --no_embed_source option is specified, a tar file is embeded in the binary
+# Unless the --no_embed_source option is specified, a tar file is embedded in the binary
 # containing the C source files for the user's program plus the files start_gdb.py and drive_gdb.py
-# 
+#
 # If a runtime error occurs the tar file is extracted into a temporary directory
 # and start_gdb.py starts gdb controlled by drive_gdb.py to print details of the program state
 

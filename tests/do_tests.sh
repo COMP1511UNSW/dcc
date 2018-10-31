@@ -6,7 +6,7 @@ cd "$tests_dir"
 trap 'rm -fr tmp.* a.out' EXIT INT TERM
 
 # some values reported in errors are not determinate (e.g. variable addresses)
-# and will vary between execution and definbitely between platforms
+# and will vary between execution and definitely between platforms
 # so delete them before diff-ing errors
 REMOVE_NON_DETERMINATE_VALUES='
 	s/^\([a-z].* = \).*/\1 <deleted-value>/g
