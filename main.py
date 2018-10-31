@@ -6,10 +6,10 @@ def main():
 	if not sys.argv[1:] and 'DCC_RUN_INSIDE_GDB' in os.environ:
 		drive_gdb()
 	elif not sys.argv[1:] and 'DCC_PID' in os.environ:
-		# we are invoked by the binary because an eror has occurred
+		# we are invoked by the binary because an error has occurred
 		start_gdb()
 	elif sys.argv[1:] == ['--watch-stdin-for-valgrind-errors']:
-		# valgrind is being used - we have been invoked viq the binary to watch for valgrind errors
+		# valgrind is being used - we have been invoked via the binary to watch for valgrind errors
 		# which have been directed to our stdin
 		while True:
 			line = sys.stdin.readline()

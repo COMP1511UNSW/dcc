@@ -179,13 +179,13 @@ def process_possible_source_file(pathname, args):
 	# before passing to to compiler?
 	normalized_path = os.path.normpath(pathname)
 	if pathname != normalized_path:
-		if args.debug: print('not embedding source of', pathname, 'becaused normalized path differs:', normalized_path, file=sys.stderr)
+		if args.debug: print('not embedding source of', pathname, 'because normalized path differs:', normalized_path, file=sys.stderr)
 		return
 	if normalized_path.startswith('..'):
-		if args.debug: print('not embedding source of', pathname, 'because contains ..', file=sys.stderr)
+		if args.debug: print('not embedding source of', pathname, 'because it contains ..', file=sys.stderr)
 		return
 	if os.path.isabs(pathname):
-		if args.debug: print('not embedding source of', pathname, 'becaused has absolute path', file=sys.stderr)
+		if args.debug: print('not embedding source of', pathname, 'because it has absolute path', file=sys.stderr)
 		return
 	if pathname in args.source_files:
 		return
@@ -252,7 +252,7 @@ def explain_compiler_output(output, args):
 			if (n_explained_lines == 1 or  n_explained_lines == 2) and len(lines) > i + 2 and has_caret(colourless_lines[i+2]):
 				n_explained_lines = 3
 			if len(lines) > i + n_explained_lines and re.match(r'^.*note:', colourless_lines[i + n_explained_lines]):
-				#print('note line detcted')
+				#print('note line detected')
 				n_explained_lines += 1
 			e = re.sub('line.*', '', explanation, flags=re.I)
 			if e not in explanation_made:
