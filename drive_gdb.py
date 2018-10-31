@@ -1,4 +1,4 @@
-import collections, os, re, sys, signal, subprocess, traceback
+import collections, os, re, sys, signal, traceback
 #
 # Code below is executed from gdb.
 # It prints details of the program state likely to be of interest to
@@ -9,10 +9,95 @@ import collections, os, re, sys, signal, subprocess, traceback
 hash_define = collections.defaultdict(dict)
 source = {}
 
-def debug_print(level, *args, **kwargs):
-	if debug >= level:
-		kwargs['file'] = sys.stderr
-		print(*args, **kwargs)
+def drive_gdb():
+	global debug
+	global colorize_output
+	debug = int(os.environ.get('DCC_DEBUG', '0'))
+	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
+	explain_error()
+	gdb_execute('call (void)_exit(1)')
+	gdb_execute('quit')
+	kill_program1()
+	
+def explain_error():
+	#subprocess.call("echo explain_error_gdb.py starting >/dev/tty", shell=True)
+	debug_print(1, 'explain_error() starting')
+	pid = None
+	# file descriptor 3 is a dup of stderr (see below)
+	# stdout & stderr have been diverted to /dev/null
+	output_stream = os.fdopen(3, "w")
+	try:
+		signal.signal(signal.SIGINT, interrupt_handler)
+		pid = int(os.environ.get('DCC_PID', 0))
+		if 'DCC_VALGRIND_ERROR' in os.environ:
+			debug_print(1, 'attaching gdb to valgrind', pid)
+			gdb.execute('target remote | vgdb --pid=%d' % pid)
+		else:
+			debug_print(1, 'attaching gdb to ', pid)
+			gdb.execute('attach %s' % pid)
+		print(file=output_stream)
+		loc = gdb_set_frame()
+		signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
+		if signal_number != signal.SIGABRT:
+			 print(explain_signal(signal_number), file=output_stream)
+		elif 'DCC_ASAN_ERROR' in os.environ:
+			if loc:
+				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
+			report = os.environ.get('DCC_ASAN_ERROR')
+			if report:
+				report = report.replace('-', ' ')
+				report = report.replace('heap', 'malloc')
+			else:
+				report = "illegal array, pointer or other operation"
+			print('runtime error -', report, file=output_stream)
+			if "malloc buffer overflow" in report:
+				print("""
+Explanation: access past the end of malloc'ed memory.
+Make sure you have allocated enough memory for the size of your struct/array.
+A common error is to use the size of a pointer instead of the size of the struct or array.
+""", file=output_stream)
+			if "stack buffer overflow" in report:
+				print("""
+Explanation: access past the end of a local variable.
+Make sure the size of your array is correct.
+Make sure your array indices are correct.
+""", file=output_stream)
+			elif "after use" in report:
+				print("\nExplanation: access to memory that has already been freed.\n", file=output_stream)
+			elif "double free" in report:
+				print("\nExplanation: attempt to free memory that has already been freed.\n", file=output_stream)
+		elif os.environ.get('DCC_SANITIZER', '') == 'memory':
+			if loc:
+				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
+			print("runtime error - uninitialized variable used", file=output_stream)
+		if loc:
+			print(explain_location(loc), file=output_stream)
+			print(relevant_variables(loc.surrounding_source(clean=True)), file=output_stream)
+		gdb.flush(gdb.STDOUT)
+		gdb.flush(gdb.STDERR)
+	except gdb.error as e:
+		if 'ptrace' in str(e).lower() and os.path.exists('/.dockerenv'):
+			print('\ndcc : can not provide information about variables because docker not run with --cap-add=SYS_PTRACE\n' , file=output_stream)
+		elif debug:
+			traceback.print_exc(file=output_stream)
+		else:
+			print(e, file=output_stream)	
+		sys.exit(1)
+	except:
+		if debug: traceback.print_exc(file=output_stream)
+		sys.exit(1)
+	
+def explain_signal(signal_number):
+	if signal_number == signal.SIGINT:
+		return "Execution was interrupted"
+	elif signal_number == signal.SIGFPE:
+		return 'Execution stopped by an arithmetic error.\nOften this is caused by division (or %) by zero.'
+	elif signal_number == signal.SIGXCPU:
+		return "Execution stopped by a CPU time limit."
+	elif signal_number == signal.SIGXFSZ:
+		return "Execution stopped because too much data written."
+	else:
+		return "Execution terminated by signal %s" % signal_number
 
 class Location():
 	def __init__(self, filename, line_number, column='', function='', params='', variable=''):
@@ -91,12 +176,6 @@ def clean_c_source(c_source, leave_white_space=False):
 		return c_source
 	return c_source.strip() + "\n"
 
-def gdb_execute(command):
-	debug_print(2, 'gdb.execute:', command)
-	str = gdb.execute(command, to_string=True)
-	debug_print(2, 'gdb.execute:', '->', str)
-	return str
-	
 def gdb_evaluate(expression):
 	debug_print(1, 'gdb_evaluate:', expression,)
 	value = gdb_execute('print %s' % expression)
@@ -104,6 +183,12 @@ def gdb_evaluate(expression):
 	debug_print(1, '->', value,)
 	return value.strip()
 
+def gdb_execute(command):
+	debug_print(2, 'gdb.execute:', command)
+	str = gdb.execute(command, to_string=True)
+	debug_print(2, 'gdb.execute:', '->', str)
+	return str
+	
 def parse_gdb_stack_frame(line):
 	# note don't match function names starting with _ these are not user functions
 	m = re.match(
@@ -251,97 +336,16 @@ def extract_expressions(c_source):
 			else:
 				return []
 	return expressions + extract_expressions(remainder)
-	
-def explain_signal(signal_number):
-	if signal_number == signal.SIGINT:
-		return "Execution was interrupted"
-	elif signal_number == signal.SIGFPE:
-		return 'Execution stopped by an arithmetic error.\nOften this is caused by division (or %) by zero.'
-	elif signal_number == signal.SIGXCPU:
-		return "Execution stopped by a CPU time limit."
-	elif signal_number == signal.SIGXFSZ:
-		return "Execution stopped because too much data written."
-	else:
-		return "Execution terminated by signal %s" % signal_number
 
 def explain_location(loc):
 	if not isinstance(loc, Location):
 		return "Execution stopped at '%s'" % (loc)
 	else:
 		return 'Execution stopped here ' + loc.long_description()
-
-def explain_error():
-	#subprocess.call("echo explain_error_gdb.py starting >/dev/tty", shell=True)
-	debug_print(1, 'explain_error() starting')
-	pid = None
-	# file descriptor 3 is a dup of stderr (see below)
-	# stdout & stderr have been diverted to /dev/null
-	output_stream = os.fdopen(3, "w")
-	try:
-		signal.signal(signal.SIGINT, handler)
-		pid = int(os.environ.get('DCC_PID', 0))
-		if 'DCC_VALGRIND_ERROR' in os.environ:
-			debug_print(1, 'attaching gdb to valgrind', pid)
-			gdb.execute('target remote | vgdb --pid=%d' % pid)
-		else:
-			debug_print(1, 'attaching gdb to ', pid)
-			gdb.execute('attach %s' % pid)
-		print(file=output_stream)
-		loc = gdb_set_frame()
-		signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
-		if signal_number != signal.SIGABRT:
-			 print(explain_signal(signal_number), file=output_stream)
-		elif 'DCC_ASAN_ERROR' in os.environ:
-			if loc:
-				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
-			report = os.environ.get('DCC_ASAN_ERROR')
-			if report:
-				report = report.replace('-', ' ')
-				report = report.replace('heap', 'malloc')
-			else:
-				report = "illegal array, pointer or other operation"
-			print('runtime error -', report, file=output_stream)
-			if "malloc buffer overflow" in report:
-				print("""
-Explanation: access past the end of malloc'ed memory.
-Make sure you have allocated enough memory for the size of your struct/array.
-A common error is to use the size of a pointer instead of the size of the struct or array.
-""", file=output_stream)
-			if "stack buffer overflow" in report:
-				print("""
-Explanation: access past the end of a local variable.
-Make sure the size of your array is correct.
-Make sure your array indices are correct.
-""", file=output_stream)
-			elif "after use" in report:
-				print("\nExplanation: access to memory that has already been freed.\n", file=output_stream)
-			elif "double free" in report:
-				print("\nExplanation: attempt to free memory that has already been freed.\n", file=output_stream)
-		elif os.environ.get('DCC_SANITIZER', '') == 'memory':
-			if loc:
-				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
-			print("runtime error - uninitialized variable used", file=output_stream)
-		if loc:
-			print(explain_location(loc), file=output_stream)
-			print(relevant_variables(loc.surrounding_source(clean=True)), file=output_stream)
-		gdb.flush(gdb.STDOUT)
-		gdb.flush(gdb.STDERR)
-	except gdb.error as e:
-		if 'ptrace' in str(e).lower() and os.path.exists('/.dockerenv'):
-			print('\ndcc : can not provide information about variables because docker not run with --cap-add=SYS_PTRACE\n' , file=output_stream)
-		elif debug:
-			traceback.print_exc(file=output_stream)
-		else:
-			print(e, file=output_stream)	
-		sys.exit(1)
-	except:
-		if debug: traceback.print_exc(file=output_stream)
-		sys.exit(1)
-
 #
 # ensure the program compiled with dcc terminates after error
 #
-def kill_program():
+def kill_program1():
 	if 'DCC_PID' in os.environ:
 		try:
 			os.kill(int(os.environ['DCC_PID']), signal.SIGPIPE)
@@ -350,28 +354,14 @@ def kill_program():
 			pass
 	sys.exit(1)
 
-def handler(signum, frame):
+def debug_print(level, *args, **kwargs):
+	if debug >= level:
+		kwargs['file'] = sys.stderr
+		print(*args, **kwargs)
+
+def interrupt_handler(signum, frame):
 	if debug: print >>sys.stderr, 'signal caught'
-	kill_program()
+	kill_program1()
 	
-def run_gdb():
-	if colorize_output:
-		os.environ['DCC_COLORIZE_OUTPUT'] = 'true'
-	os.environ['DCC_RUN_INSIDE_GDB'] = 'true'
-	os.environ['PATH'] = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '')
-	os.environ['LC_ALL'] = 'C' # stop invalid utf-8 from gdb throwing Python exception
-	if not search_path('gdb'):
-		print('\ngdb not available to print variable values\n', file=sys.stderr)
-		kill_program()
-		return
-	command = ["gdb", "--nx", "--batch", "-ex", "python exec(open('%s').read())" % dcc_path, os.environ['DCC_BINARY']]
-	debug_print(1, 'running:', command)
-	# gdb puts confusing messages on stderr & stdout  so send these to /dev/null
-	# and use file descriptor 3 for our messages
-	os.dup2(2, 3)
-	if debug:
-		p = subprocess.Popen(command, stdin=subprocess.DEVNULL, close_fds=False)
-	else:
-		p = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=False)
-	p.communicate()
-	kill_program()
+if __name__ == '__main__':
+	drive_gdb()

@@ -1,18 +1,13 @@
-if __name__ == '__main__':
+def main():
 	signal.signal(signal.SIGINT, handler)
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
 	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 	if debug: print(sys.argv, 'DCC_RUN_INSIDE_GDB="%s" DCC_PID="%s"' % (os.environ.get('DCC_RUN_INSIDE_GDB', ''), os.environ.get('DCC_PID', '')))
 	if not sys.argv[1:] and 'DCC_RUN_INSIDE_GDB' in os.environ:
-		# we are invoked by gdb 
-		import gdb
-		explain_error()
-		gdb_execute('call (void)_exit(1)')
-		gdb_execute('quit')
-		kill_program()
+		drive_gdb()
 	elif not sys.argv[1:] and 'DCC_PID' in os.environ:
 		# we are invoked by the binary because an eror has occurred
-		run_gdb()
+		start_gdb()
 	elif sys.argv[1:] == ['--watch-stdin-for-valgrind-errors']:
 		# valgrind is being used - we have been invoked viq the binary to watch for valgrind errors
 		# which have been directed to our stdin
@@ -20,7 +15,7 @@ if __name__ == '__main__':
 			line = sys.stdin.readline()
 			if not line:
 				break
-			debug_print(1, 'valgrind: ', line)
+			if debug: print('valgrind: ', line, file=sys.stderr)
 			if 'vgdb me' in line:
 				if colorize_output:
 					os.environ['DCC_VALGRIND_ERROR'] = 'Runtime error: \033[31muninitialized variable accessed.\033[0m'
@@ -28,7 +23,8 @@ if __name__ == '__main__':
 					os.environ['DCC_VALGRIND_ERROR'] = 'Runtime error: uninitialized variable accessed.'
 				print('\n'+os.environ['DCC_VALGRIND_ERROR'], file=sys.stderr)
 				sys.stderr.flush()
-				run_gdb()
+				start_gdb()
+				sys.exit(0)
 			elif 'loss record' in line:
 				line = sys.stdin.readline()
 				if 'malloc' in line:
@@ -42,6 +38,7 @@ if __name__ == '__main__':
 					print('Error: memory allocated not de-allocated.', file=sys.stderr)
 				sys.exit(0)
 	else:
-		# we are invoked by user to compile a program
-		os.environ['PATH'] = os.path.dirname(os.path.realpath(sys.argv[0])) + ':/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '') 
 		compile()
+
+if __name__ == '__main__':
+	main()

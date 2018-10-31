@@ -1,7 +1,7 @@
-SRCS	:= $(sort $(wildcard [0-9][0-9][0-9]-*.*))
+SRCS	:= $(sort $(wildcard *.*))
 
 dcc: ${SRCS}
-	cat $^ > $@
+	./build.py > $@
 	chmod +x $@ 
 
 test: dcc

@@ -1,7 +1,3 @@
-#if 0
-1//1;dcc_wrapper_source = r"""
-#endif
-
 //
 // C code to intercept runtime errors and run this program
 //
@@ -19,15 +15,24 @@ static int debug = 0;
 
 static void _dcc_exit(void) {
 	if (debug) fprintf(stderr, "_dcc_exit()\n");
+
+	// use kill instead of exit or _exit because
 	// exit or _exit keeps executing sanitizer code - including perhaps superfluous output
+
+	pid_t pid = getpid();
+
 	// SIGPIPE avoids killed message from bash
-	signal(SIGPIPE, SIG_DFL);
-	kill(getpid(), SIGPIPE);
+	signal(SIGPIPE, SIG_DFL); 
+	kill(pid, SIGPIPE);   
+
+	// if SIGPIPE fails
 	signal(SIGINT, SIG_DFL);
-	kill(getpid(), SIGINT);
+	kill(pid, SIGINT);
+
 	// if SIGINT fails
-	kill(getpid(), SIGKILL);
-	// should never reach here
+	kill(pid, SIGKILL);
+
+	// SIGKILL fails
 	_exit(1);
 }
 
@@ -41,13 +46,28 @@ static void putenvd(char *s) {
 	if (debug) fprintf(stderr, "putenv %s\n", s);
 }
 
+static char *run_tar_file = "python3 -E -c \"import os,shutil,sys,tarfile,tempfile\n\
+with tempfile.TemporaryDirectory() as temp_dir:\n\
+    tarfile.open(fileobj=sys.stdin.buffer, mode='r|xz').extractall(temp_dir)\n\
+    os.chdir(temp_dir)\n\
+    exec(open('start_gdb.py').read())\n\
+\"";
+
 static void _explain_error(void) {
 	// if a program has exhausted file descriptor then we need to close some to run gdb etc,
 	// so as a precaution we close a pile of file descriptiors which may or may not be open
 	for (int i = 4; i < 32; i++)
 		close(i);
+		
+#if !__DCC_EMBED_SOURCE__
 	if (debug) fprintf(stderr, "running %s\n", "__DCC_PATH__");
 	system("__DCC_PATH__");
+#else
+	if (debug) fprintf(stderr, "running %s\n", run_tar_file);
+	FILE *python_pipe = popen(run_tar_file, "w");
+	fwrite(tar_data, sizeof tar_data[0],  sizeof tar_data/sizeof tar_data[0], python_pipe);
+	fclose(python_pipe);
+#endif
 	_dcc_exit();
 }
 
@@ -59,9 +79,11 @@ static void _signal_handler(int signum) {
 	signal(SIGXFSZ, SIG_IGN);
 	signal(SIGFPE, SIG_IGN);
 	signal(SIGILL, SIG_IGN);
+	
 	char signum_buffer[1024];
 	sprintf(signum_buffer, "DCC_SIGNAL=%d", (int)signum);
 	putenvd(signum_buffer); // less likely? to trigger another error than direct setenv
+	
 	_explain_error();
 	// not reached
 }
@@ -75,13 +97,17 @@ void __dcc_start(void) __attribute__((constructor))
 
 #define STACK_BYTES_TO_CLEAR 4096000
 void __dcc_start(void) {
+
 #if !__DCC_SANITIZER_IS_VALGRIND
 	// leave 0xbe for uninitialized variables which get fresh stack pages
 	char a[STACK_BYTES_TO_CLEAR];
 	memset(a, 0xbe, sizeof a);
 #endif
+
 	debug = getenv("DCC_DEBUG") != NULL;
+	
 	if (debug) fprintf(stderr, "__dcc_start\n");
+	
 	setenvd("DCC_SANITIZER", "__DCC_SANITIZER__");
 	setenvd("DCC_PATH", "__DCC_PATH__");
 
@@ -112,6 +138,7 @@ extern  int __asan_report_present();
 // intercept ASAN explanation
 void __asan_on_error() {
 	if (debug) fprintf(stderr, "__asan_on_error\n");
+
 	char *report = "";
 	if (__asan_report_present()) {
 		report = __asan_get_report_description();
@@ -119,6 +146,7 @@ void __asan_on_error() {
 	char report_description[8192];
 	snprintf(report_description, sizeof report_description, "DCC_ASAN_ERROR=%s", report);
 	putenvd(report_description);
+	
 	_explain_error();
 	// not reached
 }
@@ -194,5 +222,3 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 }
 
 #endif
-
-// don't delete this line - its a terminator for inclusion of the code into Python """[7:]
