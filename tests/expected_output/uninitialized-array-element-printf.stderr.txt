@@ -1,7 +1,7 @@
 
 Runtime error: uninitialized variable accessed.
 
-Execution stopped here in main() in uninitialized-array-element-printf.c at line 8:
+Execution stopped here in main() in run_time/uninitialized-array-element-printf.c at line 8:
 
 	int a[1000];
   	a[42] = 42;

@@ -1,6 +1,6 @@
-illegal_nested_array_assignment.c:3:2: runtime error: index 4 out of bounds for type 'int [4]'
+run_time/illegal_nested_array_assignment.c:3:2: runtime error: index 4 out of bounds for type 'int [4]'
 
-Execution stopped here in main() in illegal_nested_array_assignment.c at line 3:
+Execution stopped here in main() in run_time/illegal_nested_array_assignment.c at line 3:
 
 int main(int argc, char **argv) {
 	int a[] = {1,2,3,4};

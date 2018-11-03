@@ -1,12 +1,12 @@
 =================================================================
 
-illegal_malloc_array_index.c:5 runtime error - malloc buffer overflow
+run_time/illegal_malloc_array_index.c:5 runtime error - malloc buffer overflow
 
 Explanation: access past the end of malloc'ed memory.
 Make sure you have allocated enough memory for the size of your struct/array.
 A common error is to use the size of a pointer instead of the size of the struct or array.
 
-Execution stopped here in main() in illegal_malloc_array_index.c at line 5:
+Execution stopped here in main() in run_time/illegal_malloc_array_index.c at line 5:
 
 int main(int argc, char **argv) {
 	int *a = malloc(1000 * sizeof (int));

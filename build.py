@@ -3,7 +3,8 @@
 source_files = """
 	header.py
 	compile.py
-	explain.py
+	explain_compile_time_error.py
+	help50.py
 	start_gdb.py
 	drive_gdb.py
 	main.py

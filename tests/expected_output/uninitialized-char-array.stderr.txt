@@ -1,7 +1,7 @@
 
 Runtime error: uninitialized variable accessed.
 
-Execution stopped here in main() in uninitialized-char-array.c at line 7:
+Execution stopped here in main() in run_time/uninitialized-char-array.c at line 7:
 
 int main(int argc, char **argv) {
 	char input[2][10];

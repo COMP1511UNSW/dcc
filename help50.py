@@ -1,62 +1,19 @@
-#
-# some extra helpers 
+import re
 
-def help_dcc(lines):
-	# $ clang foo.c
-	# /tmp/foo-1ce1b9.o: In function `main':
-	# foo.c:5:19: warning: format specifies type 'int *' but the argument has type 'int' [-Wformat]
-	#	 printf("%d\n", "hello!");
-	#			 ~~		^~~~~~~~
-	#			 %s
-	# TODO: pattern match on argument's type
-	matches = match(r"format specifies type '(?P<type>int|double) \*' but the argument has type '(?P=type)'", lines[0])
-	if matches:
-		argument = caret_extract(lines[1:3])
-		if argument and re.match(r'^[a-zA-Z]', argument):
-			response = [
-				"Perhaps you have forgotten an `&` before the argument `{}` on line {} of `{}`.".format(argument, matches.line, matches.file)
-			]
-			if len(lines) >= 4 and re.search(r"%", lines[3]):
-				return (lines[0:4], response)
-			return (lines[0:3], response)
-	# $ clang foo.c
-	# /tmp/foo-1ce1b9.o: In function `main':
-	# foo.c:5:19: error: format specifies type 'int' but the argument has type 'char *' [-Werror,-Wformat]
-	#	 printf("%d\n", "hello!");
-	#			 ~~		^~~~~~~~
-	#			 %s
-	# TODO: pattern match on argument's type
-	matches = match(r"format specifies type '[^:]+' but the argument has type '[^:]+'", lines[0])
-	if matches:
-		response = [
-			"Be sure to use the correct format code (e.g., `%d` for integers, `%lf` for floating-point values) in your format string on line {} of `{}`.".format(matches.line, matches.file)
-		]
-		if len(lines) >= 3 and re.search(r"\^", lines[2]):
-			if len(lines) >= 4 and re.search(r"%", lines[3]):
-				return (lines[0:4], response)
-			return (lines[0:3], response)
-		return (lines[0:1], response)
-	# $ clang foo.c
-	# /usr/bin/../lib/gcc/x86_64-linux-gnu/6.3.0/../../../x86_64-linux-gnu/crt1.o: In function `_start':
-	# (.text+0x20): undefined reference to `main'
-	# clang: error: linker command failed with exit code 1 (use -v to see invocation)
-	if lines[1:] and re.search(r"undefined reference to `main'", lines[1]):
-		response = [
-			"Your program does not contain a main function - a C program must contain a main function."
-		]
-		return (lines, response)
-	# $ clang a.c b.c
-	# /tmp/b-9a488a.o: In function `main':
-	# /home/andrewt/b.c:1: multiple definition of `main'
-	# /tmp/a-583396.o:/home/andrewt/a.c:1: first defined here
-	# clang: error: linker command failed with exit code 1 (use -v to see invocation)
-	if lines[1:] and re.search(r"multiple definition of `main'", lines[1]):
-		response = [
-			"Your program contains more than one main function - a C program can only contain one main function."
-		]
-		return (lines, response)
-
-#
+def help_cs50(lines):
+	r = help(lines)
+	if not r:
+		return
+	(matched_lines, explanation) = r
+	modified_explanation = []
+	for e in explanation:
+		if 'cs50' in e or 'not quite sure' in e.lower():
+			continue
+		me = e.replace("`clang`", 'the compiler')
+		modified_explanation.append(me)
+	if modified_explanation:
+		return (matched_lines, modified_explanation) 
+	
 # following code from
 # https://github.com/cs50/help50/blob/master/helpers/clang.py
 from collections import namedtuple

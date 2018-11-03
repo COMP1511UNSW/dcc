@@ -2,7 +2,7 @@
 
 int main(void) {
     int *p = malloc(sizeof (int *));
-    *p = p;
+    *p = 1;
     free(p);
-    p = *p;
+    return *p;
 }

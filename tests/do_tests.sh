@@ -18,7 +18,7 @@ dcc="${1:-../dcc}"
 
 mkdir -p expected_output
 test_failed=0
-for src_file in *.c
+for src_file in compile_time/*.c run_time/*.c
 do
 	expected_stderr_file="$tests_dir/expected_output/`basename $src_file .c`.stderr.txt"
 	dcc_flags=

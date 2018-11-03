@@ -42,30 +42,26 @@ def compile():
 	if args.embed_source:
 		wrapper_source = wrapper_source.replace('__DCC_EMBED_SOURCE__', '1')
 		wrapper_source = source_for_embedded_tarfile(args) + wrapper_source
-	
-	# First run	 with -O enabled for better compile-time warnings 
-	command = [args.c_compiler, '-O', '-Wall']  + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
-	if args.colorize_output:
-		command += ['-fcolor-diagnostics']
-	if args.debug:
-		print(" ".join(command), file=sys.stderr)
-	process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
-	# workaround for  https://github.com/android-ndk/ndk/issues/184
-	if "undefined reference to `__" in process.stdout:
-			sanitizer_args = [c for c in sanitizer_args if not c in ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']]
-			command = [args.c_compiler, '-O', '-Wall']  + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
-			if args.debug:
-				print("undefined reference to `__mulodi4'", file=sys.stderr)
-				print("recompiling", " ".join(command), file=sys.stderr)
-			process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+# are there still cases where clang produces better warnings for -O??
+#	# First run	 with -O enabled for better compile-time warnings 
+#	command = [args.c_compiler, '-O', '-Wall']  + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
+#	if args.colorize_output:
+#		command += ['-fcolor-diagnostics']
+#	if args.debug:
+#		print(" ".join(command), file=sys.stderr)
+#	process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+#
+#	# workaround for  https://github.com/android-ndk/ndk/issues/184
+#	if "undefined reference to `__" in process.stdout:
+#			sanitizer_args = [c for c in sanitizer_args if not c in ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']]
+#			command = [args.c_compiler, '-O', '-Wall']  + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
+#			if args.debug:
+#				print("undefined reference to `__mulodi4'", file=sys.stderr)
+#				print("recompiling", " ".join(command), file=sys.stderr)
+#			process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
-	if process.stdout:
-		explain_compiler_output(process.stdout, args)
-	if process.returncode:
-		sys.exit(process.returncode)
 
-	# run a second time without -O for better debugging code
 	command = [args.c_compiler, '-w'] + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
 	if args.incremental_compilation:
 		if args.debug:
@@ -88,7 +84,16 @@ def compile():
 			print("undefined reference to `__mulodi4'", file=sys.stderr)
 			print("recompiling", " ".join(command), file=sys.stderr)
 		process = subprocess.run(command, input=wrapper_source, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-	print(process.stdout, end='', file=sys.stderr)
+
+	if process.stdout:
+		if args.print_explanations:
+			explain_compiler_output(process.stdout, colorize_output=args.colorize_output)
+		else:
+			print(process.stdout, end='', file=sys.stderr)
+			
+	if process.returncode:
+		sys.exit(process.returncode)
+		
 	sys.exit(process.returncode)
 	
 class Args(object):	
@@ -224,62 +229,6 @@ def add_tar_file(tar, pathname, contents):
 	file_info = tarfile.TarInfo(pathname)
 	file_info.size = len(bytes)
 	tar.addfile(file_info, file_buffer)
-	
-def explain_compiler_output(output, args):
-	# remove any ANSI codes
-	# http://stackoverflow.com/a/14693789
-	colourless_output = re.sub(r'\x1b[^m]*m', '', output)
-	lines = output.splitlines()
-	colourless_lines = colourless_output.splitlines()
-	errors_explained = 0
-	try:
-		i = 0
-		explanation_made = {}
-		last_explanation_file_line = ''
-		while i < len(lines) and args.print_explanations:
-			matching_error_messages = help_dcc(colourless_lines[i:]) or help(colourless_lines[i:])
-			if not matching_error_messages: 
-				break
-			matched_error_messages, explanation = matching_error_messages
-			# ignore some I don't know explanations
-			if re.match(r'not quite sure', explanation[0], flags=re.I):
-				break
-			explanation = "\n ".join([e for e in explanation if 'cs50' not in e])
-			explanation = explanation.replace("`clang`", 'the compiler')
-			# Don't repeat explanations
-			n_explained_lines = len(matched_error_messages)
-			# some help messages miss the caret
-			if (n_explained_lines == 1 or  n_explained_lines == 2) and len(lines) > i + 2 and has_caret(colourless_lines[i+2]):
-				n_explained_lines = 3
-			if len(lines) > i + n_explained_lines and re.match(r'^.*note:', colourless_lines[i + n_explained_lines]):
-				#print('note line detcted')
-				n_explained_lines += 1
-			e = re.sub('line.*', '', explanation, flags=re.I)
-			if e not in explanation_made:
-				explanation_made[e] = 1
-				m = re.match(r'^([^:]+:\d+):', colourless_lines[i])
-				if m:
-					if m.group(1) == last_explanation_file_line:
-						# stop if there are two errors for one line - the second is probably wrong
-						break
-					last_explanation_file_line = m.group(1)
-				print("\n".join(lines[i:i+n_explained_lines]),	file=sys.stderr)
-				if args.colorize_output:
-					print("\033[0m\033[34mEXPLANATION:\033[0m", explanation+'\n', file=sys.stderr)
-				else:
-					print("EXPLANATION:", explanation+'\n', file=sys.stderr)
-				if 'warning:' not in lines[i]:
-					errors_explained += 1
-			i += n_explained_lines
-			if errors_explained >= 3:
-				break
-		if not errors_explained:
-			sys.stderr.write('\n'.join(lines[i:])+"\n")
-	except Exception:
-		etype, evalue, etraceback = sys.exc_info()
-		eformatted = "\n".join(traceback.format_exception_only(etype, evalue))
-		print("%s: internal error: %s" % (os.path.basename(sys.argv[0]), eformatted), file=sys.stderr)
-		sys.stderr.write(output)
 	
 def search_path(program):
 	for path in os.environ["PATH"].split(os.pathsep):

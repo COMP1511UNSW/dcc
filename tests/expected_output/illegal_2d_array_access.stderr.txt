@@ -1,12 +1,12 @@
 =================================================================
 
-illegal_2d_array_access.c:4 runtime error - stack buffer overflow
+run_time/illegal_2d_array_access.c:4 runtime error - stack buffer overflow
 
 Explanation: access past the end of a local variable.
 Make sure the size of your array is correct.
 Make sure your array indices are correct.
 
-Execution stopped here in twod(b=0x<deleted-hexadecimal-constant>) in illegal_2d_array_access.c at line 4:
+Execution stopped here in twod(b=0x<deleted-hexadecimal-constant>) in run_time/illegal_2d_array_access.c at line 4:
 
 
 void twod(int b[5][4]) {

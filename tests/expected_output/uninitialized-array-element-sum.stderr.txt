@@ -1,19 +1,12 @@
-uninitialized-array-element-sum.c:9:5: warning: implicitly declaring library function 'printf' with type 'int (const char *, ...)' [-Wimplicit-function-declaration]
-                printf("%d\n", sum);
-                ^
-uninitialized-array-element-sum.c:9:5: note: include the header <stdio.h> or explicitly provide a declaration for 'printf'
-EXPLANATION: Did you forget to `#include <stdio.h>` (in which `printf` is declared) atop your file?
-
-1 warning generated.
 
 Runtime error: uninitialized variable accessed.
 
-Execution stopped here in main() in uninitialized-array-element-sum.c at line 8:
+Execution stopped here in main() in run_time/uninitialized-array-element-sum.c at line 8:
 
   	for (i = 0; i < 1000; i++)
   		sum += a[i];
 -->	if (sum < 1000) {
-  		printf("%d\n", sum);
+  		return sum;
   	}
 
 Values when execution stopped:

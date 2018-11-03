@@ -50,6 +50,7 @@ def explain_error():
 			else:
 				report = "illegal array, pointer or other operation"
 			print('runtime error -', report, file=output_stream)
+
 			if "malloc buffer overflow" in report:
 				print("""
 Explanation: access past the end of malloc'ed memory.
@@ -62,17 +63,20 @@ Explanation: access past the end of a local variable.
 Make sure the size of your array is correct.
 Make sure your array indices are correct.
 """, file=output_stream)
-			elif "after use" in report:
+			elif "use after" in report:
 				print("\nExplanation: access to memory that has already been freed.\n", file=output_stream)
 			elif "double free" in report:
 				print("\nExplanation: attempt to free memory that has already been freed.\n", file=output_stream)
+
 		elif os.environ.get('DCC_SANITIZER', '') == 'memory':
 			if loc:
 				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
 			print("runtime error - uninitialized variable used", file=output_stream)
+
 		if loc:
 			print(explain_location(loc), file=output_stream)
 			print(relevant_variables(loc.surrounding_source(clean=True)), file=output_stream)
+
 		gdb.flush(gdb.STDOUT)
 		gdb.flush(gdb.STDERR)
 	except gdb.error as e:

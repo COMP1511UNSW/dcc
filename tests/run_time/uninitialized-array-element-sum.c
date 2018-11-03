@@ -6,6 +6,6 @@ int main(int argc, char **argv) {
   	for (i = 0; i < 1000; i++)
   		sum += a[i];
   	if (sum < 1000) {
-  		printf("%d\n", sum);
+  		return sum;
   	}
 }
