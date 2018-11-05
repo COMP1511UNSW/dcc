@@ -55,7 +55,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 
 static void _explain_error(void) {
 	// if a program has exhausted file descriptor then we need to close some to run gdb etc,
-	// so as a precaution we close a pile of file descriptiors which may or may not be open
+	// so as a precaution we close a pile of file descriptors which may or may not be open
 	for (int i = 4; i < 32; i++)
 		close(i);
 		

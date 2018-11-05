@@ -599,7 +599,7 @@ def help(lines):
 	matches = match(r"invalid preprocessing directive", lines[0])
 	if matches:
 		response = [
-			"By \"invalid preprocesing directive\", `clang` means that you've used a preprocessor command on line {} (a command beginning with #) that is not recognized.".format(matches.file)
+			"By \"invalid preprocessing directive\", `clang` means that you've used a preprocessor command on line {} (a command beginning with #) that is not recognized.".format(matches.file)
 		]
 		if len(lines) >= 2:
 			directive = re.search(r"^([^' ]+)", lines[1])
@@ -826,7 +826,7 @@ def help(lines):
 			elif matches.group[0] in ["GetChar", "GetDouble", "GetFloat", "GetInt", "GetLong", "GetLongLong", "GetString"]:
 				response.append("Did you forget to compile with `-lcs50` in order to link against against the CS50 Library, which implements `{}`?".format(matches.group[0]))
 			elif matches.group[0] == "crypt":
-				response.append("Did you forget to compile with -lcrypt in order to link against the crypto library, which implemens `crypt`?")
+				response.append("Did you forget to compile with -lcrypt in order to link against the crypto library, which implements `crypt`?")
 			else:
 				response.append("Did you forget to compile with `-lfoo`, where `foo` is the library that defines `{}`?".format(matches.group[0]))
 		return (lines[0:1], response)
@@ -883,7 +883,7 @@ def help(lines):
 	matches = match(r"unused variable '([^']+)'", lines[0])
 	if matches:
 		response = [
-			"It seems that the variable `{}` (delcared on line {} of `{}`) is never used in your program. Try either removing it altogether or using it.".format(matches.group[0], matches.line, matches.file)
+			"It seems that the variable `{}` (declared on line {} of `{}`) is never used in your program. Try either removing it altogether or using it.".format(matches.group[0], matches.line, matches.file)
 		]
 		return (lines[0:1], response)
 

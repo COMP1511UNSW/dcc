@@ -184,13 +184,13 @@ def process_possible_source_file(pathname, args):
 	# before passing to to compiler?
 	normalized_path = os.path.normpath(pathname)
 	if pathname != normalized_path:
-		if args.debug: print('not embedding source of', pathname, 'becaused normalized path differs:', normalized_path, file=sys.stderr)
+		if args.debug: print('not embedding source of', pathname, 'because normalized path differs:', normalized_path, file=sys.stderr)
 		return
 	if normalized_path.startswith('..'):
-		if args.debug: print('not embedding source of', pathname, 'because contains ..', file=sys.stderr)
+		if args.debug: print('not embedding source of', pathname, 'because it contains ..', file=sys.stderr)
 		return
 	if os.path.isabs(pathname):
-		if args.debug: print('not embedding source of', pathname, 'becaused has absolute path', file=sys.stderr)
+		if args.debug: print('not embedding source of', pathname, 'because it has absolute path', file=sys.stderr)
 		return
 	if pathname in args.source_files:
 		return
