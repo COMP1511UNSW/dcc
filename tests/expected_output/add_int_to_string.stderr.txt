@@ -1,0 +1,18 @@
+[1mcompile_time/add_int_to_string.c:4:17: [0m[0;1;35mwarning: [0m[1madding 'int' to a string does not append to the string [-Wstring-plus-int][0m
+        printf("hello" + argc);
+[0;1;32m               ~~~~~~~~^~~~~~
+[0m[1mcompile_time/add_int_to_string.c:4:17: [0m[0;1;30mnote: [0muse array indexing to silence this warning[0m
+EXPLANATION: Careful, you can't concatenate values and strings in C using the `+` operator, as you seem to be trying to do on line 4 of `compile_time/add_int_to_string.c`.
+ Odds are you want to provide `printf` with a format code for that value and pass that value to `printf` as an argument.
+
+        printf("hello" + argc);
+[0;1;32m                       ^
+[0m[0;32m               &       [     ]
+[0m[1mcompile_time/add_int_to_string.c:4:9: [0m[0;1;35mwarning: [0m[1mformat string is not a string literal (potentially insecure) [-Wformat-security][0m
+        printf("hello" + argc);
+[0;1;32m               ^~~~~~~~~~~~~~
+[0m[1mcompile_time/add_int_to_string.c:4:9: [0m[0;1;30mnote: [0mtreat the string as an argument to avoid this[0m
+        printf("hello" + argc);
+[0;1;32m               ^
+[0m[0;32m               "%s", 
+[0m2 warnings generated.

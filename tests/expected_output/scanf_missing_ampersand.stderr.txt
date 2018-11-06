@@ -1,0 +1,13 @@
+[1mcompile_time/scanf_missing_ampersand.c:5:14: [0m[0;1;35mwarning: [0m[1mformat specifies type 'int *' but the argument has type 'int' [-Wformat][0m
+        scanf("%d", i);
+[0;1;32m               ~~   ^
+EXPLANATION: Perhaps you have forgotten an `&` before the argument `i` on line 5 of `compile_time/scanf_missing_ampersand.c`.
+
+[0m[1mcompile_time/scanf_missing_ampersand.c:5:14: [0m[0;1;35mwarning: [0m[1mvariable 'i' is uninitialized when used here [-Wuninitialized][0m
+        scanf("%d", i);
+[0;1;32m                    ^
+[0m[1mcompile_time/scanf_missing_ampersand.c:4:7: [0m[0;1;30mnote: [0minitialize the variable 'i' to silence this warning[0m
+        int i;
+[0;1;32m             ^
+[0m[0;32m              = 0
+[0m2 warnings generated.
