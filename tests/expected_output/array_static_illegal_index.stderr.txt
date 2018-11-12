@@ -1,10 +1,9 @@
-[1mcompile_time/array_static_illegal_index.c:3:2: [0m[0;1;35mwarning: [0m[1marray index 5 is past the end of the array (which contains 5 elements) [-Warray-bounds][0m
+[1mtests/compile_time/array_static_illegal_index.c:3:2: [0m[0;1;35mwarning: [0m[1marray index 5 is past the end of the array (which contains 5 elements) [-Warray-bounds][0m
         a[5] = 0;
 [0;1;32m        ^ ~
-[0m[1mcompile_time/array_static_illegal_index.c:2:2: [0m[0;1;30mnote: [0marray 'a' declared here[0m
-EXPLANATION: Careful, on line 3 of `compile_time/array_static_illegal_index.c`, it looks like you're trying to access location 5 of `a`, which doesn't exist; `a` isn't that long.
+[0m[1mtests/compile_time/array_static_illegal_index.c:2:2: [0m[0;1;30mnote: [0marray 'a' declared here[0m
+        int a[5];
+[0;1;32m        ^[0m
+EXPLANATION: Careful, on line 3 of `tests/compile_time/array_static_illegal_index.c`, it looks like you're trying to access location 5 of `a`, which doesn't exist; `a` isn't that long.
  Keep in mind that arrays are 0-indexed.
 
-        int a[5];
-[0;1;32m        ^
-[0m1 warning generated.

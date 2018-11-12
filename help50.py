@@ -1,10 +1,16 @@
+#
+# code in this file will be be eventually removed
+# if explanation here is incorrect, it should be moved
+# to explain_compile_time_error.py
+#
+
 import re
 
 def help_cs50(lines):
 	r = help(lines)
 	if not r:
-		return
-	(matched_lines, explanation) = r
+		return None
+	explanation = r[1]
 	modified_explanation = []
 	for e in explanation:
 		if 'cs50' in e or 'not quite sure' in e.lower():
@@ -12,10 +18,12 @@ def help_cs50(lines):
 		me = e.replace("`clang`", 'the compiler')
 		modified_explanation.append(me)
 	if modified_explanation:
-		return (matched_lines, modified_explanation) 
+		return "\n ".join(modified_explanation)
+	return None
 	
 # following code from
 # https://github.com/cs50/help50/blob/master/helpers/clang.py
+
 from collections import namedtuple
 
 def help(lines):

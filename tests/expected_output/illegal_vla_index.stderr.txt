@@ -1,6 +1,6 @@
-run_time/illegal_vla_index.c:3:2: runtime error: index 1000 out of bounds for type 'int [600 + argc]'
+tests/run_time/illegal_vla_index.c:3:2: runtime error: index 1000 out of bounds for type 'int [600 + argc]'
 
-Execution stopped here in main() in run_time/illegal_vla_index.c at line 3:
+Execution stopped here in main() in tests/run_time/illegal_vla_index.c at line 3:
 
 int main(int argc, char **argv) {
 	int a[600+argc];

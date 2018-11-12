@@ -1,6 +1,6 @@
 import io, os, platform, re, subprocess, sys, tarfile,  traceback
 
-EXTRA_C_COMPILER_ARGS = "-std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+EXTRA_C_COMPILER_ARGS = " -fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
 
 #
@@ -62,7 +62,7 @@ def compile():
 #			process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
 
-	command = [args.c_compiler, '-w'] + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
+	command = [args.c_compiler] + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
 	if args.incremental_compilation:
 		if args.debug:
 			print(" ".join(command), file=sys.stderr)
@@ -87,7 +87,7 @@ def compile():
 
 	if process.stdout:
 		if args.print_explanations:
-			explain_compiler_output(process.stdout, colorize_output=args.colorize_output)
+			explain_compiler_output(process.stdout, args)
 		else:
 			print(process.stdout, end='', file=sys.stderr)
 			
@@ -108,6 +108,7 @@ class Args(object):
 #	 linking_object_files = False
 	user_supplied_compiler_args = []
 	print_explanations = True
+	max_explanations = 3
 	embed_source = True	
 	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 	debug = int(os.environ.get('DCC_DEBUG', '0'))

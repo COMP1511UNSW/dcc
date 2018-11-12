@@ -47,6 +47,7 @@ def explain_error():
 			if report:
 				report = report.replace('-', ' ')
 				report = report.replace('heap', 'malloc')
+				report = report.replace('null deref', 'NULL pointer derefenced')
 			else:
 				report = "illegal array, pointer or other operation"
 			print('runtime error -', report, file=output_stream)
@@ -67,6 +68,8 @@ Make sure your array indices are correct.
 				print("\nExplanation: access to memory that has already been freed.\n", file=output_stream)
 			elif "double free" in report:
 				print("\nExplanation: attempt to free memory that has already been freed.\n", file=output_stream)
+			elif "null" in report.lower():
+				print("\nExplanation: attempt to access value using a pointer which is NULL.\n", file=output_stream)
 
 		elif os.environ.get('DCC_SANITIZER', '') == 'memory':
 			if loc:

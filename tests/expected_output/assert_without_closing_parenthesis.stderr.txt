@@ -1,0 +1,17 @@
+[1mtests/extracted_compile_time_tests/assert_without_closing_parenthesis.c:5:2: [0m[0;1;31merror: [0m[1munterminated function-like macro invocation[0m
+        assert(argc == 1;
+[0;1;32m        ^
+[0m[1m/usr/include/assert.h:107:11: [0m[0;1;30mnote: [0mmacro 'assert' defined here[0m
+#  define assert(expr)                                                  \
+[0;1;32m          ^[0m
+EXPLANATION: there is probably a missing closing bracket on the assert on 5 of tests/extracted_compile_time_tests/assert_without_closing_parenthesis.c
+[0m[1mtests/extracted_compile_time_tests/assert_without_closing_parenthesis.c:6:2: [0m[0;1;31merror: [0m[1mexpected '}'[0m
+}
+[0;1;32m ^
+[0m[1m/usr/include/assert.h:107:11: [0m[0;1;30mnote: [0mmacro 'assert' defined here[0m
+#  define assert(expr)                                                  \
+[0;1;32m          ^
+[0m[1mtests/extracted_compile_time_tests/assert_without_closing_parenthesis.c:4:34: [0m[0;1;30mnote: [0mto match this '{'[0m
+int main(int argc, char *argv[]) {
+[0;1;32m                                 ^[0m
+EXPLANATION: Make sure that all opening brace symbols `{` are matched with a closing brace `}`.

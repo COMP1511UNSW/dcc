@@ -1,6 +1,5 @@
-[1mcompile_time/main_wrong_type.c:1:5: [0m[0;1;31merror: [0m[1msecond parameter of 'main' (argument array) must be of type 'char **'[0m
+[1mtests/compile_time/main_wrong_type.c:1:5: [0m[0;1;31merror: [0m[1msecond parameter of 'main' (argument array) must be of type 'char **'[0m
 int main(int argc, int argv[]) {
-[0;1;32m    ^
+[0;1;32m    ^[0m
 EXPLANATION: Looks like your declaration of `main` isn't quite right.
  Be sure its second parameter is `char *argv[]` or some equivalent!
-

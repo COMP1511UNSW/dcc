@@ -1,6 +1,6 @@
-run_time/mod_zero.c:4:20: runtime error: division by zero
+tests/run_time/mod_zero.c:4:20: runtime error: division by zero
 
-Execution stopped here in main() in run_time/mod_zero.c at line 4:
+Execution stopped here in main() in tests/run_time/mod_zero.c at line 4:
 
 
 int main(int argc, char **argv) { 

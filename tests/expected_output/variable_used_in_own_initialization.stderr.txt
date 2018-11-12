@@ -1,7 +1,6 @@
-[1mcompile_time/variable_used_in_own_initialization.c:2:10: [0m[0;1;35mwarning: [0m[1mvariable 'x' is uninitialized when used within its own initialization [-Wuninitialized][0m
+[1mtests/compile_time/variable_used_in_own_initialization.c:2:10: [0m[0;1;35mwarning: [0m[1mvariable 'x' is uninitialized when used within its own initialization [-Wuninitialized][0m
         int x = x + 1;
-[0;1;32m            ~   ^
-EXPLANATION: Looks like you have `x` on both the left- and right-hand side of the `=` on line 2 of `compile_time/variable_used_in_own_initialization.c`, but `x` doesn't yet have a value.
+[0;1;32m            ~   ^[0m
+EXPLANATION: Looks like you have `x` on both the left- and right-hand side of the `=` on line 2 of `tests/compile_time/variable_used_in_own_initialization.c`, but `x` doesn't yet have a value.
  Be sure not to initialize `x` with itself.
 
-[0m1 warning generated.

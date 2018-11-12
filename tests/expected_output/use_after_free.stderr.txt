@@ -1,10 +1,10 @@
 =================================================================
 
-run_time/use_after_free.c:7 runtime error - malloc use after free
+tests/run_time/use_after_free.c:7 runtime error - malloc use after free
 
 Explanation: access to memory that has already been freed.
 
-Execution stopped here in main() in run_time/use_after_free.c at line 7:
+Execution stopped here in main() in tests/run_time/use_after_free.c at line 7:
 
     *p = 1;
     free(p);
