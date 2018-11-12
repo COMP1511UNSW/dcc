@@ -2,7 +2,7 @@
 
 tests/run_time/illegal_2d_array_access.c:4 runtime error - stack buffer overflow
 
-Explanation: access past the end of a local variable.
+dcc explanation: access past the end of a local variable.
 Make sure the size of your array is correct.
 Make sure your array indices are correct.
 

@@ -54,22 +54,22 @@ def explain_error():
 
 			if "malloc buffer overflow" in report:
 				print("""
-Explanation: access past the end of malloc'ed memory.
+dcc explanation: access past the end of malloc'ed memory.
 Make sure you have allocated enough memory for the size of your struct/array.
 A common error is to use the size of a pointer instead of the size of the struct or array.
 """, file=output_stream)
 			if "stack buffer overflow" in report:
 				print("""
-Explanation: access past the end of a local variable.
+dcc explanation: access past the end of a local variable.
 Make sure the size of your array is correct.
 Make sure your array indices are correct.
 """, file=output_stream)
 			elif "use after" in report:
-				print("\nExplanation: access to memory that has already been freed.\n", file=output_stream)
+				print("\ndcc explanation: access to memory that has already been freed.\n", file=output_stream)
 			elif "double free" in report:
-				print("\nExplanation: attempt to free memory that has already been freed.\n", file=output_stream)
+				print("\ndcc explanation: attempt to free memory that has already been freed.\n", file=output_stream)
 			elif "null" in report.lower():
-				print("\nExplanation: attempt to access value using a pointer which is NULL.\n", file=output_stream)
+				print("\ndcc explanation: attempt to access value using a pointer which is NULL.\n", file=output_stream)
 
 		elif os.environ.get('DCC_SANITIZER', '') == 'memory':
 			if loc:

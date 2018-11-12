@@ -4,4 +4,4 @@
 [0m[1m/usr/include/assert.h:108:3: [0m[0;1;30mnote: [0mexpanded from macro 'assert'[0m
   ((void) sizeof ((expr) ? 1 : 0), __extension__ ({                     \
 [0;1;32m  ^[0m
-EXPLANATION: there is probably a syntax error such as missing semi-colon on line 5 of tests/extracted_compile_time_tests/missing_semicolon_line_before_assert.c or an earlier line
+dcc explanation: there is probably a syntax error such as missing semi-colon on line 5 of tests/extracted_compile_time_tests/missing_semicolon_line_before_assert.c or an earlier line

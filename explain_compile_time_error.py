@@ -66,7 +66,7 @@ def explain_compiler_output(output, args):
 		if message.type == 'error':
 			errors_explained += 1
 
-		prefix = ANSI_BLUE + "EXPLANATION:" + ANSI_DEFAULT if args.colorize_output else "EXPLANATION:"
+		prefix = ANSI_BLUE + "dcc explanation:" + ANSI_DEFAULT if args.colorize_output else "dcc explanation:"
 		print(prefix, explanation_text, file=sys.stderr)
 			
 		if  explanation and explanation.no_following_explanations:

@@ -3,7 +3,7 @@ ASAN:DEADLYSIGNAL
 
 tests/run_time/illegal_argv_index.c:4 runtime error - NULL pointer derefenced
 
-Explanation: attempt to access value using a pointer which is NULL.
+dcc explanation: attempt to access value using a pointer which is NULL.
 
 Execution stopped here in main() in tests/run_time/illegal_argv_index.c at line 4:
 

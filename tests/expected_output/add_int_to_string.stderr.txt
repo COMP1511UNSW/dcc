@@ -5,6 +5,6 @@
         printf("hello" + argc);
 [0;1;32m                       ^
 [0m[0;32m               &       [     ][0m
-EXPLANATION: Careful, you can't concatenate values and strings in C using the `+` operator, as you seem to be trying to do on line 4 of `tests/compile_time/add_int_to_string.c`.
+dcc explanation: Careful, you can't concatenate values and strings in C using the `+` operator, as you seem to be trying to do on line 4 of `tests/compile_time/add_int_to_string.c`.
  Odds are you want to provide `printf` with a format code for that value and pass that value to `printf` as an argument.
 

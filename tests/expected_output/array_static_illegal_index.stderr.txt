@@ -4,6 +4,6 @@
 [0m[1mtests/compile_time/array_static_illegal_index.c:2:2: [0m[0;1;30mnote: [0marray 'a' declared here[0m
         int a[5];
 [0;1;32m        ^[0m
-EXPLANATION: Careful, on line 3 of `tests/compile_time/array_static_illegal_index.c`, it looks like you're trying to access location 5 of `a`, which doesn't exist; `a` isn't that long.
+dcc explanation: Careful, on line 3 of `tests/compile_time/array_static_illegal_index.c`, it looks like you're trying to access location 5 of `a`, which doesn't exist; `a` isn't that long.
  Keep in mind that arrays are 0-indexed.
 

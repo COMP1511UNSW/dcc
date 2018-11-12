@@ -2,7 +2,7 @@
 
 tests/run_time/illegal_malloc_array_index.c:5 runtime error - malloc buffer overflow
 
-Explanation: access past the end of malloc'ed memory.
+dcc explanation: access past the end of malloc'ed memory.
 Make sure you have allocated enough memory for the size of your struct/array.
 A common error is to use the size of a pointer instead of the size of the struct or array.
 

@@ -10,4 +10,4 @@
 [0m[1mtests/extracted_compile_time_tests/format_type_mismatch.c:4:16: [0m[0;1;30mnote: [0mto match this '{'[0m
 int main(void) {
 [0;1;32m               ^[0m
-EXPLANATION: Make sure that all opening brace symbols `{` are matched with a closing brace `}`.
+dcc explanation: Make sure that all opening brace symbols `{` are matched with a closing brace `}`.

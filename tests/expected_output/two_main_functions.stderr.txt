@@ -1,5 +1,5 @@
 /usr/bin/ld: : in function `main':
 /home/andrewt/w/dcc/src/tests/extracted_compile_time_tests/two_main_functions.c:4: multiple definition of `main'; :/home/andrewt/w/dcc/src/tests/extracted_compile_time_tests/two_main_functions.c:4: first defined here
 clang: [0;1;31merror: [0mlinker command failed with exit code 1 (use -v to see invocation)[0m[0m
-EXPLANATION: Your program contains more than one main function - a C program can only contain one main function.
+dcc explanation: Your program contains more than one main function - a C program can only contain one main function.
 

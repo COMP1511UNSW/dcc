@@ -2,7 +2,7 @@
 
 tests/run_time/double_free.c:6 runtime error - double free
 
-Explanation: attempt to free memory that has already been freed.
+dcc explanation: attempt to free memory that has already been freed.
 
 Execution stopped here in main() in tests/run_time/double_free.c at line 6:
 
