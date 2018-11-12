@@ -92,7 +92,7 @@ class Message():
 	text_without_ansi_codes = []
 	note = []
 	note_without_ansi_codes = []
-	hightlighted_word = ''
+	highlighted_word = ''
 	
 	def is_same_line(self, message):
 		return message and (message.file, message.line_number) == (self.file, self.line_number)
@@ -146,7 +146,7 @@ def get_next_message(lines):
 			index = colorless_next_line.index("^")
 			previous_line = e.text_without_ansi_codes[-1]
 			m = re.match(r"^\w*", previous_line[index:])
-			e.hightlighted_word = m.group(0)
+			e.highlighted_word = m.group(0)
 			
 		e.text.append(next_line)
 		e.text_without_ansi_codes.append(colorless_next_line)
@@ -248,7 +248,7 @@ int main(void) {
 		
 		regex = r"format specifies type '(?P<type>int|double) \*' but the argument has type '(?P=type)'",
 			
-		explanation = "Perhaps you have forgotten an '&' before {hightlighted_word} on line {line_number}.",
+		explanation = "Perhaps you have forgotten an '&' before {highlighted_word} on line {line_number}.",
 		
 		reproduce = """
 #include <stdio.h>
@@ -285,7 +285,7 @@ int main(void) {
 		
 		explanation = "there is probably a syntax error such as missing semi-colon on line {int(line_number) - 1} of {file} or an earlier line",
 		
-		precondition = lambda message, match: message.hightlighted_word == 'assert',
+		precondition = lambda message, match: message.highlighted_word == 'assert',
 		
 		reproduce = """
 #include <assert.h>
@@ -304,7 +304,7 @@ int main(void) {
 		
 		explanation = "there is probably a missing closing bracket on the assert on {line_number} of {file}",
 		
-		precondition = lambda message, match: message.hightlighted_word == 'assert',
+		precondition = lambda message, match: message.highlighted_word == 'assert',
 		
 		no_following_explanations = True,
 
@@ -319,6 +319,7 @@ int main(int argc, char *argv[]) {
 """
 	),
 ]
+
 
 if __name__ == '__main__':
 	if sys.argv[1:] and sys.argv[1] == "--create_test_files":
