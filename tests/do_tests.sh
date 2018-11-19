@@ -24,11 +24,16 @@ rm -f *.c
 python3 ../../explain_compiler_output.py --create_test_files
 cd ../..
 
+clang_version=$(clang -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
+platform=$(clang -v 2>&1|sed '1d;s/.* //;2q')
+
+expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
+mkdir -p $expected_output_dir
 test_failed=0
 for src_file in tests/extracted_compile_time_tests/*.c tests/compile_time/*.c tests/run_time/*.c
 do
 	rm -f a.out
-	expected_stderr_file="$tests_dir/expected_output/`basename $src_file .c`.stderr.txt"
+	expected_stderr_file="$expected_output_dir/`basename $src_file .c`.stderr.txt"
 	dcc_flags=
 	eval `egrep '^//\w+=' "$src_file"|sed 's/..//'`
 	"$dcc" $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null

@@ -1,0 +1,13 @@
+
+Execution terminated by signal 11
+Execution stopped here in main() in tests/run_time/write_null_stream.c at line 4:
+
+
+int main(int argc, char **argv) { 
+-->	fprintf(NULL, "Hello world\n");
+}
+
+Values when execution stopped:
+
+argc =  <deleted-value>
+
