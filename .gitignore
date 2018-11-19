@@ -5,3 +5,5 @@ core
 *.orig
 tests/extracted_compile_time_tests
 tmp*
+embedded_source.py
+__pycache__

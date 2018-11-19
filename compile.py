@@ -1,12 +1,18 @@
-import io, os, platform, re, subprocess, sys, tarfile,  traceback
+import io, os, platform, re, subprocess, sys, tarfile
+
+from explain_compiler_output import explain_compiler_output 
+from embedded_source import embedded_source_main_wrapper_c
+from embedded_source import embedded_source_start_gdb_py
+from embedded_source import embedded_source_drive_gdb_py
 
 EXTRA_C_COMPILER_ARGS = " -fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
+VERSION = 2.0
 
 #
 # Compile the user's program adding some C code
 #
-def compile():
+def compile(debug=False):
 	os.environ['PATH'] = os.path.dirname(os.path.realpath(sys.argv[0])) + ':/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '') 
 	args = parse_args(sys.argv[1:])
 
@@ -18,6 +24,46 @@ def compile():
 			print("%s: uninitialized value checking not supported on 32-bit architectures", file=sys.stderr)
 			sys.exit(1)
 			
+
+	clang_version = None
+	try:
+		clang_version = subprocess.check_output(["clang", "--version"], universal_newlines=True)
+		if debug:
+			print("clang version:", clang_version)
+		m = re.search("clang version ([0-9])+", clang_version, flags=re.I)
+		if m is not None:
+			clang_version = int(m.group(1))
+	except OSError as e:
+		if debug:
+			print(e)
+
+	if not clang_version:
+		print("Can not get clang version", file=sys.stderr)
+		sys.exit(1)
+
+	if args.which_sanitizer == "address" and platform.architecture()[0][0:2] == '32':
+		libc_version = None
+		try:
+			libc_version = subprocess.check_output(["ldd", "--version"]).decode("ascii")
+			if debug:
+				print("libc version:", libc_version)
+			m = re.search("([0-9]\.[0-9]+)", libc_version)
+			if m is not None:
+				libc_version = float(m.group(1))
+			else:
+				libc_version = None
+		except Exception as e:
+			if debug:
+				print(e)
+
+		if clang_version and libc_version and clang_version <= 6 and libc_version >= 2.27:
+			if debug:
+				print("incompatible clang+libc with ASan, disabling")
+			print("NOTE: ASan is incompatible with this system; as such, " \
+				  "dcc will *not* detect errors such as accessing an invalid array index.", file=sys.stderr)
+			print("[We are working to fix this ASAP]", file=sys.stderr)
+
+			sanitizer_args = []
 	dcc_path = get_my_path()
 	global colorize_output
 	wrapper_source = embedded_source_main_wrapper_c
@@ -155,6 +201,9 @@ def parse_arg(arg, next_arg, args):
 		args.embed_source = True
 	elif arg == '--no_embed_source':
 		args.embed_source = False
+	elif arg == '-v':
+		print('dcc version', VERSION)
+		sys.exit(0)
 	else:
 		parse_clang_arg(arg, next_arg, args)
 		
@@ -236,7 +285,3 @@ def search_path(program):
 		full_path = os.path.join(path, program)
 		if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
 			return full_path
-
-embedded_source_main_wrapper_c = "this definition is for debugging - it will be over-written"
-
-embedded_source_run_gdb_py = "this definition is for debugging - it will be over-written"

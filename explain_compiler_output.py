@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+
 import re, sys
+from help_cs50 import help_cs50
 
 ANSI_DEFAULT = "\033[0m"
 ANSI_BLUE = ANSI_DEFAULT + "\033[34m"

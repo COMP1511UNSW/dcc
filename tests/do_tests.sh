@@ -21,7 +21,7 @@ dcc="${1:-./dcc}"
 mkdir -p extracted_compile_time_tests
 cd extracted_compile_time_tests || exit
 rm -f *.c
-python3 ../../explain_compile_time_error.py --create_test_files
+python3 ../../explain_compiler_output.py --create_test_files
 cd ../..
 
 test_failed=0
