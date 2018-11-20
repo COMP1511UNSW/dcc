@@ -1,12 +1,13 @@
 import io, os, platform, re, subprocess, sys, tarfile
 
+from version import VERSION 
 from explain_compiler_output import explain_compiler_output 
 from embedded_source import embedded_source_main_wrapper_c, embedded_source_start_gdb_py, embedded_source_drive_gdb_py, embedded_source_watch_valgrind_py
 
 EXTRA_C_COMPILER_ARGS = " -fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
 CLANG_LIB_DIR="/usr/lib/clang/{clang_version}/lib/linux"
-VERSION = 2.0
+
 
 #
 # Compile the user's program adding some C code
