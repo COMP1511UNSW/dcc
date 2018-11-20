@@ -1,4 +1,4 @@
-import collections, os, re, sys, signal, traceback
+import collections, os, re, sys, signal, tempfile, traceback
 #
 # Code below is executed from gdb.
 # It prints details of the program state likely to be of interest to
@@ -14,74 +14,11 @@ def drive_gdb():
 	global colorize_output
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
 	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
-	explain_error()
-	gdb_execute('call (void)_exit(1)')
-	gdb_execute('quit')
-	kill_program1()
-	
-def explain_error():
-	#subprocess.call("echo explain_error_gdb.py starting >/dev/tty", shell=True)
-	debug_print(1, 'explain_error() starting')
-	pid = None
-	# file descriptor 3 is a dup of stderr (see below)
-	# stdout & stderr have been diverted to /dev/null
+	signal.signal(signal.SIGINT, interrupt_handler)
 	output_stream = os.fdopen(3, "w")
 	try:
-		signal.signal(signal.SIGINT, interrupt_handler)
-		pid = int(os.environ.get('DCC_PID', 0))
-		if 'DCC_VALGRIND_ERROR' in os.environ:
-			debug_print(1, 'attaching gdb to valgrind', pid)
-			gdb.execute('target remote | vgdb --pid=%d' % pid)
-		else:
-			debug_print(1, 'attaching gdb to ', pid)
-			gdb.execute('attach %s' % pid)
-		print(file=output_stream)
-		loc = gdb_set_frame()
-		signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
-		if signal_number != signal.SIGABRT:
-			 print(explain_signal(signal_number), file=output_stream)
-		elif 'DCC_ASAN_ERROR' in os.environ:
-			if loc:
-				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
-			report = os.environ.get('DCC_ASAN_ERROR')
-			if report:
-				report = report.replace('-', ' ')
-				report = report.replace('heap', 'malloc')
-				report = report.replace('null deref', 'NULL pointer derefenced')
-			else:
-				report = "illegal array, pointer or other operation"
-			print('runtime error -', report, file=output_stream)
-
-			if "malloc buffer overflow" in report:
-				print("""
-dcc explanation: access past the end of malloc'ed memory.
-Make sure you have allocated enough memory for the size of your struct/array.
-A common error is to use the size of a pointer instead of the size of the struct or array.
-""", file=output_stream)
-			if "stack buffer overflow" in report:
-				print("""
-dcc explanation: access past the end of a local variable.
-Make sure the size of your array is correct.
-Make sure your array indices are correct.
-""", file=output_stream)
-			elif "use after" in report:
-				print("\ndcc explanation: access to memory that has already been freed.\n", file=output_stream)
-			elif "double free" in report:
-				print("\ndcc explanation: attempt to free memory that has already been freed.\n", file=output_stream)
-			elif "null" in report.lower():
-				print("\ndcc explanation: attempt to access value using a pointer which is NULL.\n", file=output_stream)
-
-		elif os.environ.get('DCC_SANITIZER', '') == 'memory':
-			if loc:
-				print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
-			print("runtime error - uninitialized variable used", file=output_stream)
-
-		if loc:
-			print(explain_location(loc), file=output_stream)
-			print(relevant_variables(loc.surrounding_source(clean=True)), file=output_stream)
-
-		gdb.flush(gdb.STDOUT)
-		gdb.flush(gdb.STDERR)
+		gdb_attach()
+		explain_error(output_stream)
 	except gdb.error as e:
 		if 'ptrace' in str(e).lower() and os.path.exists('/.dockerenv'):
 			print('\ndcc : can not provide information about variables because docker not run with --cap-add=SYS_PTRACE\n' , file=output_stream)
@@ -93,7 +30,95 @@ Make sure your array indices are correct.
 	except:
 		if debug: traceback.print_exc(file=output_stream)
 		sys.exit(1)
+	output_stream.flush()
+	gdb_execute('call (void)_exit(1)')
+	gdb_execute('quit')
+	kill_program1()
 	
+def gdb_attach():
+	pid = None
+	pid = int(os.environ.get('DCC_PID', 0))
+	if 'DCC_VALGRIND_ERROR' in os.environ:
+		debug_print(1, 'attaching gdb to valgrind', pid)
+		gdb.execute('target remote | vgdb --pid=%d' % pid)
+	else:
+		debug_print(1, 'attaching gdb to ', pid)
+		gdb.execute('attach %s' % pid)
+	
+# unneeded
+## if we are running under valgrind and their are embedded source files
+## in the binary try to extract them into a temporary directory and cd to it
+# 
+#def explode_embedded_source():
+#	if 'DCC_VALGRIND_ERROR' not in os.environ:
+#		return None
+#	if gdb_evaluate('__dcc_has_source()') != '1':
+#		return None
+#	temp_directory = tempfile.TemporaryDirectory()
+#	os.chdir(temp_directory.name)
+#	gdb_evaluate('(int)chdir("' + temp_directory.name + '")')
+#	if gdb_evaluate('__dcc_extract_source()') == '1':
+#		gdb_execute('cd ' + temp_directory.name)
+#		import subprocess
+#		subprocess.call("pwd;ls -lR", shell=True)
+#		return temp_directory
+#	temp_directory.cleanup()
+#	return
+	
+def explain_error(output_stream):
+	debug_print(1, 'explain_error() starting')
+	# file descriptor 3 is a dup of stderr (see below)
+	# stdout & stderr have been diverted to /dev/null
+	print(file=output_stream)
+	loc = gdb_set_frame()
+	signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
+	if signal_number != signal.SIGABRT:
+		 print(explain_signal(signal_number), file=output_stream)
+	elif 'DCC_ASAN_ERROR' in os.environ:
+		explain_asan_error(loc, output_stream)
+	elif os.environ.get('DCC_SANITIZER', '') == 'memory':
+		if loc:
+			print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
+		print("runtime error - uninitialized variable used", file=output_stream)
+
+	if loc:
+		print(explain_location(loc), file=output_stream)
+		print(relevant_variables(loc.surrounding_source(clean=True)), file=output_stream)
+
+	gdb.flush(gdb.STDOUT)
+	gdb.flush(gdb.STDERR)
+
+def explain_asan_error(loc, output_stream):	
+	if loc:
+		print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
+	report = os.environ.get('DCC_ASAN_ERROR')
+	if report:
+		report = report.replace('-', ' ')
+		report = report.replace('heap', 'malloc')
+		report = report.replace('null deref', 'NULL pointer derefenced')
+	else:
+		report = "illegal array, pointer or other operation"
+	print('runtime error -', report, file=output_stream)
+
+	if "malloc buffer overflow" in report:
+		print("""
+dcc explanation: access past the end of malloc'ed memory.
+Make sure you have allocated enough memory for the size of your struct/array.
+A common error is to use the size of a pointer instead of the size of the struct or array.
+""", file=output_stream)
+	if "stack buffer overflow" in report:
+		print("""
+dcc explanation: access past the end of a local variable.
+Make sure the size of your array is correct.
+Make sure your array indices are correct.
+""", file=output_stream)
+	elif "use after" in report:
+		print("\ndcc explanation: access to memory that has already been freed.\n", file=output_stream)
+	elif "double free" in report:
+		print("\ndcc explanation: attempt to free memory that has already been freed.\n", file=output_stream)
+	elif "null" in report.lower():
+		print("\ndcc explanation: attempt to access value using a pointer which is NULL.\n", file=output_stream)
+		
 def explain_signal(signal_number):
 	if signal_number == signal.SIGINT:
 		return "Execution was interrupted"

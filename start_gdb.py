@@ -1,14 +1,17 @@
-import os, sys, signal, subprocess
+import os, re, sys, signal, subprocess
 
-def start_gdb(gdb_driver_file=sys.argv[0]):
+def start_gdb(gdb_driver_file='drive_gdb.py'):
 	signal.signal(signal.SIGINT, handler)
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
 	if debug: print(sys.argv, 'DCC_RUN_INSIDE_GDB="%s" DCC_PID="%s"' % (os.environ.get('DCC_RUN_INSIDE_GDB', ''), os.environ.get('DCC_PID', '')))
 	os.environ['DCC_RUN_INSIDE_GDB'] = 'true'
 	os.environ['PATH'] = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '')
-	os.environ['LC_ALL'] = 'C' # stop invalid utf-8 from gdb throwing Python exception
-	
-	command = ["gdb", "--nx", "--batch", "-ex", "python exec(open('%s').read())" % gdb_driver_file, os.environ['DCC_BINARY']]
+	os.environ['LC_ALL'] = 'C' # stop invalid utf-8  throwing Python exception with gdb - still needed?
+	if os.path.exists(gdb_driver_file):
+		command = ["gdb", "--nx", "--batch", "-ex", "python exec(open('%s', encoding='utf-8', errors='replace').read())" % gdb_driver_file, os.environ['DCC_BINARY']]
+	else:
+		from embedded_source import embedded_source_drive_gdb_py
+		command = ["gdb", "--nx", "--batch", "-ex", "python exec(r\"\"\"" + embedded_source_drive_gdb_py + "\"\"\")", os.environ['DCC_BINARY']]
 	if debug: print('running:', command)
 	# gdb puts confusing messages on stderr & stdout  so send these to /dev/null
 	# and use file descriptor 3 for our messages
@@ -36,8 +39,43 @@ def kill_program():
 	sys.exit(1)
 
 def handler(signum, frame):
-#	if debug: print >>sys.stderr, 'signal caught'
 	kill_program()
+
+	
+# valgrind is being used - we have been invoked via the binary to watch for valgrind errors
+# which have been directed to our stdin
+def watch_stdin_for_valgrind_errors():
+	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
+	debug = int(os.environ.get('DCC_DEBUG', '0'))
+	while True:
+		line = sys.stdin.readline()
+		if not line:
+			break
+		if debug: print('valgrind: ', line, file=sys.stderr)
+		if 'vgdb me' in line:
+			if colorize_output:
+				os.environ['DCC_VALGRIND_ERROR'] = 'Runtime error: \033[31muninitialized variable accessed.\033[0m'
+			else:
+				os.environ['DCC_VALGRIND_ERROR'] = 'Runtime error: uninitialized variable accessed.'
+			print('\n'+os.environ['DCC_VALGRIND_ERROR'], file=sys.stderr)
+			sys.stderr.flush()
+			start_gdb()
+			sys.exit(0)
+		elif 'loss record' in line:
+			line = sys.stdin.readline()
+			if 'malloc' in line:
+				line = sys.stdin.readline()
+				m = re.search(r'(\S+)\s*\((.+):(\d+)', line)
+				if m:
+					print('Error: free not called for memory allocated with malloc in function {} in {} at line {}.'.format(m.group(1),m.group(2),m.group(3)), file=sys.stderr)
+				else:
+					print('Error: free not called for memory allocated with malloc.', file=sys.stderr)
+			else:
+				print('Error: memory allocated not de-allocated.', file=sys.stderr)
+			sys.exit(0)
 	
 if __name__ == '__main__':
-	start_gdb(gdb_driver_file='drive_gdb.py')
+	if sys.argv[1:] == ['--watch-stdin-for-valgrind-errors']:
+		watch_stdin_for_valgrind_errors()
+	else:
+		start_gdb()

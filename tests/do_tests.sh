@@ -9,11 +9,13 @@ trap 'rm -fr tmp.* a.out' EXIT INT TERM
 # some values reported in errors are not determinate (e.g. variable addresses)
 # and will vary between execution and definitely between platforms
 # so delete them before diff-ing errors
+# also remove absolute pathnames so expected output is not filesystem location dependent
 REMOVE_NON_DETERMINATE_VALUES='
 	s/^\([a-z].* = \).*/\1 <deleted-value>/g
 	s/0x[0-9a-f]*/0x<deleted-hexadecimal-constant>/g
 	s/-*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*/<deleted-large-integer-constant>/g
 	s?/tmp/[^ ]*\.o??g
+	s?^/.*:??
 '
 
 dcc="${1:-./dcc}"
@@ -36,8 +38,8 @@ do
 	expected_stderr_file="$expected_output_dir/`basename $src_file .c`.stderr.txt"
 	dcc_flags=
 	eval `egrep '^//\w+=' "$src_file"|sed 's/..//'`
-	# remove absolute pathnames so expectoutput is not filesystem location dependent
-	"$dcc" $dcc_flags "$src_file" 2>&1 >/dev/null | sed 's?^/.*:??' >tmp.actual_stderr 
+
+	"$dcc" $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
 	test ! -s tmp.actual_stderr && ./a.out </dev/null   2>>tmp.actual_stderr >/dev/null
 	
 	if test ! -s tmp.actual_stderr
@@ -60,8 +62,7 @@ do
 		continue
 	fi 
 
-	sed "$REMOVE_NON_DETERMINATE_VALUES" tmp.actual_stderr >tmp.corrected_stderr
-	
+	sed -e "$REMOVE_NON_DETERMINATE_VALUES"  tmp.actual_stderr >tmp.corrected_stderr
 	if diff -iBw "$expected_stderr_file" tmp.corrected_stderr >/dev/null
 	then
 		echo -n .

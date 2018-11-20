@@ -1,12 +1,11 @@
 import io, os, platform, re, subprocess, sys, tarfile
 
 from explain_compiler_output import explain_compiler_output 
-from embedded_source import embedded_source_main_wrapper_c
-from embedded_source import embedded_source_start_gdb_py
-from embedded_source import embedded_source_drive_gdb_py
+from embedded_source import embedded_source_main_wrapper_c, embedded_source_start_gdb_py, embedded_source_drive_gdb_py, embedded_source_watch_valgrind_py
 
 EXTRA_C_COMPILER_ARGS = " -fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
+CLANG_LIB_DIR="/usr/lib/clang/{clang_version}/lib/linux"
 VERSION = 2.0
 
 #
@@ -30,9 +29,9 @@ def compile(debug=False):
 		clang_version = subprocess.check_output(["clang", "--version"], universal_newlines=True)
 		if debug:
 			print("clang version:", clang_version)
-		m = re.search("clang version ([0-9])+", clang_version, flags=re.I)
+		m = re.search("clang version (\d+\.\d+\.\d+)", clang_version, flags=re.I)
 		if m is not None:
-			clang_version = int(m.group(1))
+			clang_version = m.group(1)
 	except OSError as e:
 		if debug:
 			print(e)
@@ -56,26 +55,33 @@ def compile(debug=False):
 			if debug:
 				print(e)
 
-		if clang_version and libc_version and clang_version <= 6 and libc_version >= 2.27:
-			if debug:
-				print("incompatible clang+libc with ASan, disabling")
-			print("NOTE: ASan is incompatible with this system; as such, " \
-				  "dcc will *not* detect errors such as accessing an invalid array index.", file=sys.stderr)
-			print("[We are working to fix this ASAP]", file=sys.stderr)
-
+		if clang_version and libc_version and clang_version[0] in "345" and libc_version >= 2.27:
+			print("incompatible clang libc versions, disabling error detection by sanitiziers", file=sys.stderr)
 			sanitizer_args = []
+			
 	dcc_path = get_my_path()
-	global colorize_output
 	wrapper_source = embedded_source_main_wrapper_c
 	wrapper_source = wrapper_source.replace('__DCC_PATH__', dcc_path)
 	wrapper_source = wrapper_source.replace('__DCC_SANITIZER__', args.which_sanitizer)
 
+	if args.embed_source:
+		tar_n_bytes, tar_source = source_for_embedded_tarfile(args) 
+
 	if args.which_sanitizer == "valgrind":
 		# FIXME - make valgrind work with embedded source
-		args.embed_source = False
+#		args.embed_source = False
 		sanitizer_args = []
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_VALGRIND__', '1')
-		wrapper_source = wrapper_source.replace('__DCC_MONITOR_VALGRIND__', dcc_path+' --watch-stdin-for-valgrind-errors')
+		if args.embed_source:
+			watcher = fr"python3 -E -c \"import os,sys,tarfile,tempfile\n\
+with tempfile.TemporaryDirectory() as temp_dir:\n\
+	tarfile.open(fileobj=sys.stdin.buffer, bufsize={tar_n_bytes}, mode='r|xz').extractall(temp_dir)\n\
+	os.chdir(temp_dir)\n\
+	exec(open('watch_valgrind.py').read())\n\
+\""
+		else:
+			watcher = dcc_path +  "--watch-stdin-for-valgrind-errors"
+		wrapper_source = wrapper_source.replace('__DCC_MONITOR_VALGRIND__', watcher)
 		wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK__', "yes" if args.leak_check else "no")
 		wrapper_source = wrapper_source.replace('__DCC_SUPRESSIONS_FILE__', args.suppressions_file)
 	elif args.which_sanitizer == "memory":
@@ -85,9 +91,14 @@ def compile(debug=False):
 		sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
 		args.which_sanitizer = "address"
 
+	if args.shared_libasan and args.which_sanitizer != "valgrind":
+		lib_dir = CLANG_LIB_DIR.replace('{clang_version}', clang_version)
+		if os.path.exists(lib_dir):
+			sanitizer_args += ['-shared-libasan', '-Wl,-rpath,' + lib_dir]
+			
 	if args.embed_source:
 		wrapper_source = wrapper_source.replace('__DCC_EMBED_SOURCE__', '1')
-		wrapper_source = source_for_embedded_tarfile(args) + wrapper_source
+		wrapper_source = tar_source + wrapper_source
 
 # are there still cases where clang produces better warnings for -O??
 #	# First run	 with -O enabled for better compile-time warnings 
@@ -107,12 +118,12 @@ def compile(debug=False):
 #				print("recompiling", " ".join(command), file=sys.stderr)
 #			process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
-
 	command = [args.c_compiler] + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
 	if args.incremental_compilation:
 		if args.debug:
-			print(" ".join(command), file=sys.stderr)
+			print('incremental compilation, running: ', " ".join(command), file=sys.stderr)
 		sys.exit(subprocess.call(command))
+
 	command +=	['-Wl,-wrap,main', '-x', 'c', '-']
 	if args.debug:
 		print(" ".join(command), file=sys.stderr)
@@ -132,7 +143,7 @@ def compile(debug=False):
 		process = subprocess.run(command, input=wrapper_source, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
 	if process.stdout:
-		if args.print_explanations:
+		if args.explanations:
 			explain_compiler_output(process.stdout, args)
 		else:
 			print(process.stdout, end='', file=sys.stderr)
@@ -148,12 +159,13 @@ class Args(object):
 #		if search_path(c_compiler):	 # shutil.which not available in Python 2
 #			break
 	which_sanitizer = "address"
+	shared_libasan = True
 	incremental_compilation = False
 	leak_check = False
 	suppressions_file = os.devnull
 #	 linking_object_files = False
 	user_supplied_compiler_args = []
-	print_explanations = True
+	explanations = True
 	max_explanations = 3
 	embed_source = True	
 	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
@@ -165,7 +177,7 @@ class Args(object):
 def parse_args(commandline_args):
 	args = Args()
 	if not commandline_args:
-		print("Usage: %s [--valgrind|--memory|'--leak-check'|--no_explanation] [clang-arguments] <c-files>" % sys.argv[0], file=sys.stderr)
+		print("Usage: %s [--valgrind|--memory|--leak-check|--no-explanations|--no-shared-libasan|--no-embed-source] [clang-arguments] <c-files>" % sys.argv[0], file=sys.stderr)
 		sys.exit(1)
 
 	while commandline_args:
@@ -193,13 +205,17 @@ def parse_arg(arg, next_arg, args):
 		args.leak_check = True
 	elif arg.startswith('--suppressions='):
 		args.suppressions_file = arg[len('--suppressions='):]
-	elif arg == '--explanation':
-		args.print_explanations = True
-	elif arg == '--no_explanation':
-		args.print_explanations = False
-	elif arg == '--embed_source':
+	elif arg == '--explanations' or arg == '--no_explanation': # backwards compatibility
+		args.explanations = True
+	elif arg == '--no-explanations':
+		args.explanations = False
+	elif arg == '--shared-libasan' or arg == '-shared-libasan':
+		args.shared_libasan = True
+	elif arg == '--no-shared-libasan':
+		args.shared_libasan = False
+	elif arg == '--embed-source':
 		args.embed_source = True
-	elif arg == '--no_embed_source':
+	elif arg == '--no-embed-source':
 		args.embed_source = False
 	elif arg == '-v':
 		print('dcc version', VERSION)
@@ -221,7 +237,7 @@ def parse_clang_arg(arg, next_arg, args):
 		object_filename = next_arg
 		if object_filename.endswith('.c') and os.path.exists(object_filename):
 			print("%s: will not overwrite %s with machine code" % (os.path.basename(sys.argv[0]), object_filename), file=sys.stderr)
-		sys.exit(1)
+			sys.exit(1)
 	else:
 		process_possible_source_file(arg, args)
 	
@@ -255,13 +271,17 @@ def process_possible_source_file(pathname, args):
 				m = re.match(r'^\s*#\s*include\s*"(.*?)"', line)
 				if m:
 					process_possible_source_file(m.group(1), args)
-	except OSError:
+	except OSError as e:
+		if args.debug:
+			print('process_possible_source_file', pathname, e)
 		return
 		
 def source_for_embedded_tarfile(args):
 	add_tar_file(args.tar, "start_gdb.py", embedded_source_start_gdb_py)
 	add_tar_file(args.tar, "drive_gdb.py", embedded_source_drive_gdb_py)
+	add_tar_file(args.tar, "watch_valgrind.py", embedded_source_watch_valgrind_py)
 	args.tar.close()
+	n_bytes = args.tar_buffer.tell()
 	args.tar_buffer.seek(0)
 
 	source = "\nstatic unsigned char tar_data[] = {";
@@ -271,7 +291,7 @@ def source_for_embedded_tarfile(args):
 			break
 		source += ','.join(map(str, bytes)) + ',\n'
 	source += "};\n";
-	return source
+	return n_bytes, source
 
 def add_tar_file(tar, pathname, contents):
 	bytes = contents.encode('utf8')
