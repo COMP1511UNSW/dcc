@@ -36,7 +36,8 @@ do
 	expected_stderr_file="$expected_output_dir/`basename $src_file .c`.stderr.txt"
 	dcc_flags=
 	eval `egrep '^//\w+=' "$src_file"|sed 's/..//'`
-	"$dcc" $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
+	# remove absolute pathnames so expectoutput is not filesystem location dependent
+	"$dcc" $dcc_flags "$src_file" 2>&1 >/dev/null | sed 's?^/.*:??' >tmp.actual_stderr 
 	test ! -s tmp.actual_stderr && ./a.out </dev/null   2>>tmp.actual_stderr >/dev/null
 	
 	if test ! -s tmp.actual_stderr
@@ -69,7 +70,7 @@ do
 		echo "Test dcc $dcc_flags  failed output different to expected - rm '$expected_stderr_file' if output is correct"
 		echo Differences are:
 		echo
-		diff -iBw "$expected_stderr_file" tmp.corrected_stderr
+		diff -u  -iBw "$expected_stderr_file" tmp.corrected_stderr
 		echo
 		echo "if output is correct: rm '$expected_stderr_file'"
 		test_failed=1
