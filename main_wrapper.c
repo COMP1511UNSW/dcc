@@ -10,6 +10,7 @@
 #include <signal.h>
 #include <limits.h>
 #include <errno.h>
+#include <sys/prctl.h>
 
 static int debug = 0;
 
@@ -46,7 +47,7 @@ static void putenvd(char *s) {
 	if (debug) fprintf(stderr, "putenv %s\n", s);
 }
 
-static char *run_tar_file = "python3 -E -c \"import os,shutil,sys,tarfile,tempfile\n\
+static char *run_tar_file = "python3 -E -c \"import os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
     tarfile.open(fileobj=sys.stdin.buffer, mode='r|xz').extractall(temp_dir)\n\
     os.chdir(temp_dir)\n\
@@ -54,11 +55,15 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 \"";
 
 static void _explain_error(void) {
-	// if a program has exhausted file descriptor then we need to close some to run gdb etc,
+	// if a program has exhausted file descriptors then we need to close some to run gdb etc,
 	// so as a precaution we close a pile of file descriptors which may or may not be open
 	for (int i = 4; i < 32; i++)
 		close(i);
-		
+
+    // ensure gdb can ptrace binary
+	// https://www.kernel.org/doc/Documentation/security/Yama.txt
+	prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);		
+
 #if !__DCC_EMBED_SOURCE__
 	if (debug) fprintf(stderr, "running %s\n", "__DCC_PATH__");
 	system("__DCC_PATH__");
@@ -70,6 +75,7 @@ static void _explain_error(void) {
 #endif
 	_dcc_exit();
 }
+
 
 static void _signal_handler(int signum) {
 	signal(SIGABRT, SIG_IGN);
@@ -201,6 +207,8 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	
 	if (debug) fprintf(stderr, "command=%s\n", "__DCC_MONITOR_VALGRIND__");
 	FILE *valgrind_error_pipe = popen("__DCC_MONITOR_VALGRIND__", "w");
+	fwrite(tar_data, sizeof tar_data[0],  sizeof tar_data/sizeof tar_data[0], valgrind_error_pipe);
+    fflush(valgrind_error_pipe);
 	setbuf(valgrind_error_pipe, NULL);			
 	setenvd("DCC_VALGRIND_RUNNING", "1");
 
