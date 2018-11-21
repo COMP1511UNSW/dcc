@@ -1,4 +1,5 @@
 import collections, os, re, sys, signal, tempfile, traceback
+import colors
 #
 # Code below is executed from gdb.
 # It prints details of the program state likely to be of interest to
@@ -11,14 +12,18 @@ source = {}
 
 def drive_gdb():
 	global debug
-	global colorize_output
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
-	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
-	signal.signal(signal.SIGINT, interrupt_handler)
 	output_stream = os.fdopen(3, "w")
+	colorize_output = output_stream.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
+	if colorize_output:
+		color = colors.color
+	else:
+		color = lambda text, color_name: text
+	signal.signal(signal.SIGINT, interrupt_handler)
+
 	try:
 		gdb_attach()
-		explain_error(output_stream)
+		explain_error(output_stream, color)
 	except gdb.error as e:
 		if 'ptrace' in str(e).lower() and os.path.exists('/.dockerenv'):
 			print('\ndcc : can not provide information about variables because docker not run with --cap-add=SYS_PTRACE\n' , file=output_stream)
@@ -30,6 +35,7 @@ def drive_gdb():
 	except:
 		if debug: traceback.print_exc(file=output_stream)
 		sys.exit(1)
+
 	output_stream.flush()
 	gdb_execute('call (void)_exit(1)')
 	gdb_execute('quit')
@@ -65,7 +71,7 @@ def gdb_attach():
 #	temp_directory.cleanup()
 #	return
 	
-def explain_error(output_stream):
+def explain_error(output_stream, color):
 	debug_print(1, 'explain_error() starting')
 	# file descriptor 3 is a dup of stderr (see below)
 	# stdout & stderr have been diverted to /dev/null
@@ -75,20 +81,20 @@ def explain_error(output_stream):
 	if signal_number != signal.SIGABRT:
 		 print(explain_signal(signal_number), file=output_stream)
 	elif 'DCC_ASAN_ERROR' in os.environ:
-		explain_asan_error(loc, output_stream)
+		explain_asan_error(loc, output_stream, color)
 	elif os.environ.get('DCC_SANITIZER', '') == 'memory':
 		if loc:
 			print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
 		print("runtime error - uninitialized variable used", file=output_stream)
 
 	if loc:
-		print(explain_location(loc), file=output_stream)
-		print(relevant_variables(loc.surrounding_source(clean=True)), file=output_stream)
+		print(explain_location(loc, color), file=output_stream)
+		print(relevant_variables(loc.surrounding_source(color, clean=True), color), file=output_stream)
 
 	gdb.flush(gdb.STDOUT)
 	gdb.flush(gdb.STDERR)
 
-def explain_asan_error(loc, output_stream):	
+def explain_asan_error(loc, output_stream, color):	
 	if loc:
 		print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
 	report = os.environ.get('DCC_ASAN_ERROR')
@@ -100,24 +106,23 @@ def explain_asan_error(loc, output_stream):
 		report = "illegal array, pointer or other operation"
 	print('runtime error -', report, file=output_stream)
 
+	prefix = '\n' + color('dcc explanation:', 'blue') 
 	if "malloc buffer overflow" in report:
-		print("""
-dcc explanation: access past the end of malloc'ed memory.
-Make sure you have allocated enough memory for the size of your struct/array.
-A common error is to use the size of a pointer instead of the size of the struct or array.
+		print(prefix, """access past the end of malloc'ed memory.
+  Make sure you have allocated enough memory for the size of your struct/array.
+  A common error is to use the size of a pointer instead of the size of the struct or array.
 """, file=output_stream)
 	if "stack buffer overflow" in report:
-		print("""
-dcc explanation: access past the end of a local variable.
-Make sure the size of your array is correct.
-Make sure your array indices are correct.
+		print(prefix, """access past the end of a local variable.
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
 """, file=output_stream)
 	elif "use after" in report:
-		print("\ndcc explanation: access to memory that has already been freed.\n", file=output_stream)
+		print(prefix, "access to memory that has already been freed.\n", file=output_stream)
 	elif "double free" in report:
-		print("\ndcc explanation: attempt to free memory that has already been freed.\n", file=output_stream)
+		print(prefix, "attempt to free memory that has already been freed.\n", file=output_stream)
 	elif "null" in report.lower():
-		print("\ndcc explanation: attempt to access value using a pointer which is NULL.\n", file=output_stream)
+		print(prefix, "attempt to access value using a pointer which is NULL.\n", file=output_stream)
 		
 def explain_signal(signal_number):
 	if signal_number == signal.SIGINT:
@@ -146,24 +151,19 @@ class Location():
 		if self.function == 'main' and params.startswith('argc=1,'):
 			params = ''
 		return "in %s(%s) at\n%s:%s: %s" % (self.function, params, self.filename, self.line_number, self.source_line())
-	def long_description(self):
+	def long_description(self, color):
 		params = self.params
 		if self.function == 'main' and params.startswith('argc=1,'):
 			params = ''
-		if colorize_output:
-			return "in %s(%s) in \033[31m%s\033[0m at \033[31mline %s\033[0m:\n\n" % (self.function, params, self.filename, self.line_number) + self.surrounding_source(markMiddle=True)
-		else:
-			return "in %s(%s) in %s at line %s:\n\n" % (self.function, params, self.filename, self.line_number) + self.surrounding_source(markMiddle=True)
+		return f"in {self.function}({params}) in {color(self.filename, 'red')} at {color('line ' + str(self.line_number), 'red')}:\n\n" + self.surrounding_source(color, markMiddle=True)
 	def source_line(self, clean=False):
 		return fileline(self.filename, self.line_number, clean)
-	def surrounding_source(self, radius=2, clean=False, markMiddle=False):
+	def surrounding_source(self, color, radius=2, clean=False, markMiddle=False):
 		source = ''
 		for offset in range(-radius, radius+1):
 			line = fileline(self.filename, self.line_number+offset, clean=clean)
 			if markMiddle and offset == 0:
-				line = re.sub(r'^ {0,3}', '-->', line)
-				if colorize_output:
-					line = '\033[31m' + line + '\033[0m'
+				line = color(re.sub(r'^ {0,3}', '-->', line), 'red')
 			source += line
 		return source
 	def is_user_location(self):
@@ -256,7 +256,7 @@ def gdb_set_frame():
 	except:
 		if debug: traceback.print_exc(file=sys.stderr)
 	
-def relevant_variables(c_source, arrays=[]):
+def relevant_variables(c_source, color, arrays=[]):
 	expressions = extract_expressions(c_source)
 #	 arrays=[r'[a-z][a-zA-Z0-9_]*']
 #	 debug_print(1, 'relevant_variables', arrays, c_source)
@@ -271,20 +271,18 @@ def relevant_variables(c_source, arrays=[]):
 			expression = expression.strip()
 			if expression not in done:
 				done.add(expression)
-				expression_value = evaluate_expression(expression)
+				expression_value = evaluate_expression(expression, color)
 				if expression_value is not None:
 					explanation +=	"%s = %s\n" % (expression, expression_value)
 		except RuntimeError as e:
 			debug_print(1, 'print_variables_expressions: RuntimeError', e)
 			pass
 	if explanation:
-		prefix = 'Values when execution stopped:'
-		if colorize_output:
-			prefix = '\033[34m' + prefix + '\033[0m'
+		prefix = color('Values when execution stopped:', 'blue')
 		explanation = prefix + '\n\n' + explanation
 	return explanation
 
-def evaluate_expression(expression):
+def evaluate_expression(expression, color):
 	debug_print(1, 'expression:', expression)
 	if re.match(r'^-?\s*[\d\.]+$', expression):
 		return None	  # don't print(numbers)
@@ -324,11 +322,12 @@ def evaluate_expression(expression):
 			else:
 				 expression_value = "%s = '%s'" % m.groups()
 	expression_value = re.sub(r"'\000'", r"'\\0'", expression_value)
-	warning_text = " <-- warning appears to be uninitialized value"
-	if colorize_output:
-		warning_text = '\033[31m' + warning_text + '\033[0m'
+
+	warning_text = color(" <-- warning appears to be uninitialized value", 'red')
+
 	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)']:
 		expression_value = expression_value.replace(value, value + warning_text)
+
 	return expression_value
 
 def balance_bracket(str, depth=0):
@@ -369,11 +368,11 @@ def extract_expressions(c_source):
 				return []
 	return expressions + extract_expressions(remainder)
 
-def explain_location(loc):
+def explain_location(loc, color):
 	if not isinstance(loc, Location):
 		return "Execution stopped at '%s'" % (loc)
 	else:
-		return 'Execution stopped here ' + loc.long_description()
+		return 'Execution stopped here ' + loc.long_description(color)
 #
 # ensure the program compiled with dcc terminates after error
 #

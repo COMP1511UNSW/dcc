@@ -3,12 +3,19 @@
 import re, sys
 from help_cs50 import help_cs50
 from compiler_explanations import get_explanation
+import colors
+	
+ANSI_DEFAULT = "\033[0m"
 
 def explain_compiler_output(output, args):
 	lines = output.splitlines()
 	explanations_made = set()
 	errors_explained = 0
 	last_message = None
+	if args.colorize_output:
+		color = colors.color
+	else:
+		color = lambda text, color_name: text
 	
 	while lines and (not errors_explained or len(explanations_made) < args.max_explanations):
 		message, lines = get_next_message(lines)
@@ -62,7 +69,7 @@ def explain_compiler_output(output, args):
 		if message.type == 'error':
 			errors_explained += 1
 
-		prefix = ansi_colorize("dcc explanation:", BLUE, args.colorize_output)
+		prefix = color("dcc explanation:", 'blue')
 		print(prefix, explanation_text, file=sys.stderr)
 			
 		if  explanation and explanation.no_following_explanations:
@@ -101,7 +108,7 @@ def get_next_message(lines):
 	if not lines:
 		return (None, lines)
 	line = lines[0]
-	colorless_line = remove_ansi_codes(line)
+	colorless_line = colors.strip_color(line)
 	m = re.match(r'^(\S.*?):(\d+):', colorless_line)
 	if not m:
 		return (None, lines)
@@ -120,7 +127,7 @@ def get_next_message(lines):
 		next_line = lines[0]
 		if not next_line:
 			break
-		colorless_next_line = remove_ansi_codes(lines[0])
+		colorless_next_line = colors.strip_color(lines[0])
 		m = re.match(r'^\S.*:\d+:', colorless_next_line)
 		if m:
 			if re.match(r'^\S.*?:\d+:\d+:\s*note:', colorless_next_line):
@@ -156,18 +163,3 @@ def get_next_message(lines):
 
 
 	return (e, lines)
-
-def remove_ansi_codes(string):
-	return re.sub(r'\x1b[^m]*m', '', string)
-
-
-
-def ansi_colorize(string, color, colorize=True):
-	if colorize:
-		return color + string + ANSI_DEFAULT
-	else:
-		return string
-	
-ANSI_DEFAULT = "\033[0m"
-BLUE = ANSI_DEFAULT + "\033[34m"
-RED = ANSI_DEFAULT + "\033[31m"

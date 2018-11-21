@@ -2,7 +2,7 @@ import io, os, platform, re, subprocess, sys, tarfile
 
 from version import VERSION 
 from explain_compiler_output import explain_compiler_output 
-from embedded_source import embedded_source_main_wrapper_c, embedded_source_start_gdb_py, embedded_source_drive_gdb_py, embedded_source_watch_valgrind_py
+from embedded_source import embedded_source_main_wrapper_c, embedded_source_start_gdb_py, embedded_source_drive_gdb_py, embedded_source_watch_valgrind_py, embedded_source_colors_py
 
 EXTRA_C_COMPILER_ARGS = " -fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
@@ -281,6 +281,7 @@ def source_for_embedded_tarfile(args):
 	add_tar_file(args.tar, "start_gdb.py", embedded_source_start_gdb_py)
 	add_tar_file(args.tar, "drive_gdb.py", embedded_source_drive_gdb_py)
 	add_tar_file(args.tar, "watch_valgrind.py", embedded_source_watch_valgrind_py)
+	add_tar_file(args.tar, "colors.py", embedded_source_colors_py)
 	args.tar.close()
 	n_bytes = args.tar_buffer.tell()
 	args.tar_buffer.seek(0)

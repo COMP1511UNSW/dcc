@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import copy, re, sys
+import colors
 
 DEFAULT_EXPLANATION_URL = "https://comp1511unsw.github.io/dcc/"
 
@@ -74,7 +75,7 @@ class Explanation():
 			return self.explanation(message, match)
 			
 		if colorize_output:
-			color = lambda text, color_name:  "\033[0m" + "\033[31m" + text + "\033[0m" #FIXME - replace in general update of colors
+			color = colors.color
 		else:
 			color = lambda text, color_name: text
 
