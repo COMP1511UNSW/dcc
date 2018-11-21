@@ -23,7 +23,7 @@ dcc="${1:-./dcc}"
 mkdir -p extracted_compile_time_tests
 cd extracted_compile_time_tests || exit
 rm -f *.c
-python3 ../../explain_compiler_output.py --create_test_files
+python3 ../../compiler_explanations.py --create_test_files
 cd ../..
 
 clang_version=$(clang -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)

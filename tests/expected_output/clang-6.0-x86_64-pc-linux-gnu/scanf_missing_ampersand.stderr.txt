@@ -1,5 +1,5 @@
 [1mtests/extracted_compile_time_tests/scanf_missing_ampersand.c:6:14: [0m[0;1;35mwarning: [0m[1mformat specifies type 'int *' but the argument has type 'int' [-Wformat][0m
         scanf("%d", i);
 [0;1;32m               ~~   ^[0m
-dcc explanation: Perhaps you have forgotten an '&' before i on line 6.
+dcc explanation: Perhaps you have forgotten an '&' before 'i' on line 6.
 
