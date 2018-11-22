@@ -163,7 +163,7 @@ char *__ubsan_default_options() {
 }
 
 char *__asan_default_options() {
-	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0:max_malloc_fill_size=4096000:quarantine_size_mb=16:detect_stack_use_after_return=1";
+	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0:max_malloc_fill_size=4096000:quarantine_size_mb=16:detect_stack_use_after_return=1:verify_asan_link_order=0";
 }
 
 char *__msan_default_options() {

@@ -94,6 +94,11 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
 		args.which_sanitizer = "address"
 
+    # shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
+    # and we can't override with verify_asan_link_order=0 for clang version < 5
+	if args.shared_libasan is None and clang_version[0] not in "34":
+		args.shared_libasan = True
+
 	if args.shared_libasan and args.which_sanitizer != "valgrind":
 		lib_dir = CLANG_LIB_DIR.replace('{clang_version}', clang_version)
 		if os.path.exists(lib_dir):
@@ -162,7 +167,7 @@ class Args(object):
 #		if search_path(c_compiler):	 # shutil.which not available in Python 2
 #			break
 	which_sanitizer = "address"
-	shared_libasan = True
+	shared_libasan = None
 	incremental_compilation = False
 	leak_check = False
 	suppressions_file = os.devnull
