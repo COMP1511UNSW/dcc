@@ -1,5 +1,8 @@
 import collections, os, re, sys, signal, tempfile, traceback
 import colors
+ 
+DEFAULT_EXPLANATION_URL = "https://comp1511unsw.github.io/dcc/"
+
 #
 # Code below is executed from gdb.
 # It prints details of the program state likely to be of interest to
@@ -116,6 +119,11 @@ def explain_asan_error(loc, output_stream, color):
 		print(prefix, """access past the end of a local variable.
   Make sure the size of your array is correct.
   Make sure your array indices are correct.
+""", file=output_stream)
+	elif "use after return" in report:
+		print(prefix, f"""You have used a pointer to a local variable that no longer exists.
+  When a function returns its local variables are destroyed.
+  For more information see: {DEFAULT_EXPLANATION_URL}/stack_use_after_return.html
 """, file=output_stream)
 	elif "use after" in report:
 		print(prefix, "access to memory that has already been freed.\n", file=output_stream)

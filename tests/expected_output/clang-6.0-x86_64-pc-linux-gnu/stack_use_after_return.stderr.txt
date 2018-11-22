@@ -1,0 +1,4 @@
+[1mtests/run_time/stack_use_after_return.c:3:10: [0m[0;1;35mwarning: [0m[1maddress of stack memory associated with local variable 'i' returned [-Wreturn-stack-address][0m
+        return &i;
+[0;1;32m                ^[0m
+
