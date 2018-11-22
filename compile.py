@@ -1,13 +1,15 @@
-import io, os, platform, re, subprocess, sys, tarfile
+import io, os, pkgutil, platform, re, subprocess, sys, tarfile
 
 from version import VERSION 
 from explain_compiler_output import explain_compiler_output 
-from embedded_source import embedded_source_main_wrapper_c, embedded_source_start_gdb_py, embedded_source_drive_gdb_py, embedded_source_watch_valgrind_py, embedded_source_colors_py
 
 EXTRA_C_COMPILER_ARGS = " -fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
+
 CLANG_LIB_DIR="/usr/lib/clang/{clang_version}/lib/linux"
 
+FILES_EMBEDDED_IN_BINARY = ["start_gdb.py", "drive_gdb.py", "watch_valgrind.py", "colors.py"]
 
 #
 # Compile the user's program adding some C code
@@ -61,7 +63,7 @@ def compile(debug=False):
 			sanitizer_args = []
 			
 	dcc_path = get_my_path()
-	wrapper_source = embedded_source_main_wrapper_c
+	wrapper_source = pkgutil.get_data('src', 'main_wrapper.c').decode('utf8')
 	wrapper_source = wrapper_source.replace('__DCC_PATH__', dcc_path)
 	wrapper_source = wrapper_source.replace('__DCC_SANITIZER__', args.which_sanitizer)
 
@@ -276,12 +278,13 @@ def process_possible_source_file(pathname, args):
 		if args.debug:
 			print('process_possible_source_file', pathname, e)
 		return
-		
+
 def source_for_embedded_tarfile(args):
-	add_tar_file(args.tar, "start_gdb.py", embedded_source_start_gdb_py)
-	add_tar_file(args.tar, "drive_gdb.py", embedded_source_drive_gdb_py)
-	add_tar_file(args.tar, "watch_valgrind.py", embedded_source_watch_valgrind_py)
-	add_tar_file(args.tar, "colors.py", embedded_source_colors_py)
+	for file in FILES_EMBEDDED_IN_BINARY:
+		contents = pkgutil.get_data('src', file)
+		if file.endswith('.py'):
+			contents = minify(contents)
+		add_tar_file(args.tar, file, contents)
 	args.tar.close()
 	n_bytes = args.tar_buffer.tell()
 	args.tar_buffer.seek(0)
@@ -295,8 +298,32 @@ def source_for_embedded_tarfile(args):
 	source += "};\n";
 	return n_bytes, source
 
-def add_tar_file(tar, pathname, contents):
-	bytes = contents.encode('utf8')
+# Do some brittle shrinking of Python source  before embedding in binary.
+# Very limited benefits as source is bzip2 compressed before embedded in binary
+
+def minify(python_source_bytes):
+	python_source = python_source_bytes.decode('utf-8')
+	lines = python_source.splitlines()
+	lines1 = []
+	while lines:
+		line = lines.pop(0)
+		if is_doc_string_delimiter(line):
+			line = lines.pop(0)
+			while not is_doc_string_delimiter(line):
+				line = lines.pop(0)
+			line = lines.pop(0)
+		if not is_comment(line):
+			lines1.append(line)
+	python_source = '\n'.join(lines1) + '\n'
+	return python_source.encode('utf-8')
+
+def is_doc_string_delimiter(line):
+	return line == '    """'
+
+def is_comment(line):
+	return re.match(r'^\s*#.*$', line)
+
+def add_tar_file(tar, pathname, bytes):
 	file_buffer = io.BytesIO(bytes)
 	file_info = tarfile.TarInfo(pathname)
 	file_info.size = len(bytes)
