@@ -1,9 +1,15 @@
 import os, re, sys, signal, subprocess
+import colors
 
 def start_gdb(gdb_driver_file='drive_gdb.py'):
 	signal.signal(signal.SIGINT, handler)
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
 	if debug: print(sys.argv, 'DCC_RUN_INSIDE_GDB="%s" DCC_PID="%s"' % (os.environ.get('DCC_RUN_INSIDE_GDB', ''), os.environ.get('DCC_PID', '')))
+	for key in os.environ:
+		if key.startswith('PYTHON'):
+			del os.environ[key]
+	# gdb seems to need this for imports to work
+	os.environ['PYTHONPATH'] = '.'
 	os.environ['DCC_RUN_INSIDE_GDB'] = 'true'
 	os.environ['PATH'] = '/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '')
 	os.environ['LC_ALL'] = 'C' # stop invalid utf-8  throwing Python exception with gdb - still needed?
