@@ -12,7 +12,7 @@ def watch_valgrind():
 		color = lambda text, color_name: text
 
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
-	if debug: print('watch_valgrind() running', line, file=sys.stderr)
+	if debug: print('watch_valgrind() running', file=sys.stderr)
 	while True:
 		line = sys.stdin.readline()
 		if not line:

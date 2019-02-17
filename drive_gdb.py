@@ -88,7 +88,7 @@ def explain_error(output_stream, color):
 	elif os.environ.get('DCC_SANITIZER', '') == 'memory':
 		if loc:
 			print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
-		print("runtime error - uninitialized variable used", file=output_stream)
+		print("runtime error",  color("uninitialized variable used", red),  file=output_stream)
 
 	if loc:
 		print(explain_location(loc, color), file=output_stream)
@@ -107,7 +107,7 @@ def explain_asan_error(loc, output_stream, color):
 		report = report.replace('null deref', 'NULL pointer derefenced')
 	else:
 		report = "illegal array, pointer or other operation"
-	print('runtime error -', report, file=output_stream)
+	print('runtime error -', color(report, 'red'), file=output_stream)
 
 	prefix = '\n' + color('dcc explanation:', 'blue') 
 	if "malloc buffer overflow" in report:
@@ -121,10 +121,14 @@ def explain_asan_error(loc, output_stream, color):
   Make sure your array indices are correct.
 """, file=output_stream)
 	elif "use after return" in report:
-		print(prefix, f"""You have used a pointer to a local variable that no longer exists.
+#		print(prefix, f"""You have used a pointer to a local variable that no longer exists.
+#  When a function returns its local variables are destroyed.
+#  For more information see: {DEFAULT_EXPLANATION_URL}/stack_use_after_return.html
+#""", file=output_stream)
+		print(prefix, """You have used a pointer to a local variable that no longer exists.
   When a function returns its local variables are destroyed.
-  For more information see: {DEFAULT_EXPLANATION_URL}/stack_use_after_return.html
 """, file=output_stream)
+		print(prefix, 'For more information see:', DEFAULT_EXPLANATION_URL + '/stack_use_after_return.html', file=output_stream)
 	elif "use after" in report:
 		print(prefix, "access to memory that has already been freed.\n", file=output_stream)
 	elif "double free" in report:
@@ -163,7 +167,9 @@ class Location():
 		params = self.params
 		if self.function == 'main' and params.startswith('argc=1,'):
 			params = ''
-		return f"in {self.function}({params}) in {color(self.filename, 'red')} at {color('line ' + str(self.line_number), 'red')}:\n\n" + self.surrounding_source(color, markMiddle=True)
+#		d = f"in {self.function}({params}) in {color(self.filename, 'red')} at {color('line ' + str(self.line_number), 'red')}:\n\n" + self.surrounding_source(color, markMiddle=True)
+		d = 'in ' + self.function + '(' + params + ') in ' + color(self.filename, 'red') + ' at ' + color('line ' + str(self.line_number), 'red') + ':\n\n' + self.surrounding_source(color, markMiddle=True)
+		return d
 	def source_line(self, clean=False):
 		return fileline(self.filename, self.line_number, clean)
 	def surrounding_source(self, color, radius=2, clean=False, markMiddle=False):
