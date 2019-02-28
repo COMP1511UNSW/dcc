@@ -14,162 +14,18 @@
 
 static int debug = 0;
 
-static void _dcc_exit(void) {
-	if (debug) fprintf(stderr, "_dcc_exit()\n");
+void __dcc_start(void) __attribute__((constructor));
+static void _dcc_exit(void);
+static void _signal_handler(int signum);
+static void setenvd(char *n, char *v);
+static void putenvd(char *s);
 
-	// use kill instead of exit or _exit because
-	// exit or _exit keeps executing sanitizer code - including perhaps superfluous output
-
-	pid_t pid = getpid();
-
-	// SIGPIPE avoids killed message from bash
-	signal(SIGPIPE, SIG_DFL); 
-	kill(pid, SIGPIPE);   
-
-	// if SIGPIPE fails
-	signal(SIGINT, SIG_DFL);
-	kill(pid, SIGINT);
-
-	// if SIGINT fails
-	kill(pid, SIGKILL);
-
-	// SIGKILL fails
-	_exit(1);
-}
-
-static void setenvd(char *n, char *v) {
-	setenv(n, v, 1);
-	if (debug) fprintf(stderr, "setenv %s=%s\n", n, v);
-}
-
-static void putenvd(char *s) {
-	putenv(s);
-	if (debug) fprintf(stderr, "putenv %s\n", s);
-}
-
-static char *run_tar_file = "python3 -E -c \"import os,sys,tarfile,tempfile\n\
-with tempfile.TemporaryDirectory() as temp_dir:\n\
-    tarfile.open(fileobj=sys.stdin.buffer, mode='r|xz').extractall(temp_dir)\n\
-    os.chdir(temp_dir)\n\
-    exec(open('start_gdb.py').read())\n\
-\"";
-
-static void _explain_error(void) {
-	// if a program has exhausted file descriptors then we need to close some to run gdb etc,
-	// so as a precaution we close a pile of file descriptors which may or may not be open
-	for (int i = 4; i < 32; i++)
-		close(i);
-
-    // ensure gdb can ptrace binary
-	// https://www.kernel.org/doc/Documentation/security/Yama.txt
-	prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);		
-
-#if !__DCC_EMBED_SOURCE__
-	if (debug) fprintf(stderr, "running %s\n", "__DCC_PATH__");
-	system("__DCC_PATH__");
-#else
-	if (debug) fprintf(stderr, "running %s\n", run_tar_file);
-	FILE *python_pipe = popen(run_tar_file, "w");
-	fwrite(tar_data, sizeof tar_data[0],  sizeof tar_data/sizeof tar_data[0], python_pipe);
-	fclose(python_pipe);
-#endif
-	_dcc_exit();
-}
-
-
-static void _signal_handler(int signum) {
-	signal(SIGABRT, SIG_IGN);
-	signal(SIGSEGV, SIG_IGN);
-	signal(SIGINT, SIG_IGN);
-	signal(SIGXCPU, SIG_IGN);
-	signal(SIGXFSZ, SIG_IGN);
-	signal(SIGFPE, SIG_IGN);
-	signal(SIGILL, SIG_IGN);
-	
-	char signum_buffer[1024];
-	sprintf(signum_buffer, "DCC_SIGNAL=%d", (int)signum);
-	putenvd(signum_buffer); // less likely? to trigger another error than direct setenv
-	
-	_explain_error();
-	// not reached
-}
-
-
-void __dcc_start(void) __attribute__((constructor))
-#if __has_attribute(optnone)
- __attribute__((optnone))
+static void _explain_error(void)
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
 #endif
 ;
-
-#define STACK_BYTES_TO_CLEAR 4096000
-void __dcc_start(void) {
-
-#if !__DCC_SANITIZER_IS_VALGRIND
-	// leave 0xbe for uninitialized variables which get fresh stack pages
-	char a[STACK_BYTES_TO_CLEAR];
-	memset(a, 0xbe, sizeof a);
-#endif
-
-	debug = getenv("DCC_DEBUG") != NULL;
-	
-	if (debug) fprintf(stderr, "__dcc_start\n");
-	
-	setenvd("DCC_SANITIZER", "__DCC_SANITIZER__");
-	setenvd("DCC_PATH", "__DCC_PATH__");
-
-	char pid_buffer[32];
-	snprintf(pid_buffer, sizeof pid_buffer, "%d", (int)getpid());
-	setenvd("DCC_PID", pid_buffer);
-	memset(pid_buffer, 0xbe, sizeof pid_buffer);
-	
-	signal(SIGABRT, _signal_handler);
-	signal(SIGSEGV, _signal_handler);
-	signal(SIGINT, _signal_handler);
-	signal(SIGXCPU, _signal_handler);
-	signal(SIGXFSZ, _signal_handler);
-	signal(SIGFPE, _signal_handler);
-	signal(SIGILL, _signal_handler);
-}
-
-// intercept ASAN explanation
-void _Unwind_Backtrace(void *a, ...) {
-	if (debug) fprintf(stderr, "_Unwind_Backtrace\n");
-	_explain_error();
-}
-
-#if !__DCC_SANITIZER_IS_VALGRIND__
-extern char *__asan_get_report_description();
-extern  int __asan_report_present();
-
-// intercept ASAN explanation
-void __asan_on_error() {
-	if (debug) fprintf(stderr, "__asan_on_error\n");
-
-	char *report = "";
-	if (__asan_report_present()) {
-		report = __asan_get_report_description();
-	}
-	char report_description[8192];
-	snprintf(report_description, sizeof report_description, "DCC_ASAN_ERROR=%s", report);
-	putenvd(report_description);
-	
-	_explain_error();
-	// not reached
-}
-#endif
-
-char *__ubsan_default_options() {
-	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
-}
-
-char *__asan_default_options() {
-	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0:max_malloc_fill_size=4096000:quarantine_size_mb=16:detect_stack_use_after_return=1:verify_asan_link_order=0";
-}
-
-char *__msan_default_options() {
-	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
-}
-
+static void clear_stack(void);
 
 #if !__DCC_SANITIZER_IS_VALGRIND__
 
@@ -180,6 +36,9 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	char mypath[PATH_MAX];
 	realpath(argv[0], mypath);
 	setenvd("DCC_BINARY", mypath);
+#if !__DCC_SANITIZER_IS_VALGRIND
+	clear_stack();
+#endif
 	return __real_main(argc, argv, envp);
 }
 
@@ -230,3 +89,208 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 }
 
 #endif
+
+void __dcc_start(void) {
+	debug = getenv("DCC_DEBUG") != NULL;
+	
+	if (debug) fprintf(stderr, "__dcc_start\n");
+	
+	setenvd("DCC_SANITIZER", "__DCC_SANITIZER__");
+	setenvd("DCC_PATH", "__DCC_PATH__");
+
+	char pid_buffer[32];
+	snprintf(pid_buffer, sizeof pid_buffer, "%d", (int)getpid());
+	setenvd("DCC_PID", pid_buffer);
+	memset(pid_buffer, 0xbe, sizeof pid_buffer);
+	
+	signal(SIGABRT, _signal_handler);
+	signal(SIGSEGV, _signal_handler);
+	signal(SIGINT, _signal_handler);
+	signal(SIGXCPU, _signal_handler);
+	signal(SIGXFSZ, _signal_handler);
+	signal(SIGFPE, _signal_handler);
+	signal(SIGILL, _signal_handler);
+}
+
+static void _dcc_exit(void) {
+	if (debug) fprintf(stderr, "_dcc_exit()\n");
+
+	// use kill instead of exit or _exit because
+	// exit or _exit keeps executing sanitizer code - including perhaps superfluous output
+
+	pid_t pid = getpid();
+
+	// SIGPIPE avoids killed message from bash
+	signal(SIGPIPE, SIG_DFL); 
+	kill(pid, SIGPIPE);   
+
+	// if SIGPIPE fails
+	signal(SIGINT, SIG_DFL);
+	kill(pid, SIGINT);
+
+	// if SIGINT fails
+	kill(pid, SIGKILL);
+
+	// SIGKILL fails
+	_exit(1);
+}
+
+// intercept ASAN explanation
+void _Unwind_Backtrace(void *a, ...) {
+	if (debug) fprintf(stderr, "_Unwind_Backtrace\n");
+	_explain_error();
+}
+
+#if !__DCC_SANITIZER_IS_VALGRIND__
+extern char *__asan_get_report_description();
+extern  int __asan_report_present();
+
+// intercept ASAN explanation
+void __asan_on_error() {
+	if (debug) fprintf(stderr, "__asan_on_error\n");
+
+	char *report = "";
+	if (__asan_report_present()) {
+		report = __asan_get_report_description();
+	}
+	char report_description[8192];
+	snprintf(report_description, sizeof report_description, "DCC_ASAN_ERROR=%s", report);
+	putenvd(report_description);
+	
+	_explain_error();
+	// not reached
+}
+#endif
+
+char *__ubsan_default_options() {
+	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
+}
+
+char *__asan_default_options() {
+	// NOTE detect_stack_use_after_return will stop clear_stack initializing stacks to 0xbe
+	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0";
+}
+
+char *__msan_default_options() {
+	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
+}
+
+
+static void _signal_handler(int signum) {
+	signal(SIGABRT, SIG_IGN);
+	signal(SIGSEGV, SIG_IGN);
+	signal(SIGINT, SIG_IGN);
+	signal(SIGXCPU, SIG_IGN);
+	signal(SIGXFSZ, SIG_IGN);
+	signal(SIGFPE, SIG_IGN);
+	signal(SIGILL, SIG_IGN);
+	
+	char signum_buffer[1024];
+	sprintf(signum_buffer, "DCC_SIGNAL=%d", (int)signum);
+	putenvd(signum_buffer); // less likely? to trigger another error than direct setenv
+	
+	_explain_error();
+	// not reached
+}
+
+static char *run_tar_file = "python3 -E -c \"import os,sys,tarfile,tempfile\n\
+with tempfile.TemporaryDirectory() as temp_dir:\n\
+    tarfile.open(fileobj=sys.stdin.buffer, mode='r|xz').extractall(temp_dir)\n\
+    os.chdir(temp_dir)\n\
+    exec(open('start_gdb.py').read())\n\
+\"";
+
+static void _explain_error(void) {
+	// if a program has exhausted file descriptors then we need to close some to run gdb etc,
+	// so as a precaution we close a pile of file descriptors which may or may not be open
+	for (int i = 4; i < 32; i++)
+		close(i);
+
+    // ensure gdb can ptrace binary
+	// https://www.kernel.org/doc/Documentation/security/Yama.txt
+	prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);		
+
+#if !__DCC_EMBED_SOURCE__
+	if (debug) fprintf(stderr, "running %s\n", "__DCC_PATH__");
+	system("__DCC_PATH__");
+#else
+	if (debug) fprintf(stderr, "running %s\n", run_tar_file);
+	FILE *python_pipe = popen(run_tar_file, "w");
+	fwrite(tar_data, sizeof tar_data[0],  sizeof tar_data/sizeof tar_data[0], python_pipe);
+	fclose(python_pipe);
+#endif
+	_dcc_exit();
+}
+
+#if !__DCC_SANITIZER_IS_VALGRIND
+static void clear_stack1(size_t bytes)
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
+#ifdef SEPARATE_STACK_FOR_SMALL_FRAMES
+static void clear_stack2(size_t bytes)
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
+#endif
+
+static void _memset_shim(void *p, int byte, size_t size)
+#if __has_attribute(noinline)
+__attribute__((noinline))
+#endif
+#if __has_attribute(optnone)
+__attribute__((optnone))
+#endif
+;
+
+// hack to initialize (most of) stack to 0xbe
+// so uninitialized variables are more obvious
+
+static void clear_stack(void) {
+	clear_stack1(4096000);
+	
+#ifdef SEPARATE_STACK_FOR_SMALL_FRAMES
+	clear_stack2(4096000);
+#endif
+
+}
+static void clear_stack1(size_t bytes) {
+	char a[bytes];
+	_memset_shim(a, 0xbe, sizeof a);
+	if (debug) fprintf(stderr, "initialized %p to %p\n", a, a + bytes);
+}
+
+#ifdef SEPARATE_STACK_FOR_SMALL_FRAMES
+
+static void clear_stack2(size_t bytes) {
+	char a[16384];
+	bytes -= sizeof a;
+	if (bytes > sizeof a) {
+		clear_stack2(bytes);
+	}
+	_memset_shim(a, 0xbe, sizeof a);
+	if (debug) fprintf(stderr, "initialized %p to %p\n", a, a + sizeof a);
+}
+
+#endif
+
+// hide memset in a function with optimization turned off
+// to avoid calls being removed by optimizations
+static void _memset_shim(void *p, int byte, size_t size) {
+	memset(p, byte, size);
+}
+
+#endif
+
+static void setenvd(char *n, char *v) {
+	setenv(n, v, 1);
+	if (debug) fprintf(stderr, "setenv %s=%s\n", n, v);
+}
+
+static void putenvd(char *s) {
+	putenv(s);
+	if (debug) fprintf(stderr, "putenv %s\n", s);
+}
+
