@@ -30,7 +30,7 @@ def get_explanation(message, colorize_output):
 #               if explanation is a string, it is evaluated as f-string with the fields from the message object
 #               available as local variables, and the result return as the explanation
 #
-# show_note - print any note on clang warning
+# show_note - print the note (if any)  on a clang warning
 #
 # no_following_explanations - if True, don't print explanations after this one
 #                             use where confusing parasitic errors likely
@@ -174,7 +174,7 @@ int main(void) {
 		
 		regex = r"unterminated function-like macro invocation",
 		
-		explanation = "there is probably a missing closing bracket on the assert on {line_number} of {file}",
+		explanation = "it looks like there is a missing closing bracket on the assert on line {line_number} of {file}",
 		
 		precondition = lambda message, match: message.highlighted_word == 'assert',
 		
@@ -187,6 +187,21 @@ int main(void) {
 
 int main(int argc, char *argv[]) {
 	assert(argc == 1;
+}
+"""
+	),
+	
+	Explanation(
+		label = 'double_int_literal_conversion',	
+		
+		regex = r"implicit conversion from 'double' to 'int'",
+		
+		explanation = "you are assigning the floating point number {emphasize(highlighted_word)} to the int variable {emphasize(underlined_word)} , if this is what you want, change {emphasize(highlighted_word)} to {emphasize(truncate_number(highlighted_word))}",
+		
+
+		reproduce = """
+int main(int argc, char *argv[]) {
+	int i = 6.7;
 }
 """
 	),
@@ -228,7 +243,13 @@ int main(void) {
 	),
 ]
 
-
+import math
+def truncate_number(num):
+	try:
+		return str(math.trunc(float(num)))
+	except ValueError:
+		return str(num)
+		
 if __name__ == '__main__':
 	if sys.argv[1:] and sys.argv[1] == "--create_test_files":
 		for explanation in explanations:

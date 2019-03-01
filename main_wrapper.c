@@ -15,16 +15,33 @@
 static int debug = 0;
 
 void __dcc_start(void) __attribute__((constructor));
+
 static void _dcc_exit(void);
-static void _signal_handler(int signum);
-static void setenvd(char *n, char *v);
-static void putenvd(char *s);
+
+static void _signal_handler(int signum)
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
+
+static void setenvd(char *n, char *v)
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
+
+static void putenvd(char *s)
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
 
 static void _explain_error(void)
 #if __has_attribute(no_sanitize)
 __attribute__((no_sanitize("address", "memory", "undefined")))
 #endif
 ;
+
 static void clear_stack(void);
 
 #if !__DCC_SANITIZER_IS_VALGRIND__
@@ -146,6 +163,11 @@ extern char *__asan_get_report_description();
 extern  int __asan_report_present();
 
 // intercept ASAN explanation
+void __asan_on_error()
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
 void __asan_on_error() {
 	if (debug) fprintf(stderr, "__asan_on_error\n");
 
@@ -167,7 +189,10 @@ char *__ubsan_default_options() {
 }
 
 char *__asan_default_options() {
-	// NOTE detect_stack_use_after_return will stop clear_stack initializing stacks to 0xbe
+
+	// NOTE setting detect_stack_use_after_return here will stop
+	// clear_stack pre-initializing stack frames to 0xbe
+	
 	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0";
 }
 

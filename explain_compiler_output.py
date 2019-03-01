@@ -146,13 +146,15 @@ def get_next_message(lines):
 			continue
 		
 		if re.match(r"^[ ~]*\^[ ~]*$", colorless_next_line):
-
-			caret_index = colorless_next_line.index('^')
 			previous_line = e.text_without_ansi_codes[-1]
-			m = re.match(r"^\w*", previous_line[caret_index:])
-			e.highlighted_word = m.group(0)
+			m = re.match(r"^(.*)\^~+", colorless_next_line)
+			if m:
+				e.highlighted_word = previous_line[len(m.group(1)):len(m.group(0))]
+			else:
+				caret_index = colorless_next_line.index('^')
+				m = re.match(r"^\w*", previous_line[caret_index:])
+				e.highlighted_word = m.group(0)
 
-			# can multiple words be underlined?
 			e.underlined_word = ''
 			m = re.match(r"^(.*?)~+", colorless_next_line)
 			if m:
