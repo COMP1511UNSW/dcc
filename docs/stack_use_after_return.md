@@ -1,6 +1,8 @@
-You are not permitted to assign arrays in C.
+A C function can not return a pointer to a local variable.
 
-You can NOT do this:
+A local variable variable does not exist after the function returns.
+
+For example, you can NOT do this:
 
 ```c
 struct node {
@@ -18,7 +20,10 @@ struct node *create_node(int i) {
 }
 ```
 
-You can instead use a loop to copy each array element individually.
+A function can return a pointer provided by malloc:
+
+For example, you can do this:
+
 
 ```c
 struct node {

@@ -241,6 +241,73 @@ int main(void) {
 }
 """,
 	),
+	
+	Explanation(
+		label = 'stack_use_after_return',
+		
+		regex = r"address of stack memory associated with local variable '(.*?)' returned",
+		
+		explanation = """you are trying to return a pointer to the local variable '{emphasize(highlighted_word)}'.
+  You can not do this because {emphasize(highlighted_word)} will not exist after the function returns.""",
+		
+		long_explanation = True,
+		
+		reproduce = """
+int main(void) {
+    int i;
+    return (int)&i;
+}
+""",
+	),
+	
+	Explanation(
+		label = 'assign_function_to_int',
+		
+		regex = r"incompatible pointer to integer conversion (assigning to|initializing) '(\w+)'.*\(",
+		
+		explanation = """you are attempting to assign {emphasize(underlined_word)} which is a function to an {emphasize(match.group(2))} variable.
+Perhaps you are trying to call the fucntion and have forgotten the round brackets and any parameter values.
+
+""",
+		
+		long_explanation = True,
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	int a = main;
+}
+""",
+	),
+	
+	Explanation(
+		label = 'assign_array_to_int',
+		
+		regex = r"incompatible pointer to integer conversion (assigning to|initializing) '(\w+)'.*]'",
+		
+		explanation = """you are attempting to assign {emphasize(underlined_word)} which is an array to an {emphasize(match.group(2))} variable.""",
+		
+		reproduce = """
+int main(void) {
+    int a[3][3] = {0};
+    a[0][0] = a[1];
+}
+""",
+	),
+	
+	Explanation(
+		label = 'assign_pointer_to_int',
+		
+		regex = r"incompatible pointer to integer conversion (assigning to|initializing) '(\w+)'",
+		
+		explanation = """you are attempting to assign {emphasize(underlined_word)} which is not an {emphasize(match.group(2))} to an {emphasize(match.group(2))} variable.""",
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	int a;
+	a = &a;
+}
+""",
+	),
 ]
 
 import math
