@@ -254,8 +254,8 @@ int main(void) {
 		
 		reproduce = """
 int main(void) {
-    int i;
-    return (int)&i;
+	int i;
+	return (int)&i;
 }
 """,
 	),
@@ -266,9 +266,7 @@ int main(void) {
 		regex = r"incompatible pointer to integer conversion (assigning to|initializing) '(\w+)'.*\(",
 		
 		explanation = """you are attempting to assign {emphasize(underlined_word)} which is a function to an {emphasize(match.group(2))} variable.
-Perhaps you are trying to call the fucntion and have forgotten the round brackets and any parameter values.
-
-""",
+Perhaps you are trying to call the function and have forgotten the round brackets and any parameter values.""",
 		
 		long_explanation = True,
 		
@@ -288,8 +286,8 @@ int main(int argc, char *argv[]) {
 		
 		reproduce = """
 int main(void) {
-    int a[3][3] = {0};
-    a[0][0] = a[1];
+	int a[3][3] = {0};
+	a[0][0] = a[1];
 }
 """,
 	),
@@ -308,7 +306,84 @@ int main(int argc, char *argv[]) {
 }
 """,
 	),
+	Explanation(
+		label = 'missing_library_include',
+		
+		regex = r"implicitly declaring library function '(\w+)'",
+		
+		explanation = """You are calling the function {emphasize(match.group(1))} on line {line_number} of {file} but dcc does not recognize {emphasize(match.group(1))} as a function
+because you have forgotten to {emphasize('#include <' + extract_system_include_file(note) + '>')}
+""",
+		show_note = False,
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	printf("hello");
+}
+""",
+	),
+	
+	Explanation(
+		label = 'misspelt_printf',
+		
+		regex = r"implicit declaration of function '(print.?.?)' is invalid in C99",
+		
+		explanation = """you are calling a function named {emphasize(match.group(1))} on line {line_number} of {file} but dcc does not recognize {emphasize(match.group(1))} as a function.
+Maybe you meant {emphasize('printf')}?
+""",
+		no_following_explanations = True,
+		
+		reproduce = """
+#include <stdio.h>
+int main(int argc, char *argv[]) {
+	print("hello");
+}
+""",
+	),
+	
+	Explanation(
+		label = 'implicit_function_declaration',
+		
+		regex = r"implicit declaration of function '(\w+)' is invalid in C99",
+		
+		explanation = """you are calling a function named {emphasize(match.group(1))} line {line_number} of {file} but dcc does not recognize {emphasize(match.group(1))} as a function.
+There are several possible causes:
+  a) You might have misspelt the function name.
+  b) You might need to add a #include line at the top of {file}.
+  c) You might need to add a prototype for {emphasize(match.group(1))}.
+""",
+		no_following_explanations = True,
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	f();
+}
+""",
+	),
+	
+	Explanation(
+		label = 'expression_not_assignable',
+		
+		regex = r"expression is not assignable",
+		
+		explanation = """You are using {emphasize('=')} incorrectly perhaps you meant {emphasize('==')}.
+Reminder: you use {emphasize('=')} to assign to a variable.
+You use {emphasize('==')} to compare values.		
+		""",
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	if (argc = 1 || argc = 2) {
+		return 1;
+	}
+}
+""",
+	),
 ]
+
+def extract_system_include_file(string):
+	m = re.search(r'<(.*?)>', str(string))
+	return m.group(1) if m else ''
 
 import math
 def truncate_number(num):
