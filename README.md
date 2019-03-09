@@ -34,16 +34,16 @@ For example:
 
     $ dcc buffer_overflow.c
     $ ./a.out
-    a.c:6:3: <span style="color: red">runtime error</span>: index 10 out of bounds for type 'int [10]'
+    a.c:6:3: runtime error: index 10 out of bounds for type 'int [10]'
     
-    Execution stopped here in main() in <span style="color: red">buffer_overflow.c</span> at <span style="color: red">line 6</span>:
+    Execution stopped here in main() in buffer_overflow.c at line 6:
     
         int a[10];
         for (int i = 0; i <= 10; i++) {
-    <span style="color: red">-->        a[i] = 0;</span>
+    --> 	a[i] = 0;
         }
 
-    <span style="color: blue">Values when execution stopped:</span>
+    Values when execution stopped:
 
     a = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     i = 10
@@ -52,22 +52,22 @@ dcc can instead enable clang's MemorySanitizer (-fsanitize=memory)
 
     $ dcc --memory uninitialized-array-element.c
     $ ./a.out
-    uninitialized-array-element:6 <span style="color: red">runtime error uninitialized variable used</span>
+    uninitialized-array-element:6 runtime error uninitialized variable used
     
-    Execution stopped here in main() in <span style="color: red">uninitialized-array-element.c</span> at <span style="color: red">line 6</span>:
+    Execution stopped here in main() in uninitialized-array-element.c at line 6:
 
-    int a[1000];
-    a[42] = 42;
-<span style="color: red">-->    if (a[argc]) {</span>
+    	int a[1000];
+    	a[42] = 42;
+	-->    if (a[argc]) {
         a[43] = 43;
     }
 
-    <span style="color: blue">Values when execution stopped:</span>
+    Values when execution stopped:
 
     argc = 1
     a[42] = 42
-    a[43] = -1094795586 <span style="color: red"><-- warning appears to be uninitialized value</span>
-    a[argc] = -1094795586 <span style="color: red"><-- warning appears to be uninitialized value</span>
+    a[43] = -1094795586 <-- warning appears to be uninitialized value
+    a[argc] = -1094795586 <-- warning appears to be uninitialized value
 
 dcc embeds code in the binary which initialize the first few megabytes of the the stack to 0xbe
 and warns the user if a variable contains 0xbe bytes that is likely uninitialized.
@@ -81,15 +81,15 @@ dcc can alternatively embed code in the binary to run valgrind instead of the bi
     $ ./a.out
     Runtime error: uninitialized variable accessed.
     
-    Execution stopped here in main() in <span style="color: red">uninitialized-array-element.c</span> at <span style="color: red">line 6</span>:
+    Execution stopped here in main() in uninitialized-array-element.c at line 6:
 
-    int a[1000];
-    a[42] = 42;
-<span style="color: red">-->    if (a[argc]) {</span>
+    	int a[1000];
+    	a[42] = 42;
+	-->    if (a[argc]) {
         a[43] = 43;
     }
 
-    <span style="color: blue">Values when execution stopped:</span>
+    Values when execution stopped:
 
     argc = 1
     a[42] = 42
