@@ -1,13 +1,6 @@
-You will get this error if for example:
+You will get this error if for example, you write code like this::
 
 ```c
-
-int square(int x)
-	return x * x;
-}
-
-...
-
 int a;
 a = square;
 ```
@@ -15,13 +8,6 @@ a = square;
 when you wanted to do this:
 
 ```c
-
-int square(int x)
-	return x * x;
-}
-
-...
-
 int a;
 a = square(5);
 ```
