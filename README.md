@@ -6,15 +6,13 @@ to many of the compiler messages novice programmers are likely to encounter and 
 
 For example:
 
-`
-$ dcc a.c
-a.c:3:15: warning: address of stack memory associated with local variable 'counter' returned [-Wreturn-stack-address]
-        return &counter;
-`
+	$ dcc a.c
+	a.c:3:15: warning: address of stack memory associated with local variable 'counter' returned [-Wreturn-stack-address]
+	        return &counter;
 
-*dcc explanation*{: style="color: blue"}: you are trying to return a pointer to the local variable 'counter'.
-<br>You can not do this because *counter*{: style="color: red"} will not exist after the function returns.
-<br>See more information here: https://comp1511unsw.github.io/dcc/stack_use_after_return.html
+	dcc explanation: you are trying to return a pointer to the local variable 'counter'.
+	  You can not do this because counter will not exist after the function returns.
+	  See more information here: https://comp1511unsw.github.io/dcc/stack_use_after_return.html
 
 dcc also (by default) enables clang's  AddressSanitizer (-fsanitize=address) and UndefinedBehaviorSanitizer (-fsanitize=undefined) extensions.
 
@@ -34,7 +32,6 @@ dcc adds code to the binary which if a runtime errors occurs
 
 For example:
 
-<pre>
     $ dcc buffer_overflow.c
     $ ./a.out
     a.c:6:3: <span style="color: red">runtime error</span>: index 10 out of bounds for type 'int [10]'
@@ -50,11 +47,9 @@ For example:
 
     a = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     i = 10
-</pre>
 
 dcc can instead enable clang's MemorySanitizer (-fsanitize=memory) 
 
-<pre>
     $ dcc --memory uninitialized-array-element.c
     $ ./a.out
     uninitialized-array-element:6 <span style="color: red">runtime error uninitialized variable used</span>
@@ -73,7 +68,6 @@ dcc can instead enable clang's MemorySanitizer (-fsanitize=memory)
     a[42] = 42
     a[43] = -1094795586 <span style="color: red"><-- warning appears to be uninitialized value</span>
     a[argc] = -1094795586 <span style="color: red"><-- warning appears to be uninitialized value</span>
-</pre>
 
 dcc embeds code in the binary which initialize the first few megabytes of the the stack to 0xbe
 and warns the user if a variable contains 0xbe bytes that is likely uninitialized.
@@ -83,7 +77,6 @@ effectively otherwise are likely to find zero in uninitialized local variables.
 
 dcc can alternatively embed code in the binary to run valgrind instead of the binary:
 
-<pre>
     $ dcc --valgrind buffer_overflow.c
     $ ./a.out
     Runtime error: uninitialized variable accessed.
@@ -100,9 +93,8 @@ dcc can alternatively embed code in the binary to run valgrind instead of the bi
 
     argc = 1
     a[42] = 42
-    a[43] = -1094795586 <span style="color: red"><-- warning appears to be uninitialized value</span>
-    a[argc] = -1094795586 <span style="color: red"><-- warning appears to be uninitialized value</span>
-</pre>
+    a[43] = 0
+    a[argc] = 0
 
 valgrind is slower but picks up a larger range of uninitialized variable errors.
 
