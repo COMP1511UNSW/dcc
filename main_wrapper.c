@@ -172,9 +172,11 @@ void __asan_on_error() {
 	if (debug) fprintf(stderr, "__asan_on_error\n");
 
 	char *report = "";
+#if __DCC_SANITIZER_IS_ADDRESS__
 	if (__asan_report_present()) {
 		report = __asan_get_report_description();
 	}
+#endif
 	char report_description[8192];
 	snprintf(report_description, sizeof report_description, "DCC_ASAN_ERROR=%s", report);
 	putenvd(report_description);

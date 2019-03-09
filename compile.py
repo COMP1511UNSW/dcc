@@ -71,8 +71,6 @@ def compile(debug=False):
 		tar_n_bytes, tar_source = source_for_embedded_tarfile(args) 
 
 	if args.which_sanitizer == "valgrind":
-		# FIXME - make valgrind work with embedded source
-#		args.embed_source = False
 		sanitizer_args = []
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_VALGRIND__', '1')
 		if args.embed_source:
@@ -88,8 +86,10 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK__', "yes" if args.leak_check else "no")
 		wrapper_source = wrapper_source.replace('__DCC_SUPRESSIONS_FILE__', args.suppressions_file)
 	elif args.which_sanitizer == "memory":
+		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_MEMORY__', '1')
 		sanitizer_args = ['-fsanitize=memory']
 	else:
+		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_ADDRESS__', '1')
 		# fixme add code to check version supports these
 		sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
 		args.which_sanitizer = "address"
@@ -99,7 +99,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 	if args.shared_libasan is None and clang_version[0] not in "34":
 		args.shared_libasan = True
 
-	if args.shared_libasan and args.which_sanitizer != "valgrind":
+	if args.shared_libasan and args.which_sanitizer == "address":
 		lib_dir = CLANG_LIB_DIR.replace('{clang_version}', clang_version)
 		if os.path.exists(lib_dir):
 			sanitizer_args += ['-shared-libasan', '-Wl,-rpath,' + lib_dir]

@@ -1,4 +1,4 @@
-import collections, os, re, sys, signal, tempfile, traceback
+import collections, os, re, sys, signal, traceback
 import colors
  
 DEFAULT_EXPLANATION_URL = "https://comp1511unsw.github.io/dcc/"
@@ -54,26 +54,6 @@ def gdb_attach():
 		debug_print(1, 'attaching gdb to ', pid)
 		gdb.execute('attach %s' % pid)
 	
-# unneeded
-## if we are running under valgrind and their are embedded source files
-## in the binary try to extract them into a temporary directory and cd to it
-# 
-#def explode_embedded_source():
-#	if 'DCC_VALGRIND_ERROR' not in os.environ:
-#		return None
-#	if gdb_evaluate('__dcc_has_source()') != '1':
-#		return None
-#	temp_directory = tempfile.TemporaryDirectory()
-#	os.chdir(temp_directory.name)
-#	gdb_evaluate('(int)chdir("' + temp_directory.name + '")')
-#	if gdb_evaluate('__dcc_extract_source()') == '1':
-#		gdb_execute('cd ' + temp_directory.name)
-#		import subprocess
-#		subprocess.call("pwd;ls -lR", shell=True)
-#		return temp_directory
-#	temp_directory.cleanup()
-#	return
-	
 def explain_error(output_stream, color):
 	debug_print(1, 'explain_error() starting')
 	# file descriptor 3 is a dup of stderr (see below)
@@ -88,7 +68,7 @@ def explain_error(output_stream, color):
 	elif os.environ.get('DCC_SANITIZER', '') == 'memory':
 		if loc:
 			print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
-		print("runtime error",  color("uninitialized variable used", red),  file=output_stream)
+		print("runtime error",  color("uninitialized variable used", 'red'),  file=output_stream)
 
 	if loc:
 		print(explain_location(loc, color), file=output_stream)
