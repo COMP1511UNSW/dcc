@@ -1,9 +1,11 @@
-import io, os, pkgutil, platform, re, subprocess, sys, tarfile
+import codecs,io, os, pkgutil, platform, re, subprocess, sys, tarfile
 
 from version import VERSION 
 from explain_compiler_output import explain_compiler_output 
 
 EXTRA_C_COMPILER_ARGS = " -fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+
+GCC_ARGS = "-O -Wall -std=gnu11 -g -lm -Wno-unused -Wunused-value -fdiagnostics-color -o /dev/null".split()
 
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
 
@@ -94,8 +96,8 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
 		args.which_sanitizer = "address"
 
-    # shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
-    # and we can't override with verify_asan_link_order=0 for clang version < 5
+	# shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
+	# and we can't override with verify_asan_link_order=0 for clang version < 5
 	if args.shared_libasan is None and clang_version[0] not in "34":
 		args.shared_libasan = True
 
@@ -158,8 +160,26 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 			
 	if process.returncode:
 		sys.exit(process.returncode)
-		
-	sys.exit(process.returncode)
+
+	# gcc picks up some errors at compile-time that clang doesn't, e.g 
+	# int main(void) {int a[1]; return a[0];}
+	# so run gcc as well if available
+
+	if not process.stdout and search_path('gcc') and 'gcc' not in args.c_compiler:
+		command = ['gcc'] + args.user_supplied_compiler_args + GCC_ARGS
+		if args.debug:
+			print("compiling with gcc for extra checking", file=sys.stderr)
+			print(" ".join(command), file=sys.stderr)
+		process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+		stdout = codecs.decode(process.stdout, 'utf8', errors='replace')
+		if stdout and 'command line' not in stdout:
+			if args.explanations:
+				explain_compiler_output(stdout, args)
+			else:
+				print(stdout, end='', file=sys.stderr)
+
+	sys.exit(0)
 	
 class Args(object):	
 	c_compiler = "clang"

@@ -60,7 +60,7 @@ class Explanation():
 	def get_short_explanation(self, message, colorize_output):
 		match = None
 		if self.regex:
-			match = re.search(self.regex, "\n".join(message.text), flags=re.I|re.DOTALL)
+			match = re.search(self.regex, "\n".join(message.text_without_ansi_codes), flags=re.I|re.DOTALL)
 			if not match:
 				return None
 
@@ -376,6 +376,21 @@ int main(int argc, char *argv[]) {
 	if (argc = 1 || argc = 2) {
 		return 1;
 	}
+}
+""",
+	),
+	
+	Explanation(
+		label = 'dcc-uninitialized-local-variable',
+		
+		regex = r"'(.*)' is used uninitialized in this function",
+		
+		explanation = """You are using the value of the variable {emphasize(match.group(1))} before assigning a value to {emphasize(match.group(1))}.""",
+		
+		reproduce = """
+int main(void) {
+	int a[0];
+	return a[0];
 }
 """,
 	),

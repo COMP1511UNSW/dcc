@@ -108,7 +108,7 @@ def get_next_message(lines):
 	if not lines:
 		return (None, lines)
 	line = lines[0]
-	colorless_line = colors.strip_color(line)
+	colorless_line = convert_smart_quotes_to_dumb_quotes(colors.strip_color(line))
 	m = re.match(r'^(\S.*?):(\d+):', colorless_line)
 	if not m:
 		return (None, lines)
@@ -165,3 +165,10 @@ def get_next_message(lines):
 
 
 	return (e, lines)
+
+def convert_smart_quotes_to_dumb_quotes(string):
+	string = string.replace('\u2018', "'")
+	string = string.replace('\u2019', "'")
+	string = string.replace('\u201C', '"')
+	string = string.replace('\u201D', '"')
+	return string
