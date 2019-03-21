@@ -1,8 +1,8 @@
 
 # Introduction
 
-dcc compiles C program using clang and adds explanations suitable for novice programmers
-to many of the compiler messages novice programmers are likely to encounter and not understand.
+dcc compiles C programs using clang and adds explanations suitable for novice programmers
+to compiler messages novice programmers are likely to encounter and not understand.
 
 For example:
 
@@ -14,21 +14,10 @@ For example:
 	  You can not do this because counter will not exist after the function returns.
 	  See more information here: https://comp1511unsw.github.io/dcc/stack_use_after_return.html
 
-dcc also (by default) enables clang's  AddressSanitizer (-fsanitize=address) and UndefinedBehaviorSanitizer (-fsanitize=undefined) extensions.
 
-dcc embeds the binary produced a compressed tar file, containing the C source files for the program and some Python code.
-
-dcc adds code to the binary which if a runtime errors occurs
-
-* intercepts it (AddressSanitizer error messages are incomprehensible to novice programmers
-
-* extracts the program source and Python into a temporary directory
-
-* runs the Python
-
-* the Python code prints an eror message that a novice programmer will understand
-
-* than starts gdb and used it to print values of variable in lines near where the rror occurred.
+dcc adds code to the binary which detects run-time errors and print information
+likely to be helpful to novice programmers, including 
+printing values of variable in lines used near where the run-time error occurred.
 
 For example:
 
@@ -48,7 +37,8 @@ For example:
     a = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     i = 10
 
-dcc can instead enable clang's MemorySanitizer (-fsanitize=memory) 
+dcc can alternatively embed code to detect use of uninitialized variables
+and print a message a novice programmer can hopefully understand. For example:
 
     $ dcc --memory uninitialized-array-element.c
     $ ./a.out
@@ -69,11 +59,34 @@ dcc can instead enable clang's MemorySanitizer (-fsanitize=memory)
     a[43] = -1094795586 <-- warning appears to be uninitialized value
     a[argc] = -1094795586 <-- warning appears to be uninitialized value
 
-dcc embeds code in the binary which initialize the first few megabytes of the the stack to 0xbe
-and warns the user if a variable contains 0xbe bytes that is likely uninitialized.
+# Run-time Error Handling Implementation
 
-Linux initializes stack pages to zero so novice programmers  writing small programs with few function calls
-effectively otherwise are likely to find zero in uninitialized local variables.
+* dcc by default enables clang's  AddressSanitizer (`-fsanitize=address`) and UndefinedBehaviorSanitizer (`-fsanitize=undefined`) extensions.
+
+* dcc embeds in the binary produced a xz-compressed tar file (see [compile.py]) containing the C source files for the program and some Python code which is executed if a runtime error occurs.
+
+* Sanitizer errors are intercepted by a shims for the function `__asan_on_error` in [main_wrapper.c].
+
+* A set of signals produced by runtime errors are trapped by `_signal_handler` in [main_wrapper.c].
+
+* Both functions call `_explain_error` in [main_wrapper.c] which creates a temporary directory,
+extracts into it the program source and Python from the embedded tar file, and executes the Python 
+
+* runs the Python ([start_gdb.py]) prints an eror message that a novice programmer will understand
+
+* than starts gdb, and uses it to print current values of variable used in source lines near where the error occurred.
+
+# Dirtying Stack Pages to Facilitat Unitialized Variable Detection
+
+Linux initializes stack pages to zero.  As a consequence novice programmers  writing small programs with few function calls
+are likely to find zero in uninitialized local variables.  This often results in apparently correct behaviour from a
+invalid program with uninitialized local variables.
+
+dcc embeds code in the binary which initializes the first few megabytes of the the stack to 0xbe (see `clear-stack` in [main_wrapper.c].
+
+When printing variable values, after a dcc warns the user if a variable looks to consist of 0xbe bytes that is likely uninitialized.
+
+# Valgrind
 
 dcc can alternatively embed code in the binary to run valgrind instead of the binary:
 
@@ -96,14 +109,15 @@ dcc can alternatively embed code in the binary to run valgrind instead of the bi
     a[43] = 0
     a[argc] = 0
 
-valgrind is slower but picks up a larger range of uninitialized variable errors.
+valgrind is slower but picks up more uninitialized variable errors that MemorySanitizer.
+
 
 # Build Instructions
 
 	$ git clone https://github.com/COMP1511UNSW/dcc
 	$ cd dcc
 	$ make
-	$ cp -p ./dcc /usr/local/bin/bin
+	$ cp -p ./dcc /usr/local/bin/dcc
 	
 # Dependencies
 
@@ -113,6 +127,9 @@ clang, python3, gdb, valgrind
 
 Andrew Taylor (andrewt@unsw.edu.au)
 
+Except help_cs50.py  is almost entirely from  https://github.com/cs50/help50-server/blob/master/helpers/clang.py
+
 # License
 
-To be Added
+GPLv3
+
