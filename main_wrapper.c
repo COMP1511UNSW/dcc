@@ -10,7 +10,9 @@
 #include <signal.h>
 #include <limits.h>
 #include <errno.h>
-#include <sys/prctl.h>
+#ifdef __linux__
+# include <sys/prctl.h>
+#endif
 
 static int debug = 0;
 
@@ -233,9 +235,11 @@ static void _explain_error(void) {
 	for (int i = 4; i < 32; i++)
 		close(i);
 
+#ifdef __linux__
     // ensure gdb can ptrace binary
 	// https://www.kernel.org/doc/Documentation/security/Yama.txt
-	prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);		
+	prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);
+#endif
 
 #if !__DCC_EMBED_SOURCE__
 	if (debug) fprintf(stderr, "running %s\n", "__DCC_PATH__");
