@@ -17,7 +17,7 @@ dcc: $(SOURCE) Makefile
 	rm -rf $(PACKAGE_NAME)
 
 dcc.1: dcc help2man_include.txt
-	help2man --include=help2man_include.txt ./dcc |tee dcc.1
+	help2man --include=help2man_include.txt ./dcc >dcc.1
 	
 tests: dcc
 	tests/do_tests.sh

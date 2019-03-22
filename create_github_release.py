@@ -27,7 +27,7 @@ def make_release(token, tag):
 def upload_file(token, pathname, release_id):
 	with open(pathname, 'br') as myfile:
 		content = myfile.read()
-	json.loads(urlopen(Request(
+	print(json.loads(urlopen(Request(
 		URL_TEMPLATE.format('uploads') + '/' + str(release_id) + '/assets?' \
 		  + urlencode({'name': os.path.split(pathname)[1]}),
 		content,
@@ -36,8 +36,12 @@ def upload_file(token, pathname, release_id):
 			'Authorization': 'token ' + token,
 			'Content-Type': 'application/zip',
 		},
-	)).read().decode())
-
+	)).read().decode()))
+	
+def run(command):
+	print(' '.join(command))
+	subprocess.check_call(command)
+	
 def main():
 	if len(sys.argv) != 3:
 		print("Usage:", sys.argv[0], '<release-tag> <release-description>', file=sys.stderr)
@@ -47,11 +51,11 @@ def main():
 	token = os.environ.get('GITHUB_TOKEN', '')
 	with open(os.path.join(os.environ.get('HOME', ''), '.github_token')) as f:
 		token = f.read().strip()
-	subprocess.check_call(['make', 'dcc', 'dcc.1'])
-	subprocess.check_call(['git', 'tag', '-a', tag, '-m', description])
-	subprocess.check_call(['git', 'push'])
-	subprocess.check_call(['git', 'push', 'origin', tag])
-	subprocess.check_call(['packaging/debian/build.sh'])
+	run(['make', 'dcc', 'dcc.1'])
+	run(['git', 'tag', '-a', tag, '-m', description])
+	run(['git', 'push'])
+	run(['git', 'push', 'origin', tag])
+	run(['packaging/debian/build.sh'])
 	release_id = make_release(token, tag)
 	for pathname in ['dcc', f'packaging/debian/dcc_{tag}_all.deb']:
 		upload_file(token, pathname, release_id)
