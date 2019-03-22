@@ -68,28 +68,36 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	char mypath[PATH_MAX];
 	realpath(argv[0], mypath);
 	setenvd("DCC_BINARY", mypath);
-	
+
 	int valgrind_running = getenv("DCC_VALGRIND_RUNNING") != NULL;
-	if (debug) printf("__wrap_main(valgrind_running=%d)\n", valgrind_running);
+	if (debug) fprintf(stderr, "__wrap_main(valgrind_running=%d)\n", valgrind_running);
+
 	if (valgrind_running) {
 		// valgrind errors get reported earlier if we unbuffer stdout
 		// otherwise uninitialized variables may not be detected until fflush when program exits
 		// which produces poor error message
 		setbuf(stdout, NULL);		   
 		signal(SIGPIPE, SIG_DFL);
-		if (debug) printf("running __real_main\n");
+		if (debug) fprintf(stderr, "running __real_main\n");
 		return __real_main(argc, argv, envp);
 	}
 	
 	if (debug) fprintf(stderr, "command=%s\n", "__DCC_MONITOR_VALGRIND__");
 	FILE *valgrind_error_pipe = popen("__DCC_MONITOR_VALGRIND__", "w");
-	fwrite(tar_data, sizeof tar_data[0],  sizeof tar_data/sizeof tar_data[0], valgrind_error_pipe);
-    fflush(valgrind_error_pipe);
-	setbuf(valgrind_error_pipe, NULL);			
+	int valgrind_error_fd = 2;
+	if (valgrind_error_pipe) {
+		fwrite(tar_data, sizeof tar_data[0],  sizeof tar_data/sizeof tar_data[0], valgrind_error_pipe);
+    	fflush(valgrind_error_pipe);
+		setbuf(valgrind_error_pipe, NULL);			
+		valgrind_error_fd = (int)fileno(valgrind_error_pipe);
+	} else {
+		if (debug) perror("popen failed");
+		return __real_main(argc, argv, envp);
+	}
 	setenvd("DCC_VALGRIND_RUNNING", "1");
-
+	
 	char fd_buffer[1024];
-	sprintf(fd_buffer, "--log-fd=%d", (int)fileno(valgrind_error_pipe));
+	sprintf(fd_buffer, "--log-fd=%d", valgrind_error_fd);
 	char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--leak-check=__DCC_LEAK_CHECK__", "--suppressions=__DCC_SUPRESSIONS_FILE__", "--max-stackframe=16000000", "--partial-loads-ok=no", fd_buffer, "--vgdb-error=1"};
 
 	int valgrind_command_len = sizeof valgrind_command / sizeof valgrind_command[0];
@@ -100,9 +108,11 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	for (int i = 1; i < argc; i++)
 		valgrind_argv[i+valgrind_command_len] = argv[i];
 	valgrind_argv[argc+valgrind_command_len] = NULL;
+
 	execvp("/usr/bin/valgrind", valgrind_argv);
 
-	return 0;
+	if (debug) perror("execvp failed");
+	return __real_main(argc, argv, envp);
 }
 
 #endif
@@ -250,18 +260,12 @@ static void _explain_error(void) {
 }
 
 #if !__DCC_SANITIZER_IS_VALGRIND
-static void clear_stack1(size_t bytes)
+
+static void clear_stack(void)
 #if __has_attribute(no_sanitize)
 __attribute__((no_sanitize("address", "memory", "undefined")))
 #endif
 ;
-#ifdef SEPARATE_STACK_FOR_SMALL_FRAMES
-static void clear_stack2(size_t bytes)
-#if __has_attribute(no_sanitize)
-__attribute__((no_sanitize("address", "memory", "undefined")))
-#endif
-;
-#endif
 
 static void _memset_shim(void *p, int byte, size_t size)
 #if __has_attribute(noinline)
@@ -276,32 +280,11 @@ __attribute__((optnone))
 // so uninitialized variables are more obvious
 
 static void clear_stack(void) {
-	clear_stack1(4096000);
-	
-#ifdef SEPARATE_STACK_FOR_SMALL_FRAMES
-	clear_stack2(4096000);
-#endif
-
-}
-static void clear_stack1(size_t bytes) {
-	char a[bytes];
-	_memset_shim(a, 0xbe, sizeof a);
-	if (debug) fprintf(stderr, "initialized %p to %p\n", a, a + bytes);
-}
-
-#ifdef SEPARATE_STACK_FOR_SMALL_FRAMES
-
-static void clear_stack2(size_t bytes) {
-	char a[16384];
-	bytes -= sizeof a;
-	if (bytes > sizeof a) {
-		clear_stack2(bytes);
-	}
+	char a[4096000];
 	_memset_shim(a, 0xbe, sizeof a);
 	if (debug) fprintf(stderr, "initialized %p to %p\n", a, a + sizeof a);
 }
 
-#endif
 
 // hide memset in a function with optimization turned off
 // to avoid calls being removed by optimizations
@@ -310,6 +293,7 @@ static void _memset_shim(void *p, int byte, size_t size) {
 }
 
 #endif
+
 
 static void setenvd(char *n, char *v) {
 	setenv(n, v, 1);
