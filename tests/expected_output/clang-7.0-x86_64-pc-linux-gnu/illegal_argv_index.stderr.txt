@@ -1,0 +1,14 @@
+
+Execution terminated by signal 11
+Execution stopped here in main() in tests/run_time/illegal_argv_index.c at line 4:
+
+
+int main(int argc, char **argv) { 
+-->	printf("%s\n", argv[-1]);
+}
+
+Values when execution stopped:
+
+argc =  <deleted-value>
+argv[-1] =  <deleted-value>
+

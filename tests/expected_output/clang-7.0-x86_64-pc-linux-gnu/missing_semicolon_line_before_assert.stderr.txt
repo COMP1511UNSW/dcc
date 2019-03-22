@@ -1,0 +1,7 @@
+[1mtests/extracted_compile_time_tests/missing_semicolon_line_before_assert.c:6:2: [0m[0;1;31merror: [0m[1mcalled object type 'int' is not a function or function pointer[0m
+        assert(i == 10);
+[0;1;32m        ^
+[0m[1m/usr/include/assert.h:108:3: [0m[0;1;30mnote: [0mexpanded from macro 'assert'[0m
+  ((void) sizeof ((expr) ? 1 : 0), __extension__ ({                     \
+[0;1;32m  ^[0m
+dcc explanation: there is probably a syntax error such as missing semi-colon on line 5 of tests/extracted_compile_time_tests/missing_semicolon_line_before_assert.c or an earlier line

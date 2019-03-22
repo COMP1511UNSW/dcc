@@ -1,0 +1,10 @@
+tests/extracted_compile_time_tests/dcc-uninitialized-local-variable.c:4:9: runtime error: index 0 out of bounds for type 'int [0]'
+
+Execution stopped here in main() in tests/extracted_compile_time_tests/dcc-uninitialized-local-variable.c at line 4:
+
+int main(void) {
+	int a[0];
+-->	return a[0];
+}
+
+

@@ -1,0 +1,16 @@
+tests/run_time/hash_define.c:10:3: runtime error: index 1000 out of bounds for type 'int [1000]'
+
+Execution stopped here in main() in tests/run_time/hash_define.c at line 10:
+
+
+    for (i = 0; i < ARRAY_SIZE; i++) {
+-->		a[i+argc] = i+argc;
+    }
+}
+Values when execution stopped:
+
+argc =  <deleted-value>
+i =  <deleted-value>
+i+argc =  <deleted-value>
+a[i+argc] =  <deleted-value>
+
