@@ -1,0 +1,11 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: dcc
+Source: https://github.com/COMP1511UNSW/dcc
+
+Files:     help_cs50.py
+Copyright: unknown
+License:   GPL/v3
+
+Files:     *
+Copyright: 2011-2019 Andrew Taylor <andrewt@unsw.edu.au>
+License:   GPL/v3

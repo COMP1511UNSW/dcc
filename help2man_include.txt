@@ -1,0 +1,65 @@
+[EXAMPLES]
+
+    $ dcc buffer_overflow.c
+    $ ./a.out
+    a.c:6:3: runtime error: index 10 out of bounds for type 'int [10]'
+    
+    Execution stopped here in main() in buffer_overflow.c at line 6:
+    
+        int a[10];
+        for (int i = 0; i <= 10; i++) {
+    -->     a[i] = i * i;
+        }
+    }
+    
+    Values when execution stopped:
+    
+    a = {0, 1, 4, 9, 16, 25, 36, 49, 64, 81}
+    i = 10
+    $ dcc --memory uninitialized-array-element.c
+    $ ./a.out
+    uninitialized-array-element:6 runtime error uninitialized variable used
+    
+    Execution stopped here in main() in uninitialized-array-element.c at line 6:
+
+        int a[1000];
+        a[42] = 42;
+    -->    if (a[argc]) {
+        a[43] = 43;
+    }
+
+    Values when execution stopped:
+
+    argc = 1
+    a[42] = 42
+    a[43] = -1094795586 <-- warning appears to be uninitialized value
+    a[argc] = -1094795586 <-- warning appears to be uninitialized value
+    $ dcc --leak-check leak.c
+    $ dcc --valgrind uninitialized-array-element.c
+    uninitialized-array-element:6 runtime error uninitialized variable used
+    
+    Execution stopped here in main() in uninitialized-array-element.c at line 6:
+
+        int a[1000];
+        a[42] = 42;
+    -->    if (a[argc]) {
+        a[43] = 43;
+    }
+
+    Values when execution stopped:
+
+    argc = 1
+    a[42] = 42
+    a[43] = 0
+    a[argc] = 0
+    
+    $ dcc --leak-check leak.c
+    $ ./a.out
+    Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
+
+[ENVIRONMENT]
+DCC_DEBUG level of debugging output
+[AUTHOR]
+Andrew Taylor <andrewt@unsw.edu.au>
+[REPORTING BUGS]
+https://github.com/COMP1511UNSW/dcc/issues

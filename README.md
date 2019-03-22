@@ -6,13 +6,13 @@ to compiler messages novice programmers are likely to encounter and not understa
 
 For example:
 
-	$ dcc a.c
-	a.c:3:15: warning: address of stack memory associated with local variable 'counter' returned [-Wreturn-stack-address]
-	        return &counter;
+    $ dcc a.c
+    a.c:3:15: warning: address of stack memory associated with local variable 'counter' returned [-Wreturn-stack-address]
+            return &counter;
 
-	dcc explanation: you are trying to return a pointer to the local variable 'counter'.
-	  You can not do this because counter will not exist after the function returns.
-	  See more information here: https://comp1511unsw.github.io/dcc/stack_use_after_return.html
+    dcc explanation: you are trying to return a pointer to the local variable 'counter'.
+      You can not do this because counter will not exist after the function returns.
+      See more information here: https://comp1511unsw.github.io/dcc/stack_use_after_return.html
 
 
 dcc adds code to the binary which detects run-time errors and print information
@@ -29,12 +29,13 @@ For example:
     
         int a[10];
         for (int i = 0; i <= 10; i++) {
-    --> 	a[i] = 0;
+    -->     a[i] = i * i;
         }
-
+    }
+    
     Values when execution stopped:
-
-    a = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+    
+    a = {0, 1, 4, 9, 16, 25, 36, 49, 64, 81}
     i = 10
 
 dcc can alternatively embed code to detect use of uninitialized variables
@@ -46,9 +47,9 @@ and print a message a novice programmer can hopefully understand. For example:
     
     Execution stopped here in main() in uninitialized-array-element.c at line 6:
 
-    	int a[1000];
-    	a[42] = 42;
-	-->    if (a[argc]) {
+        int a[1000];
+        a[42] = 42;
+    -->    if (a[argc]) {
         a[43] = 43;
     }
 
@@ -96,9 +97,9 @@ dcc can alternatively embed code in the binary to run valgrind instead of the bi
     
     Execution stopped here in main() in uninitialized-array-element.c at line 6:
 
-    	int a[1000];
-    	a[42] = 42;
-	-->    if (a[argc]) {
+        int a[1000];
+        a[42] = 42;
+    -->    if (a[argc]) {
         a[43] = 43;
     }
 
@@ -111,14 +112,23 @@ dcc can alternatively embed code in the binary to run valgrind instead of the bi
 
 valgrind is slower but picks up more uninitialized variable errors that MemorySanitizer.
 
+dcc can also embed code to ceehck for meory-leaks using valgrind
+
+    $ dcc --leak-check leak.c
+    $ ./a.out
+    Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
 
 # Build Instructions
 
-	$ git clone https://github.com/COMP1511UNSW/dcc
-	$ cd dcc
-	$ make
-	$ cp -p ./dcc /usr/local/bin/dcc
-	
+    $ git clone https://github.com/COMP1511UNSW/dcc
+    $ cd dcc
+    $ make
+    $ cp -p ./dcc /usr/local/bin/dcc
+ 
+# Relase instruction
+
+	$ ./create_github_release.py 1.0 'Initial github release of dcc'
+   
 # Dependencies
 
 clang, python3, gdb, valgrind 

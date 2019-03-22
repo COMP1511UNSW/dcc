@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+clean:
+	@# Do nothing
+
+build:
+	@# Do nothing
+
+binary:
+	mkdir -p debian/dcc/usr/bin
+	mkdir -p debian/dcc/usr/share/doc/dcc
+	cp dcc debian/dcc/usr/bin/
+	gzip -9 --stdout debian/changelog >debian/dcc/usr/share/doc/dcc/changelog.gz
+	cp debian/copyright debian/dcc/usr/share/doc/dcc
+	dh_installman
+	dh_gencontrol
+	dh_builddeb

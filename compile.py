@@ -110,24 +110,6 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		wrapper_source = wrapper_source.replace('__DCC_EMBED_SOURCE__', '1')
 		wrapper_source = tar_source + wrapper_source
 
-# are there still cases where clang produces better warnings for -O??
-#	# First run	 with -O enabled for better compile-time warnings 
-#	command = [args.c_compiler, '-O', '-Wall']  + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
-#	if args.colorize_output:
-#		command += ['-fcolor-diagnostics']
-#	if args.debug:
-#		print(" ".join(command), file=sys.stderr)
-#	process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-#
-#	# workaround for  https://github.com/android-ndk/ndk/issues/184
-#	if "undefined reference to `__" in process.stdout:
-#			sanitizer_args = [c for c in sanitizer_args if not c in ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']]
-#			command = [args.c_compiler, '-O', '-Wall']  + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
-#			if args.debug:
-#				print("undefined reference to `__mulodi4'", file=sys.stderr)
-#				print("recompiling", " ".join(command), file=sys.stderr)
-#			process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-
 	command = [args.c_compiler] + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
 	if args.incremental_compilation:
 		if args.debug:
@@ -228,7 +210,7 @@ def parse_arg(arg, next_arg, args):
 		args.which_sanitizer = "memory"
 	elif arg == '--valgrind':
 		args.which_sanitizer = "valgrind"
-	elif arg == '--leak-check':
+	elif arg == '--leak-check' or arg == '--leakcheck':
 		args.which_sanitizer = "valgrind"
 		args.leak_check = True
 	elif arg.startswith('--suppressions='):
@@ -245,8 +227,19 @@ def parse_arg(arg, next_arg, args):
 		args.embed_source = True
 	elif arg == '--no-embed-source':
 		args.embed_source = False
-	elif arg == '-v':
+	elif arg == '-v' or arg == '--version':
 		print('dcc version', VERSION)
+		sys.exit(0)
+	elif arg == '--help':
+		print("""
+  --memory              check for uninitialized variable using MemorySanitizer
+  --leak-check          check for memory leaks using valgrind 
+  --no-explanations     do not add explanations to compile-time error messages
+  --no-embed-source     do not embed program source in binary 
+  --no-shared-libasan   do not embed program source in binary 
+  --valgrind            check for uninitialized variable using Valgrind
+  
+""")
 		sys.exit(0)
 	else:
 		parse_clang_arg(arg, next_arg, args)

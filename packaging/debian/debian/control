@@ -1,0 +1,18 @@
+Source: dcc
+Section: devel
+Priority: optional
+Maintainer: Andrew Taylor <andrewt@unsw.edu.au>
+Build-Depends: debhelper (>= 9)
+
+Package: dcc
+Architecture: all
+Depends: python3 (>= 3.6), gdb(>= 7.12), clang(>= 4.0)
+Recommends: valgrind(>= 1:3.13)
+Homepage: https://github.com/COMP1511UNSW/dcc
+Description: compiler for novice C programmers
+ dcc compiles C programs using clang and adds explanations suitable
+ for novice programmers to compiler messages novice programmers are
+ likely to encounter and not understand.  dcc also adds code to the
+ binary which detects run-time errors and print information likely
+ to be helpful to novice programmers, including printing values of
+ variable in lines used near where the run-time error occurred.

@@ -22,7 +22,7 @@ def help_cs50(lines):
 	return None
 	
 # following code from
-# https://github.com/cs50/help50/blob/master/helpers/clang.py
+# https://github.com/cs50/help50-server/blob/master/helpers/clang.py
 
 from collections import namedtuple
 
