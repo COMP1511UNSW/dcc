@@ -6,7 +6,7 @@ import json, os, subprocess, sys
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-REPO = 'andrew-taylor/dcc'
+REPO = 'COMP1511UNSW/dcc'
 URL_TEMPLATE = 'https://{}.github.com/repos/' + REPO + '/releases'
 
 def make_release(token, tag):
@@ -27,7 +27,7 @@ def make_release(token, tag):
 def upload_file(token, pathname, release_id):
 	with open(pathname, 'br') as myfile:
 		content = myfile.read()
-	print(json.loads(urlopen(Request(
+	json.loads(urlopen(Request(
 		URL_TEMPLATE.format('uploads') + '/' + str(release_id) + '/assets?' \
 		  + urlencode({'name': os.path.split(pathname)[1]}),
 		content,
@@ -36,7 +36,7 @@ def upload_file(token, pathname, release_id):
 			'Authorization': 'token ' + token,
 			'Content-Type': 'application/zip',
 		},
-	)).read().decode()))
+	)).read().decode())
 	
 def run(command):
 	print(' '.join(command))
