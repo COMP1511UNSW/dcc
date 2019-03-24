@@ -1,2 +1,0 @@
-clang: [0;1;31merror: [0mno such file or directory: 'tests/extracted_compile_time_tests/*.c'[0m
-

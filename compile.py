@@ -85,8 +85,6 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		else:
 			watcher = dcc_path +  "--watch-stdin-for-valgrind-errors"
 		wrapper_source = wrapper_source.replace('__DCC_MONITOR_VALGRIND__', watcher)
-		wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK__', "yes" if args.leak_check else "no")
-		wrapper_source = wrapper_source.replace('__DCC_SUPRESSIONS_FILE__', args.suppressions_file)
 	elif args.which_sanitizer == "memory":
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_MEMORY__', '1')
 		sanitizer_args = ['-fsanitize=memory']
@@ -96,6 +94,11 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
 		args.which_sanitizer = "address"
 
+	wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK_YES_NO__', "yes" if args.leak_check else "no")
+	wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK_1_0__', "1" if args.leak_check else "0")
+	wrapper_source = wrapper_source.replace('__DCC_SUPRESSIONS_FILE__', args.suppressions_file)
+	wrapper_source = wrapper_source.replace('__DCC_STACK_USE_AFTER_RETURN__', "1" if args.stack_use_after_return else "0")
+	
 	# shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
 	# and we can't override with verify_asan_link_order=0 for clang version < 5
 	if args.shared_libasan is None and clang_version[0] not in "34":
@@ -170,6 +173,7 @@ class Args(object):
 #			break
 	which_sanitizer = "address"
 	shared_libasan = None
+	stack_use_after_return = None
 	incremental_compilation = False
 	leak_check = False
 	suppressions_file = os.devnull
@@ -211,7 +215,6 @@ def parse_arg(arg, next_arg, args):
 	elif arg == '--valgrind':
 		args.which_sanitizer = "valgrind"
 	elif arg == '--leak-check' or arg == '--leakcheck':
-		args.which_sanitizer = "valgrind"
 		args.leak_check = True
 	elif arg.startswith('--suppressions='):
 		args.suppressions_file = arg[len('--suppressions='):]
@@ -221,23 +224,28 @@ def parse_arg(arg, next_arg, args):
 		args.explanations = False
 	elif arg == '--shared-libasan' or arg == '-shared-libasan':
 		args.shared_libasan = True
+	elif arg == '--use-after-return':
+		args.stack_use_after_return = True
 	elif arg == '--no-shared-libasan':
 		args.shared_libasan = False
 	elif arg == '--embed-source':
 		args.embed_source = True
 	elif arg == '--no-embed-source':
 		args.embed_source = False
+	elif arg.startswith('--c-compiler='):
+		args.c_compiler = arg[arg.index('=') + 1:]
 	elif arg == '-v' or arg == '--version':
 		print('dcc version', VERSION)
 		sys.exit(0)
 	elif arg == '--help':
 		print("""
-  --memory              check for uninitialized variable using MemorySanitizer
-  --leak-check          check for memory leaks using valgrind 
-  --no-explanations     do not add explanations to compile-time error messages
-  --no-embed-source     do not embed program source in binary 
-  --no-shared-libasan   do not embed program source in binary 
-  --valgrind            check for uninitialized variable using Valgrind
+  --memory                 check for uninitialized variable using MemorySanitizer
+  --leak-check             check for memory leaks, requires --valgrind to intercept errors
+  --no-explanations        do not add explanations to compile-time error messages
+  --no-embed-source        do not embed program source in binary 
+  --no-shared-libasan      do not embed program source in binary 
+  --valgrind               check for uninitialized variables using Valgrind
+  --use-after-return       check for use of local variables after function returns
   
 """)
 		sys.exit(0)

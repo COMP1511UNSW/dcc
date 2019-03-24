@@ -19,6 +19,7 @@ REMOVE_NON_DETERMINATE_VALUES='
 '
 
 dcc="${1:-./dcc}"
+c_compiler="${2:-clang}"
 
 mkdir -p extracted_compile_time_tests
 cd extracted_compile_time_tests || exit
@@ -26,8 +27,8 @@ rm -f *.c
 python3 ../../compiler_explanations.py --create_test_files
 cd ../..
 
-clang_version=$(clang -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
-platform=$(clang -v 2>&1|sed '1d;s/.* //;2q')
+clang_version=$($c_compiler -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
+platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
 
 expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
 mkdir -p $expected_output_dir
@@ -39,7 +40,7 @@ do
 	dcc_flags=
 	eval `egrep '^//\w+=' "$src_file"|sed 's/..//'`
 
-	"$dcc" $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
+	"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
 	test ! -s tmp.actual_stderr && ./a.out </dev/null   2>>tmp.actual_stderr >/dev/null
 	
 	if test ! -s tmp.actual_stderr

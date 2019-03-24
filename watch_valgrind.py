@@ -1,5 +1,6 @@
 import os, re, sys, signal, subprocess
 from start_gdb import start_gdb
+from drive_gdb import DEFAULT_EXPLANATION_URL
 import colors
 
 # valgrind is being used - we have been invoked via the binary to watch for valgrind errors
@@ -21,6 +22,18 @@ def watch_valgrind():
 
 		if 'vgdb me' in line:
 			error = 'Runtime error: ' + color('uninitialized variable accessed.', 'red')
+			os.environ['DCC_VALGRIND_ERROR'] = error
+			print('\n' + error, file=sys.stderr)
+			sys.stderr.flush()
+			start_gdb()
+			sys.exit(0)
+		elif 'below stack pointer' in line:
+			error = f"""Runtime error: {color('access to function variables after function has returned', 'red')}
+You have used a pointer to a local variable that no longer exists.
+When a function returns its local variables are destroyed.
+
+For more information see: {DEFAULT_EXPLANATION_URL}/stack_use_after_return.html'
+"""
 			os.environ['DCC_VALGRIND_ERROR'] = error
 			print('\n' + error, file=sys.stderr)
 			sys.stderr.flush()

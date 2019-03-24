@@ -42,7 +42,13 @@ __attribute__((no_sanitize("address", "memory", "undefined")))
 #endif
 ;
 
-static void clear_stack(void);
+#if !__DCC_SANITIZER_IS_VALGRIND && !__DCC_STACK_USE_AFTER_RETURN__
+static void clear_stack(void)
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
+#endif
 
 #if !__DCC_SANITIZER_IS_VALGRIND__
 
@@ -53,7 +59,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	char mypath[PATH_MAX];
 	realpath(argv[0], mypath);
 	setenvd("DCC_BINARY", mypath);
-#if !__DCC_SANITIZER_IS_VALGRIND
+#if !__DCC_STACK_USE_AFTER_RETURN__
 	clear_stack();
 #endif
 	return __real_main(argc, argv, envp);
@@ -98,7 +104,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	
 	char fd_buffer[1024];
 	sprintf(fd_buffer, "--log-fd=%d", valgrind_error_fd);
-	char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--leak-check=__DCC_LEAK_CHECK__", "--suppressions=__DCC_SUPRESSIONS_FILE__", "--max-stackframe=16000000", "--partial-loads-ok=no", fd_buffer, "--vgdb-error=1"};
+	char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--leak-check=__DCC_LEAK_CHECK_YES_NO__", "--suppressions=__DCC_SUPRESSIONS_FILE__", "--max-stackframe=16000000", "--partial-loads-ok=no", fd_buffer, "--vgdb-error=1"};
 
 	int valgrind_command_len = sizeof valgrind_command / sizeof valgrind_command[0];
 	char *valgrind_argv[argc + 1 + valgrind_command_len];
@@ -197,21 +203,20 @@ void __asan_on_error() {
 #endif
 
 char *__ubsan_default_options() {
-	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
+	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__DCC_LEAK_CHECK_1_0__";
 }
 
 char *__asan_default_options() {
 
-	// NOTE setting detect_stack_use_after_return here will stop
+	// NOTE setting detect_stack_use_after_return here stops
 	// clear_stack pre-initializing stack frames to 0xbe
 	
-	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0";
+	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__DCC_LEAK_CHECK_1_0__:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0:detect_stack_use_after_return=__DCC_STACK_USE_AFTER_RETURN__";
 }
 
 char *__msan_default_options() {
-	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=0";
+	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__DCC_LEAK_CHECK_1_0__";
 }
-
 
 static void _signal_handler(int signum) {
 	signal(SIGABRT, SIG_IGN);
@@ -259,13 +264,7 @@ static void _explain_error(void) {
 	_dcc_exit();
 }
 
-#if !__DCC_SANITIZER_IS_VALGRIND
-
-static void clear_stack(void)
-#if __has_attribute(no_sanitize)
-__attribute__((no_sanitize("address", "memory", "undefined")))
-#endif
-;
+#if !__DCC_SANITIZER_IS_VALGRIND && !__DCC_STACK_USE_AFTER_RETURN__
 
 static void _memset_shim(void *p, int byte, size_t size)
 #if __has_attribute(noinline)

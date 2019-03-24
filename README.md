@@ -41,11 +41,11 @@ For example:
 dcc can alternatively embed code to detect use of uninitialized variables
 and print a message a novice programmer can hopefully understand. For example:
 
-    $ dcc --memory uninitialized-array-element.c
+    $ dcc --memory uninitialized.c
     $ ./a.out
-    uninitialized-array-element:6 runtime error uninitialized variable used
+    uninitialized.c:6 runtime error uninitialized variable used
     
-    Execution stopped here in main() in uninitialized-array-element.c at line 6:
+    Execution stopped here in main() in uninitialized.c at line 6:
 
         int a[1000];
         a[42] = 42;
@@ -59,6 +59,79 @@ and print a message a novice programmer can hopefully understand. For example:
     a[42] = 42
     a[43] = -1094795586 <-- warning appears to be uninitialized value
     a[argc] = -1094795586 <-- warning appears to be uninitialized value
+
+# Valgrind
+
+dcc can alternatively embed code in the binary to run valgrind instead of the binary:
+
+    $ dcc --valgrind buffer_overflow.c
+    $ ./a.out
+    Runtime error: uninitialized variable accessed.
+    
+    Execution stopped here in main() in uninitialized-array-element.c at line 6:
+
+        int a[1000];
+        a[42] = 42;
+    -->    if (a[argc]) {
+        a[43] = 43;
+    }
+
+    Values when execution stopped:
+
+    argc = 1
+    a[42] = 42
+    a[43] = 0
+    a[argc] = 0
+
+valgrind is slower but more comprehensive in its detection of uninitialize dvariables than MemorySanitizer.
+
+# Leak checking
+
+dcc can also embed code to check for memory-leaks:
+
+    $ dcc --valgrind --leak-check leak.c
+    $ ./a.out
+    Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
+
+This option can not also be used for (the default) Address sanitizer but error are not intercepted and may be  cryptic
+for novice programmers.
+
+# Local Variable Use After Function Return Detection
+
+    $ dcc --use_after_return bad_function.c
+    $ ./a.out
+	bad_function.c:22 runtime error - stack use after return
+	
+	dcc explanation: You have used a pointer to a local variable that no longer exists.
+	  When a function returns its local variables are destroyed.
+	
+	For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html
+	Execution stopped here in main() in bad_function at line 22:
+	
+	
+		int *a = f(42);
+	-->	printf("%d\n", a[0]);
+	}
+
+
+valgrind also usually detect this type of error, e.g.:
+
+    $ dcc --use_after_return bad_function.c
+    $ ./a.out
+	Runtime error: access to function variables after function has returned
+	You have used a pointer to a local variable that no longer exists.
+	When a function returns its local variables are destroyed.
+	
+	For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html'
+	
+	
+	Execution stopped here in main() in tests/run_time/bad_function.c at line 22:
+	
+	
+	int main(void) {
+	-->	printf("%d\n", *f(50));
+	}
+
 
 # Run-time Error Handling Implementation
 
@@ -86,37 +159,6 @@ invalid program with uninitialized local variables.
 dcc embeds code in the binary which initializes the first few megabytes of the the stack to 0xbe (see `clear-stack` in [main_wrapper.c].
 
 When printing variable values, after a dcc warns the user if a variable looks to consist of 0xbe bytes that is likely uninitialized.
-
-# Valgrind
-
-dcc can alternatively embed code in the binary to run valgrind instead of the binary:
-
-    $ dcc --valgrind buffer_overflow.c
-    $ ./a.out
-    Runtime error: uninitialized variable accessed.
-    
-    Execution stopped here in main() in uninitialized-array-element.c at line 6:
-
-        int a[1000];
-        a[42] = 42;
-    -->    if (a[argc]) {
-        a[43] = 43;
-    }
-
-    Values when execution stopped:
-
-    argc = 1
-    a[42] = 42
-    a[43] = 0
-    a[argc] = 0
-
-valgrind is slower but picks up more uninitialized variable errors that MemorySanitizer.
-
-dcc can also embed code to ceehck for meory-leaks using valgrind
-
-    $ dcc --leak-check leak.c
-    $ ./a.out
-    Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
 
 # Build Instructions
 

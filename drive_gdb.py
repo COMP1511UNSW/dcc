@@ -108,7 +108,7 @@ def explain_asan_error(loc, output_stream, color):
 		print(prefix, """You have used a pointer to a local variable that no longer exists.
   When a function returns its local variables are destroyed.
 """, file=output_stream)
-		print(prefix, 'For more information see:', DEFAULT_EXPLANATION_URL + '/stack_use_after_return.html', file=output_stream)
+		print('For more information see:', DEFAULT_EXPLANATION_URL + '/stack_use_after_return.html', file=output_stream)
 	elif "use after" in report:
 		print(prefix, "access to memory that has already been freed.\n", file=output_stream)
 	elif "double free" in report:

@@ -1,4 +1,5 @@
-[1mtests/run_time/stack_use_after_return.c:3:10: [0m[0;1;35mwarning: [0m[1maddress of stack memory associated with local variable 'i' returned [-Wreturn-stack-address][0m
-        return &i;
-[0;1;32m                ^[0m
+[01m[Ktests/extracted_compile_time_tests/stack_use_after_return.c:[m[K In function ‘[01m[Kmain[m[K’:
+[01m[Ktests/extracted_compile_time_tests/stack_use_after_return.c:4:9:[m[K [01;35m[Kwarning: [m[Kcast from pointer to integer of different size [[01;35m[K-Wpointer-to-int-cast[m[K]
+  return [01;35m[K([m[Kint)&i;
+         [01;35m[K^[m[K[0m
 
