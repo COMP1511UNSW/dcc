@@ -1,0 +1,1 @@
+Error: free not called for memory allocated with malloc in function main in leak_valgrind.c at line 6.

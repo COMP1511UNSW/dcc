@@ -1,0 +1,5 @@
+[1mtests/extracted_compile_time_tests/assign_array_to_int.c:4:10: [0m[0;1;35mwarning: [0m[1mincompatible pointer to integer conversion assigning to 'int' from 'int [3]' [-Wint-conversion][0m
+        a[0][0] = a[1];
+[0;1;32m                ^ ~~~~[0m
+dcc explanation: you are attempting to assign a[1] which is an array to an int variable.
+

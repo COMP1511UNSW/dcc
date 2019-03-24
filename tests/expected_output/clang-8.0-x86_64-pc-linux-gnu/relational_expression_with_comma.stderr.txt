@@ -1,0 +1,5 @@
+[1mtests/compile_time/relational_expression_with_comma.c:2:11: [0m[0;1;35mwarning: [0m[1mrelational comparison result unused [-Wunused-comparison][0m
+        if (argc < 1, argc < 2)
+[0;1;32m            ~~~~~^~~[0m
+dcc explanation: Looks like you're comparing two values on line 2 of `tests/compile_time/relational_expression_with_comma.c` but not using the result?
+

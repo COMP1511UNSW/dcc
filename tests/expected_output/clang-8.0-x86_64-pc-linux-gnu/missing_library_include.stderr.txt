@@ -1,0 +1,7 @@
+[1mtests/extracted_compile_time_tests/missing_library_include.c:3:2: [0m[0;1;35mwarning: [0m[1mimplicitly declaring library function 'printf' with type 'int (const char *, ...)' [-Wimplicit-function-declaration][0m
+        printf("hello");
+[0;1;32m        ^[0m
+dcc explanation: You are calling the function printf on line 3 of tests/extracted_compile_time_tests/missing_library_include.c but dcc does not recognize printf as a function
+because you have forgotten to #include <stdio.h>
+
+

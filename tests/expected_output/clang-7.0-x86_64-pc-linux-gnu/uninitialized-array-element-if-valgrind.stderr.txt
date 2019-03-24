@@ -1,0 +1,18 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped here in main() in tests/run_time/uninitialized-array-element-if-valgrind.c at line 6:
+
+	int a[1000];
+  	a[42] = 42;
+-->	if (a[argc]) {
+  		a[43] = 43;
+  	}
+
+Values when execution stopped:
+
+argc =  <deleted-value>
+a[42] =  <deleted-value>
+a[43] =  <deleted-value>
+a[argc] =  <deleted-value>
+

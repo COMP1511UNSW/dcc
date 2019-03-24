@@ -1,0 +1,13 @@
+[1mtests/extracted_compile_time_tests/format_type_mismatch.c:5:9: [0m[0;1;35mwarning: [0m[1mmissing terminating '"' character [-Winvalid-pp-token][0m
+        printf("%d
+[0;1;32m               ^[0m
+[1mtests/extracted_compile_time_tests/format_type_mismatch.c:6:11: [0m[0;1;35mwarning: [0m[1mmissing terminating '"' character [-Winvalid-pp-token][0m
+", "hello!");
+[0;1;32m          ^[0m
+[0m[1mtests/extracted_compile_time_tests/format_type_mismatch.c:7:2: [0m[0;1;31merror: [0m[1mexpected '}'[0m
+}
+[0;1;32m ^
+[0m[1mtests/extracted_compile_time_tests/format_type_mismatch.c:4:16: [0m[0;1;30mnote: [0mto match this '{'[0m
+int main(void) {
+[0;1;32m               ^[0m
+dcc explanation: Make sure that all opening brace symbols `{` are matched with a closing brace `}`.

@@ -1,0 +1,18 @@
+
+tests/run_time/uninitialized-array-element-if-memory-sanitizer.c:6 runtime error uninitialized variable used
+Execution stopped here in main() in tests/run_time/uninitialized-array-element-if-memory-sanitizer.c at line 6:
+
+	int a[1000];
+  	a[42] = 42;
+-->	if (a[argc]) {
+  		a[43] = 43;
+  	}
+
+Values when execution stopped:
+
+a =  <deleted-value>
+argc =  <deleted-value>
+a[42] =  <deleted-value>
+a[43] =  <deleted-value>
+a[argc] =  <deleted-value>
+
