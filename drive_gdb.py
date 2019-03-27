@@ -59,7 +59,8 @@ def explain_error(output_stream, color):
 	# file descriptor 3 is a dup of stderr (see below)
 	# stdout & stderr have been diverted to /dev/null
 	print(file=output_stream)
-	loc = gdb_set_frame()
+	stack = gdb_set_frame()
+	loc = stack[0]
 	signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
 	if signal_number != signal.SIGABRT:
 		 print(explain_signal(signal_number), file=output_stream)
@@ -74,6 +75,11 @@ def explain_error(output_stream, color):
 		print(explain_location(loc, color), file=output_stream)
 		print(relevant_variables(loc.surrounding_source(color, clean=True), color), file=output_stream)
 
+	if (stack[1:]):
+		print(color('Function Call Traceback', 'blue'), file=output_stream)
+		for (frame, caller) in zip(stack, stack[1:]):
+			print(frame.function + '(' + frame.params + ') was called from', caller.short_description(color), file=output_stream)
+		
 	gdb.flush(gdb.STDOUT)
 	gdb.flush(gdb.STDERR)
 
@@ -129,13 +135,14 @@ def explain_signal(signal_number):
 		return "Execution terminated by signal %s" % signal_number
 
 class Location():
-	def __init__(self, filename, line_number, column='', function='', params='', variable=''):
+	def __init__(self, filename, line_number, column='', function='', params='', variable='', frame_number=''):
 		self.filename = filename
 		self.line_number = int(line_number)
 		self.column = column
 		self.function = function
 		self.params = params
 		self.variable = variable
+		self.frame_number = frame_number
 	def __str__(self):
 		return "Location(%s,%s,column=%s,function=%s,params=%s,variable=%s)" % (self.filename, self.line_number, self.column, self.function, self.params, self.variable)
 	def description(self):
@@ -143,13 +150,16 @@ class Location():
 		if self.function == 'main' and params.startswith('argc=1,'):
 			params = ''
 		return "in %s(%s) at\n%s:%s: %s" % (self.function, params, self.filename, self.line_number, self.source_line())
+	def short_description(self, color):
+		params = self.params
+		if self.function == 'main' and params.startswith('argc=1,'):
+			params = ''
+		return self.function + '(' + params + ') in ' + color(self.filename, 'red') + ' at ' + color('line ' + str(self.line_number), 'red')
 	def long_description(self, color):
 		params = self.params
 		if self.function == 'main' and params.startswith('argc=1,'):
 			params = ''
-#		d = f"in {self.function}({params}) in {color(self.filename, 'red')} at {color('line ' + str(self.line_number), 'red')}:\n\n" + self.surrounding_source(color, markMiddle=True)
-		d = 'in ' + self.function + '(' + params + ') in ' + color(self.filename, 'red') + ' at ' + color('line ' + str(self.line_number), 'red') + ':\n\n' + self.surrounding_source(color, markMiddle=True)
-		return d
+		return  'in ' + self.short_description(color) + ':\n\n' + self.surrounding_source(color, markMiddle=True)
 	def source_line(self, clean=False):
 		return fileline(self.filename, self.line_number, clean)
 	def surrounding_source(self, color, radius=2, clean=False, markMiddle=False):
@@ -227,26 +237,35 @@ def parse_gdb_stack_frame(line):
 		filename = m.group('filename')
 		if filename.startswith("/usr/") or filename.startswith("../sysdeps/"): 
 			m = None
-	return m
+	if m:
+		return Location(m.group('filename'), m.group('line_number'), function=m.group('function'), params=m.group('params'), frame_number=m.group('frame_number'))
+	return None
 	
 def gdb_set_frame():
 	try:
 		stack = gdb_execute('where')
 		debug_print(1, "\nStack:\n",stack, "\n")
 		stack_lines = stack.splitlines()
-		frame = None
-		for line in stack_lines:
+		reversed_stack_lines = reversed(stack_lines)
+		frames = []
+		while stack_lines:
+			line = stack_lines.pop(0)
 			frame = parse_gdb_stack_frame(line)
-			if frame and os.path.exists(frame.group('filename')):
-				break
-		if not frame:
-			for line in reversed(stack_lines):
+			while frame and os.path.exists(frame.filename):
+				frames.append(frame)
+				frame = None
+				if stack_lines:
+					line = stack_lines.pop(0)
+					frame = parse_gdb_stack_frame(line)
+		if not frames:
+			for line in reversed_stack_lines:
 				frame = parse_gdb_stack_frame(line) or frame
-		if not frame:
+			frames = [frame]
+		if not frames:
 			debug_print(1, 'gdb_set_frame no frame number')
 			return None
-		gdb_execute('frame %s' % frame.group('frame_number'))
-		return Location(frame.group('filename'), frame.group('line_number'), function=frame.group('function'), params=frame.group('params'))
+		gdb_execute('frame ' + str(frames[0].frame_number))
+		return frames
 	except:
 		if debug: traceback.print_exc(file=sys.stderr)
 	
