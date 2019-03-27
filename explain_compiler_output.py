@@ -23,14 +23,18 @@ def explain_compiler_output(output, args):
 			print(lines.pop(0), file=sys.stderr)
 			continue
 			
-		if message.is_same_line(last_message):
+		if last_message and message.is_same_line(last_message) and (last_message.type == "error" or message.type == "warning"):
 			# skip if there are two errors for one line
 			# often the second message is unhelpful
+			if args.debug:
+				print('skipping subsequent compiler messages for line', file=sys.stderr)
 			continue
 
 		if message.type == "warning" and len(explanations_made) >= args.max_explanations:
 			# skip warnings if we have made max_explanations
-			# we don't exit because we want to print the first error if there is on3
+			# we don't exit because we want to print the first error if there is one
+			if args.debug:
+				print('skipping warning because of number of explanations already made', file=sys.stderr)
 			continue
 
 
@@ -73,8 +77,9 @@ def explain_compiler_output(output, args):
 		print(prefix, explanation_text, file=sys.stderr)
 			
 		if  explanation and explanation.no_following_explanations:
+			if args.debug:
+				print('printing no further compiler messages because explanation.no_following_explanations set')
 			break
-			
 	if lines and lines[-1].endswith(' generated.'):
 		lines[-1] = re.sub(r'\d .*', '', lines[-1])
 
