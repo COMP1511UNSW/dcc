@@ -3,7 +3,7 @@ import codecs,io, os, pkgutil, platform, re, subprocess, sys, tarfile
 from version import VERSION 
 from explain_compiler_output import explain_compiler_output 
 
-EXTRA_C_COMPILER_ARGS = " -fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+EXTRA_C_COMPILER_ARGS = "-fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 
 GCC_ARGS = "-O -Wall -std=gnu11 -g -lm -Wno-unused -Wunused-value -fdiagnostics-color -o /dev/null".split()
 
@@ -74,6 +74,7 @@ def compile(debug=False):
 
 	if args.which_sanitizer == "valgrind":
 		sanitizer_args = []
+		sanitizer_args = ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_VALGRIND__', '1')
 		if args.embed_source:
 			watcher = fr"python3 -E -c \"import os,sys,tarfile,tempfile\n\
@@ -87,6 +88,8 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		wrapper_source = wrapper_source.replace('__DCC_MONITOR_VALGRIND__', watcher)
 	elif args.which_sanitizer == "memory":
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_MEMORY__', '1')
+		# FIXME if we enable  '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer'
+		# which would be preferable here we get uninitialized variable error message for undefined errors
 		sanitizer_args = ['-fsanitize=memory']
 	else:
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_ADDRESS__', '1')

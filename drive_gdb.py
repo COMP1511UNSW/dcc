@@ -60,7 +60,7 @@ def explain_error(output_stream, color):
 	# stdout & stderr have been diverted to /dev/null
 	print(file=output_stream)
 	stack = gdb_set_frame()
-	loc = stack[0]
+	loc = stack[0] if stack else None
 	signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
 	if signal_number != signal.SIGABRT:
 		 print(explain_signal(signal_number), file=output_stream)
@@ -74,8 +74,7 @@ def explain_error(output_stream, color):
 	if loc:
 		print(explain_location(loc, color), file=output_stream)
 		print(relevant_variables(loc.surrounding_source(color, clean=True), color), file=output_stream)
-
-	if (stack[1:]):
+	if (len(stack) > 1):
 		print(color('Function Call Traceback', 'blue'), file=output_stream)
 		for (frame, caller) in zip(stack, stack[1:]):
 			print(frame.function + '(' + frame.params + ') was called from', caller.short_description(color), file=output_stream)
@@ -258,13 +257,16 @@ def gdb_set_frame():
 					line = stack_lines.pop(0)
 					frame = parse_gdb_stack_frame(line)
 		if not frames:
+			# FIXME - does this code make sense?
+			frame = None
 			for line in reversed_stack_lines:
 				frame = parse_gdb_stack_frame(line) or frame
-			frames = [frame]
-		if not frames:
+			if frame:
+				frames = [frame]
+		if frames:
+			gdb_execute('frame ' + str(frames[0].frame_number))
+		else:
 			debug_print(1, 'gdb_set_frame no frame number')
-			return None
-		gdb_execute('frame ' + str(frames[0].frame_number))
 		return frames
 	except:
 		if debug: traceback.print_exc(file=sys.stderr)
