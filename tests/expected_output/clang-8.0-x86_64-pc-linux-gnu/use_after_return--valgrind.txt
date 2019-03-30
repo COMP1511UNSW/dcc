@@ -1,0 +1,16 @@
+
+Runtime error: access to function variables after function has returned
+You have used a pointer to a local variable that no longer exists.
+When a function returns its local variables are destroyed.
+
+For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html'
+
+
+Execution stopped here in main() in tests/run_time/use_after_return.c at line 23:
+
+
+int main(void) {
+-->	printf("%d\n", *f(50));
+}
+
+

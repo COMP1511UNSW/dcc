@@ -33,51 +33,60 @@ platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
 expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
 mkdir -p $expected_output_dir
 test_failed=0
+
+# don't change the variable src_file some tests rely on it
 for src_file in tests/extracted_compile_time_tests/*.c tests/compile_time/*.c tests/run_time/*.c
 do
 	rm -f a.out
-	expected_stderr_file="$expected_output_dir/`basename $src_file .c`.stderr.txt"
-	dcc_flags=
-	eval `egrep '^//\w+=' "$src_file"|sed 's/..//'`
 
-	"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
-	test ! -s tmp.actual_stderr && ./a.out </dev/null   2>>tmp.actual_stderr >/dev/null
-	
-	if test ! -s tmp.actual_stderr
-	then
-		echo
-		echo "Test dcc $dcc_flags $src_file failed - no error messages"
-		test_failed=1
-		continue
-	fi 
-	
-	if test ! -e "$expected_stderr_file"
-	then
-		echo
-		echo "'$expected_stderr_file' does not exist, creating with these contents:"
-		echo
-		cat tmp.actual_stderr
-		sed "$REMOVE_NON_DETERMINATE_VALUES" tmp.actual_stderr >"$expected_stderr_file"
-		echo
-		echo "if above is not correct output for this test: rm '$expected_stderr_file' "
-		continue
-	fi 
+	compile_options_list=$(egrep '^//dcc_flags=' "$src_file"|sed 's?//??;s? ?#?g')
+	compile_options_list=${compile_options_list:-'dcc_flags=""'}
 
-	sed -e "$REMOVE_NON_DETERMINATE_VALUES"  tmp.actual_stderr >tmp.corrected_stderr
-	if diff -iBw "$expected_stderr_file" tmp.corrected_stderr >/dev/null
-	then
-		echo -n .
-	else
-		echo
-		echo "Test dcc $dcc_flags  failed output different to expected - rm '$expected_stderr_file' if output is correct"
-		echo Differences are:
-		echo
-		diff -u  -iBw "$expected_stderr_file" tmp.corrected_stderr
-		echo
-		echo "if output is correct: rm '$expected_stderr_file'"
-		test_failed=1
-		continue
-	fi
+	for compile_options in $compile_options_list
+	do
+		dcc_flags=
+		suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/["$]//g;s/src_file//'`
+		eval $compile_options
+		expected_stderr_file="$expected_output_dir/`basename $src_file .c`$suffix.txt"
+		"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
+		test ! -s tmp.actual_stderr && ./a.out </dev/null   2>>tmp.actual_stderr >/dev/null
+		
+		if test ! -s tmp.actual_stderr
+		then
+			echo
+			echo "Test dcc $dcc_flags $src_file failed - no error messages"
+			test_failed=1
+			continue
+		fi 
+		
+		if test ! -e "$expected_stderr_file"
+		then
+			echo
+			echo "'$expected_stderr_file' does not exist, creating with these contents:"
+			echo
+			cat tmp.actual_stderr
+			sed "$REMOVE_NON_DETERMINATE_VALUES" tmp.actual_stderr >"$expected_stderr_file"
+			echo
+			echo "if above is not correct output for this test: rm '$expected_stderr_file' "
+			continue
+		fi 
+	
+		sed -e "$REMOVE_NON_DETERMINATE_VALUES"  tmp.actual_stderr >tmp.corrected_stderr
+		if diff -iBw "$expected_stderr_file" tmp.corrected_stderr >/dev/null
+		then
+			echo -n .
+		else
+			echo
+			echo "Test dcc $dcc_flags  failed output different to expected - rm '$expected_stderr_file' if output is correct"
+			echo Differences are:
+			echo
+			diff -u  -iBw "$expected_stderr_file" tmp.corrected_stderr
+			echo
+			echo "if output is correct: rm '$expected_stderr_file'"
+			test_failed=1
+			continue
+		fi
+	done
 done
 test $test_failed = 0 && echo && echo All tests passed
 exit $test_failed

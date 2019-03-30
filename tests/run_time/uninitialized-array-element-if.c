@@ -1,4 +1,5 @@
-//dcc_flags="--valgrind"
+//dcc_flags=--memory
+//dcc_flags=--valgrind
 
 int main(int argc, char **argv) { 
 	int a[1000];

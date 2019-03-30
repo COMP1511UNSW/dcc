@@ -1,4 +1,5 @@
-//dcc_flags="--valgrind"
+//dcc_flags=--valgrind
+//dcc_flags=--memory
 
 #include <stdio.h>
 

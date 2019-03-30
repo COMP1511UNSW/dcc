@@ -1,5 +1,5 @@
 //dcc_flags="--valgrind"
-
+// --memory does not detects this
 #include <stdio.h>
 
 int main(int argc, char **argv) { 

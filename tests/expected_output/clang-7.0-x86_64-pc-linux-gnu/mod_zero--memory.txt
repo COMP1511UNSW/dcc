@@ -1,0 +1,14 @@
+
+Execution stopped by an arithmetic error.
+Often this is caused by division (or %) by zero.
+Execution stopped here in main() in tests/run_time/mod_zero.c at line 7:
+
+
+int main(int argc, char **argv) { 
+-->	printf("%d\n", 42 % (argc - 1));
+}
+
+Values when execution stopped:
+
+argc =  <deleted-value>
+
