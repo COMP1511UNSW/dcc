@@ -340,10 +340,10 @@ def clarify_value(expression_value, expression_type, color):
 				 expression_value = "%s = '%s'" % m.groups()
 	expression_value = re.sub(r"'\000'", r"'\\0'", expression_value)
 
-	warning_text = color(" <-- warning appears to be uninitialized value", 'red')
+	warning_text = color("<uninitialized value>", 'red')
 
-	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)', '-66 (not valid ASCII)', '0xbebebebe', '0xbebebebebebebebe']:
-		expression_value = re.sub(r'\b' + re.escape(value) + r'\b', value + warning_text, expression_value)
+	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)', '0xbebebebe', '0xbebebebebebebebe']:
+		expression_value = re.sub(r'(^|\D)' + re.escape(value) + r'($|\D)', r'\1' + warning_text + r'\2', expression_value)
 
 	return expression_value
 
