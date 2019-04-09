@@ -247,21 +247,16 @@ def gdb_set_frame():
 		stack_lines = stack.splitlines()
 		reversed_stack_lines = reversed(stack_lines)
 		frames = []
-		while stack_lines:
-			line = stack_lines.pop(0)
+		for line in stack_lines:
 			frame = parse_gdb_stack_frame(line)
-			while frame and os.path.exists(frame.filename):
+			if frame is not None and os.path.exists(frame.filename):
 				frames.append(frame)
-				frame = None
-				if stack_lines:
-					line = stack_lines.pop(0)
-					frame = parse_gdb_stack_frame(line)
 		if not frames:
 			# FIXME - does this code make sense?
 			frame = None
 			for line in reversed_stack_lines:
 				frame = parse_gdb_stack_frame(line) or frame
-			if frame:
+			if frame is not None:
 				frames = [frame]
 		if frames:
 			gdb_execute('frame ' + str(frames[0].frame_number))
@@ -319,11 +314,18 @@ def evaluate_expression(expression, color):
 		len(expression_value) > 128
 		):
 		return None
-		
+	
+	return clarify_value(expression_value, expression_type, color)
+
+# transform value into something a novice programmer more likely to understand
+
+def clarify_value(expression_value, expression_type, color):
 	expression_value = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', expression_value)
 	if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value):
-		return None 
-	expression_value = re.sub(r'^\s*\(\S+\s+\*\)\s*0x0\s*$', 'NULL', expression_value)
+		return None
+		 
+	expression_value = re.sub(r'^\([^()]+\s+\*\)\s*0x0\b', 'NULL', expression_value)
+	
 	if expression_type == 'char':
 		m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
 		if m:
@@ -340,8 +342,8 @@ def evaluate_expression(expression, color):
 
 	warning_text = color(" <-- warning appears to be uninitialized value", 'red')
 
-	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)']:
-		expression_value = expression_value.replace(value, value + warning_text)
+	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)', '-66 (not valid ASCII)', '0xbebebebe', '0xbebebebebebebebe']:
+		expression_value = re.sub(r'\b' + re.escape(value) + r'\b', value + warning_text, expression_value)
 
 	return expression_value
 
