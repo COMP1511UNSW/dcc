@@ -3,9 +3,12 @@ import codecs,io, os, pkgutil, platform, re, subprocess, sys, tarfile
 from version import VERSION 
 from explain_compiler_output import explain_compiler_output 
 
-EXTRA_C_COMPILER_ARGS = "-fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused	-Wunused-comparison	 -Wunused-value -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+# on some platforms -Wno-unused-result is needed to avoid warnings about scanf's return value being ignored -
+# novice programmers will often be told to ignore scanf's return value
+# when writing their first programs 
 
-GCC_ARGS = "-O -Wall -std=gnu11 -g -lm -Wno-unused -Wunused-value -fdiagnostics-color -o /dev/null".split()
+EXTRA_C_COMPILER_ARGS = "-fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused -Wunused-comparison -Wunused-value -Wno-unused-result -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+GCC_ARGS = "-O -Wall -std=gnu11 -g -lm -Wno-unused -Wunused-value -Wno-unused-result -fdiagnostics-color -o /dev/null".split()
 
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
 
@@ -122,7 +125,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 			print('incremental compilation, running: ', " ".join(command), file=sys.stderr)
 		sys.exit(subprocess.call(command))
 
-	command +=	['-Wl,-wrap,main', '-x', 'c', '-']
+	command +=  ['-Wl,-wrap,main', '-x', 'c', '-']
 	if args.debug:
 		print(" ".join(command), file=sys.stderr)
 	if args.debug > 1:
@@ -132,7 +135,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 	process = subprocess.run(command, input=wrapper_source, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
 	# workaround for  https://github.com/android-ndk/ndk/issues/184
-	# when not triggered earlier	
+	# when not triggered earlier    
 	if "undefined reference to `__" in process.stdout:
 		command = [c for c in command if not c in ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']]
 		if args.debug:
@@ -169,22 +172,22 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 
 	sys.exit(0)
 	
-class Args(object):	
+class Args(object): 
 	c_compiler = "clang"
-#	for c_compiler in ["clang-3.9", "clang-3.8", "clang"]:
-#		if search_path(c_compiler):	 # shutil.which not available in Python 2
-#			break
+#   for c_compiler in ["clang-3.9", "clang-3.8", "clang"]:
+#       if search_path(c_compiler):  # shutil.which not available in Python 2
+#           break
 	which_sanitizer = "address"
 	shared_libasan = None
 	stack_use_after_return = None
 	incremental_compilation = False
 	leak_check = False
 	suppressions_file = os.devnull
-#	 linking_object_files = False
+#    linking_object_files = False
 	user_supplied_compiler_args = []
 	explanations = True
 	max_explanations = 3
-	embed_source = True	
+	embed_source = True 
 	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
 	source_files = set()
@@ -208,8 +211,8 @@ def get_my_path():
 	dcc_path = os.path.realpath(sys.argv[0])
 	# replace CSE mount path with /home - otherwise breaks sometimes with ssh jobs
 	dcc_path = re.sub(r'/tmp_amd/\w+/\w+ort/\w+/\d+/', '/home/', dcc_path)
-	dcc_path = re.sub(r'^/tmp_amd/\w+/\w+ort/\d+/', '/home/', dcc_path)	
-	dcc_path = re.sub(r'^/(import|export)/\w+/\d+/', '/home/', dcc_path)	
+	dcc_path = re.sub(r'^/tmp_amd/\w+/\w+ort/\d+/', '/home/', dcc_path) 
+	dcc_path = re.sub(r'^/(import|export)/\w+/\d+/', '/home/', dcc_path)    
 	return dcc_path
 	
 def parse_arg(arg, next_arg, args):
@@ -257,10 +260,10 @@ def parse_arg(arg, next_arg, args):
 		
 def parse_clang_arg(arg, next_arg, args):
 	args.user_supplied_compiler_args.append(arg)
-	if arg	== '-c':
+	if arg  == '-c':
 		args.incremental_compilation = True
-#		 elif arg.endswith('.o'):
-#			 linking_object_files = True
+#        elif arg.endswith('.o'):
+#            linking_object_files = True
 	elif arg == '-fcolor-diagnostics':
 		args.colorize_output = True
 	elif arg == '-fno-color-diagnostics':
@@ -281,7 +284,7 @@ def process_possible_source_file(pathname, args):
 	# should we convert argument to normalized relative path if possible
 	# before passing to to compiler?
 	normalized_path = os.path.normpath(pathname)
-	if pathname != normalized_path:
+	if pathname != normalized_path and os.path.join('.', normalized_path) != pathname:
 		if args.debug: print('not embedding source of', pathname, 'because normalized path differs:', normalized_path, file=sys.stderr)
 		return
 	if normalized_path.startswith('..'):
