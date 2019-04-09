@@ -15,8 +15,8 @@ For example:
       See more information here: https://comp1511unsw.github.io/dcc/stack_use_after_return.html
 
 
-dcc adds code to the binary which detects run-time errors and print information
-likely to be helpful to novice programmers, including 
+dcc adds code to the binary which detects run-time errors and prints information
+likely to be helpful to novice programmers, including
 printing values of variable in lines used near where the run-time error occurred.
 
 For example:
@@ -83,7 +83,7 @@ dcc can alternatively embed code in the binary to run valgrind instead of the bi
     a[43] = 0
     a[argc] = 0
 
-valgrind is slower but more comprehensive in its detection of uninitialize dvariables than MemorySanitizer.
+valgrind is slower but more comprehensive in its detection of uninitialized variables than MemorySanitizer.
 
 # Leak checking
 
@@ -139,26 +139,26 @@ valgrind also usually detect this type of error, e.g.:
 
 * dcc embeds in the binary produced a xz-compressed tar file (see [compile.py]) containing the C source files for the program and some Python code which is executed if a runtime error occurs.
 
-* Sanitizer errors are intercepted by a shims for the function `__asan_on_error` in [main_wrapper.c].
+* Sanitizer errors are intercepted by a shim for the function `__asan_on_error` in [main_wrapper.c].
 
 * A set of signals produced by runtime errors are trapped by `_signal_handler` in [main_wrapper.c].
 
 * Both functions call `_explain_error` in [main_wrapper.c] which creates a temporary directory,
-extracts into it the program source and Python from the embedded tar file, and executes the Python 
+extracts into it the program source and Python from the embedded tar file, and executes the Python code, which:
 
-* runs the Python ([start_gdb.py]) prints an eror message that a novice programmer will understand
+    * runs the Python ([start_gdb.py]) to print an error message that a novice programmer will understand, then
 
-* than starts gdb, and uses it to print current values of variable used in source lines near where the error occurred.
+    * starts gdb, and uses it to print current values of variables used in source lines near where the error occurred.
 
-# Dirtying Stack Pages to Facilitat Unitialized Variable Detection
+# Dirtying Stack Pages to Facilitate Uninitialized Variable Detection
 
 Linux initializes stack pages to zero.  As a consequence novice programmers  writing small programs with few function calls
 are likely to find zero in uninitialized local variables.  This often results in apparently correct behaviour from a
 invalid program with uninitialized local variables.
 
-dcc embeds code in the binary which initializes the first few megabytes of the the stack to 0xbe (see `clear-stack` in [main_wrapper.c].
+dcc embeds code in the binary which initializes the first few megabytes of the stack to 0xbe (see `clear-stack` in [main_wrapper.c].
 
-When printing variable values, after a dcc warns the user if a variable looks to consist of 0xbe bytes that is likely uninitialized.
+When printing variable values, dcc warns the user if a variable looks to consist of 0xbe bytes, and thus is likely uninitialized.
 
 # Build Instructions
 
@@ -167,7 +167,7 @@ When printing variable values, after a dcc warns the user if a variable looks to
     $ make
     $ cp -p ./dcc /usr/local/bin/dcc
  
-# Relase instruction
+# Release instruction
 
 	$ ./create_github_release.py 1.0 'Initial github release of dcc'
    
