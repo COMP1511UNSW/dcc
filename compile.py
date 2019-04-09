@@ -7,8 +7,11 @@ from explain_compiler_output import explain_compiler_output
 # novice programmers will often be told to ignore scanf's return value
 # when writing their first programs 
 
-EXTRA_C_COMPILER_ARGS = "-fcolor-diagnostics -Wall -std=gnu11 -g -lm -Wno-unused -Wunused-comparison -Wunused-value -Wno-unused-result -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
-GCC_ARGS = "-O -Wall -std=gnu11 -g -lm -Wno-unused -Wunused-value -Wno-unused-result -fdiagnostics-color -o /dev/null".split()
+COMMON_WARNING_ARGS = "-Wall -Wno-unused -Wunused-variable -Wunused-value -Wno-unused-result".split()
+COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-std=gnu11 -g -lm".split()
+
+EXTRA_C_COMPILER_ARGS = COMMON_COMPILER_ARGS + "-Wunused-comparison -fcolor-diagnostics  -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+GCC_ARGS = COMMON_COMPILER_ARGS + "-Wunused-but-set-variable -O -fdiagnostics-color -o /dev/null".split()
 
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
 
