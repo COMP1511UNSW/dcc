@@ -48,6 +48,7 @@ do
 		suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/["$]//g;s/src_file//'`
 		eval $compile_options
 		expected_stderr_file="$expected_output_dir/`basename $src_file .c`$suffix.txt"
+		#echo "$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file"
 		"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
 		test ! -s tmp.actual_stderr && ./a.out </dev/null   2>>tmp.actual_stderr >/dev/null
 		

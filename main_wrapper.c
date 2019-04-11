@@ -44,7 +44,7 @@ __attribute__((no_sanitize("address", "memory", "undefined")))
 #endif
 ;
 
-#if !__DCC_SANITIZER_IS_VALGRIND && !__DCC_STACK_USE_AFTER_RETURN__
+#if !__DCC_STACK_USE_AFTER_RETURN__
 static void clear_stack(void)
 #if __has_attribute(no_sanitize)
 __attribute__((no_sanitize("address", "memory", "undefined")))
@@ -99,6 +99,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		setbuf(valgrind_error_pipe, NULL);			
 		valgrind_error_fd = (int)fileno(valgrind_error_pipe);
 	} else {
+		clear_stack();
 		if (debug) perror("popen failed");
 		return __real_main(argc, argv, envp);
 	}

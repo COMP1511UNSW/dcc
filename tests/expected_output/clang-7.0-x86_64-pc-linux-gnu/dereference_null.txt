@@ -1,6 +1,6 @@
-tests/run_time/dereference_null.c:5:2: runtime error: store to null pointer of type 'int'
+tests/run_time/dereference_null.c:4:2: runtime error: store to null pointer of type 'int'
 
-Execution stopped here in main() in tests/run_time/dereference_null.c at line 5:
+Execution stopped here in main() in tests/run_time/dereference_null.c at line 4:
 
 int main(void) {
 	int *a = NULL;

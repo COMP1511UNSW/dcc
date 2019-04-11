@@ -9,4 +9,5 @@ int main(int argc, char **argv) {
     for (i = 0; i < ARRAY_SIZE; i++) {
 		a[i+argc] = i+argc;
     }
+    return a[0];
 }

@@ -6,7 +6,8 @@ Execution stopped here in main() in tests/run_time/hash_define.c at line 10:
     for (i = 0; i < ARRAY_SIZE; i++) {
 -->		a[i+argc] = i+argc;
     }
-}
+    return a[0];
+
 Values when execution stopped:
 
 argc =  <deleted-value>

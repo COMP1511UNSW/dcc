@@ -1,0 +1,12 @@
+tests/run_time/dereference_uninitialized.c:9:14: runtime error: member access within misaligned address 0x<deleted-hexadecimal-constant> for type 'struct list_node', which requires 8 byte alignment
+0x<deleted-hexadecimal-constant>: note: pointer points here
+<memory cannot be printed>
+
+Execution stopped here in main() in tests/run_time/dereference_uninitialized.c at line 9:
+
+int main(void) {
+    struct list_node *a = malloc(sizeof *a);
+--> a->next->data = 42;
+}
+
+
