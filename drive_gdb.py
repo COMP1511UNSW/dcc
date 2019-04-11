@@ -89,7 +89,7 @@ def explain_asan_error(loc, output_stream, color):
 	if report:
 		report = report.replace('-', ' ')
 		report = report.replace('heap', 'malloc')
-		report = report.replace('null deref', 'NULL pointer derefefenced')
+		report = report.replace('null deref', 'NULL pointer dereferenced')
 	else:
 		report = "illegal array, pointer or other operation"
 	print('runtime error -', color(report, 'red'), file=output_stream)
