@@ -1,4 +1,4 @@
-# https://github.com/jonathaneunice/colors/ with use of csscolors editted out
+# https://github.com/jonathaneunice/colors/ with use of csscolors edited out
 
 # Copyright (c) 2012 Giorgos Verigakis <verigak@gmail.com>
 #

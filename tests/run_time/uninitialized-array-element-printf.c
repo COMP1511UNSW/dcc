@@ -1,5 +1,5 @@
 //dcc_flags=--valgrind
-//--memory doens't detect this error
+//--memory doesn't detect this error
 
 #include <stdio.h>
 

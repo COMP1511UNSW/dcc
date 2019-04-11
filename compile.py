@@ -67,7 +67,7 @@ def compile(debug=False):
 				print(e)
 
 		if clang_version and libc_version and clang_version[0] in "345" and libc_version >= 2.27:
-			print("incompatible clang libc versions, disabling error detection by sanitiziers", file=sys.stderr)
+			print("incompatible clang libc versions, disabling error detection by sanitizers", file=sys.stderr)
 			sanitizer_args = []
 			
 	dcc_path = get_my_path()
