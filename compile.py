@@ -159,7 +159,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 	# int main(void) {int a[1]; return a[0];}
 	# so run gcc as well if available
 
-	if not process.stdout and search_path('gcc') and 'gcc' not in args.c_compiler:
+	if not process.stdout and search_path('gcc') and 'gcc' not in args.c_compiler and not args.object_files_being_linked:
 		command = ['gcc'] + args.user_supplied_compiler_args + GCC_ARGS
 		if args.debug:
 			print("compiling with gcc for extra checking", file=sys.stderr)
@@ -196,6 +196,7 @@ class Args(object):
 	source_files = set()
 	tar_buffer = io.BytesIO()
 	tar = tarfile.open(fileobj=tar_buffer, mode='w|xz')
+	object_files_being_linked = False
 	
 def parse_args(commandline_args):
 	args = Args()
@@ -282,6 +283,7 @@ def parse_clang_arg(arg, next_arg, args):
 def process_possible_source_file(pathname, args):
 	extension = os.path.splitext(pathname)[1]
 	if extension.lower() not in ['.c', '.h']:
+		args.object_files_being_linked = True
 		return
 	# don't try to handle paths with .. or with leading /
 	# should we convert argument to normalized relative path if possible
