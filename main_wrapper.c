@@ -52,6 +52,8 @@ __attribute__((no_sanitize("address", "memory", "undefined")))
 ;
 #endif
 
+#undef main
+
 #if !__DCC_SANITIZER_IS_VALGRIND__
 
 // wrapping ASAN

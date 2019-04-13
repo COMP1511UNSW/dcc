@@ -226,6 +226,7 @@ def gdb_execute(command):
 	
 def parse_gdb_stack_frame(line):
 	# note don't match function names starting with _ these are not user functions
+	line = re.sub('__real_main', 'main', line)
 	m = re.match(
 		r'^\s*#(?P<frame_number>\d+)\s+(0x[0-9a-f]+\s+in+\s+)?'
 		r'(?P<function>[a-zA-Z][^\s\(]*).*\((?P<params>.*)\)\s+at\s+'

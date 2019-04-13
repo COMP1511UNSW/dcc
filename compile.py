@@ -128,7 +128,12 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 			print('incremental compilation, running: ', " ".join(command), file=sys.stderr)
 		sys.exit(subprocess.call(command))
 
-	command +=  ['-Wl,-wrap,main', '-x', 'c', '-']
+	if args.ifdef_main:
+		command +=  ['-Dmain=__real_main']
+		wrapper_source = wrapper_source.replace('__wrap_main', 'main')
+	else:
+		command +=  ['-Wl,-wrap,main']
+	command +=  ['-x', 'c', '-']
 	if args.debug:
 		print(" ".join(command), file=sys.stderr)
 	if args.debug > 1:
@@ -186,7 +191,6 @@ class Args(object):
 	incremental_compilation = False
 	leak_check = False
 	suppressions_file = os.devnull
-#    linking_object_files = False
 	user_supplied_compiler_args = []
 	explanations = True
 	max_explanations = 3
@@ -197,6 +201,7 @@ class Args(object):
 	tar_buffer = io.BytesIO()
 	tar = tarfile.open(fileobj=tar_buffer, mode='w|xz')
 	object_files_being_linked = False
+	ifdef_main = sys.platform == "darwin"
 	
 def parse_args(commandline_args):
 	args = Args()
@@ -242,6 +247,8 @@ def parse_arg(arg, next_arg, args):
 		args.embed_source = True
 	elif arg == '--no-embed-source':
 		args.embed_source = False
+	elif arg == '--ifdef-main':
+		args.ifdef_main = True
 	elif arg.startswith('--c-compiler='):
 		args.c_compiler = arg[arg.index('=') + 1:]
 	elif arg == '-v' or arg == '--version':
@@ -256,6 +263,7 @@ def parse_arg(arg, next_arg, args):
   --no-shared-libasan      do not embed program source in binary 
   --valgrind               check for uninitialized variables using Valgrind
   --use-after-return       check for use of local variables after function returns
+  --ifdef-main             use ifdef to replace user's main function rather than ld's -wrap option
   
 """)
 		sys.exit(0)
@@ -266,8 +274,6 @@ def parse_clang_arg(arg, next_arg, args):
 	args.user_supplied_compiler_args.append(arg)
 	if arg  == '-c':
 		args.incremental_compilation = True
-#        elif arg.endswith('.o'):
-#            linking_object_files = True
 	elif arg == '-fcolor-diagnostics':
 		args.colorize_output = True
 	elif arg == '-fno-color-diagnostics':
