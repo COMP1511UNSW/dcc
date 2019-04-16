@@ -107,10 +107,12 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 	wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK_1_0__', "1" if args.leak_check else "0")
 	wrapper_source = wrapper_source.replace('__DCC_SUPRESSIONS_FILE__', args.suppressions_file)
 	wrapper_source = wrapper_source.replace('__DCC_STACK_USE_AFTER_RETURN__', "1" if args.stack_use_after_return else "0")
+	wrapper_source = wrapper_source.replace('__DCC_NO_WRAP_MAIN__', "1" if args.no_wrap_main else "0")
 	
 	# shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
 	# and we can't override with verify_asan_link_order=0 for clang version < 5
-	if args.shared_libasan is None and clang_version[0] not in "34":
+	# and with clang-6 on debian __asan_default_options not called with shared_libasan
+	if args.shared_libasan is None and clang_version[0] not in "3456":
 		args.shared_libasan = True
 
 	if args.shared_libasan and args.which_sanitizer == "address":
@@ -122,24 +124,28 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		wrapper_source = wrapper_source.replace('__DCC_EMBED_SOURCE__', '1')
 		wrapper_source = tar_source + wrapper_source
 
-	command = [args.c_compiler] + sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
+	incremental_compilation_args = sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
+	command = [args.c_compiler] + incremental_compilation_args
 	if args.incremental_compilation:
 		if args.debug:
 			print('incremental compilation, running: ', " ".join(command), file=sys.stderr)
 		sys.exit(subprocess.call(command))
 
+	compilation_args = ['-x', 'c', '-']
 	if args.ifdef_main:
-		command +=  ['-Dmain=__real_main']
+		compilation_args +=  ['-Dmain=__real_main']
 		wrapper_source = wrapper_source.replace('__wrap_main', 'main')
-	else:
-		command +=  ['-Wl,-wrap,main']
-	command +=  ['-x', 'c', '-']
+	elif not args.no_wrap_main:
+		compilation_args +=  ['-Wl,-wrap,main']
+
+	command = [args.c_compiler] + compilation_args + incremental_compilation_args
+
 	if args.debug:
 		print(" ".join(command), file=sys.stderr)
 	if args.debug > 1:
 		print(" ".join(command), '<<eof', file=sys.stderr)
 		print(wrapper_source)
-		print("eof")
+		print("eof", file=sys.stderr)
 	process = subprocess.run(command, input=wrapper_source, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
 	# workaround for  https://github.com/android-ndk/ndk/issues/184
@@ -202,6 +208,7 @@ class Args(object):
 	tar = tarfile.open(fileobj=tar_buffer, mode='w|xz')
 	object_files_being_linked = False
 	ifdef_main = sys.platform == "darwin"
+	no_wrap_main = False
 	
 def parse_args(commandline_args):
 	args = Args()
@@ -249,6 +256,8 @@ def parse_arg(arg, next_arg, args):
 		args.embed_source = False
 	elif arg == '--ifdef-main':
 		args.ifdef_main = True
+	elif arg == '--no-wrap-main':
+		args.no_wrap_main = True
 	elif arg.startswith('--c-compiler='):
 		args.c_compiler = arg[arg.index('=') + 1:]
 	elif arg == '-v' or arg == '--version':

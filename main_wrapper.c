@@ -50,6 +50,14 @@ static void clear_stack(void)
 __attribute__((no_sanitize("address", "memory", "undefined")))
 #endif
 ;
+
+static void _memset_shim(void *p, int byte, size_t size)
+#if __has_attribute(noinline)
+__attribute__((noinline))
+#endif
+#if __has_attribute(optnone)
+__attribute__((optnone))
+;
 #endif
 
 #undef main
@@ -58,6 +66,7 @@ __attribute__((no_sanitize("address", "memory", "undefined")))
 
 // wrapping ASAN
 
+#if !__DCC_NO_WRAP_MAIN__
 int __wrap_main(int argc, char *argv[], char *envp[]) {
 	extern int __real_main(int argc, char *argv[], char *envp[]);
 	char mypath[PATH_MAX];
@@ -68,6 +77,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 #endif
 	return __real_main(argc, argv, envp);
 }
+#endif
 
 #else
 
@@ -139,7 +149,9 @@ void __dcc_start(void) {
 	char pid_buffer[32];
 	snprintf(pid_buffer, sizeof pid_buffer, "%d", (int)getpid());
 	setenvd("DCC_PID", pid_buffer);
-	memset(pid_buffer, 0xbe, sizeof pid_buffer);
+#if !__DCC_STACK_USE_AFTER_RETURN__
+	_memset_shim(pid_buffer, 0xbe, sizeof pid_buffer);
+#endif
 	
 	signal(SIGABRT, _signal_handler);
 	signal(SIGSEGV, _signal_handler);
@@ -148,6 +160,9 @@ void __dcc_start(void) {
 	signal(SIGXFSZ, _signal_handler);
 	signal(SIGFPE, _signal_handler);
 	signal(SIGILL, _signal_handler);
+#if __DCC_NO_WRAP_MAIN__ && !__DCC_STACK_USE_AFTER_RETURN__ 
+	clear_stack();
+#endif
 }
 
 static void _dcc_exit(void) {
@@ -271,16 +286,6 @@ static void _explain_error(void) {
 	_dcc_exit();
 }
 
-#if !__DCC_SANITIZER_IS_VALGRIND && !__DCC_STACK_USE_AFTER_RETURN__
-
-static void _memset_shim(void *p, int byte, size_t size)
-#if __has_attribute(noinline)
-__attribute__((noinline))
-#endif
-#if __has_attribute(optnone)
-__attribute__((optnone))
-#endif
-;
 
 // hack to initialize (most of) stack to 0xbe
 // so uninitialized variables are more obvious
