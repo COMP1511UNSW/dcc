@@ -59,6 +59,7 @@ __attribute__((noinline))
 __attribute__((optnone))
 ;
 #endif
+#endif
 
 #undef main
 
@@ -111,7 +112,9 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		setbuf(valgrind_error_pipe, NULL);			
 		valgrind_error_fd = (int)fileno(valgrind_error_pipe);
 	} else {
+#if !__DCC_STACK_USE_AFTER_RETURN__
 		clear_stack();
+#endif
 		if (debug) perror("popen failed");
 		return __real_main(argc, argv, envp);
 	}
@@ -188,13 +191,14 @@ static void _dcc_exit(void) {
 	_exit(1);
 }
 
+#if !__DCC_SANITIZER_IS_VALGRIND__
+
 // intercept ASAN explanation
 void _Unwind_Backtrace(void *a, ...) {
 	if (debug) fprintf(stderr, "_Unwind_Backtrace\n");
 	_explain_error();
 }
 
-#if !__DCC_SANITIZER_IS_VALGRIND__
 extern char *__asan_get_report_description();
 extern  int __asan_report_present();
 
@@ -220,7 +224,6 @@ void __asan_on_error() {
 	_explain_error();
 	// not reached
 }
-#endif
 
 char *__ubsan_default_options() {
 	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__DCC_LEAK_CHECK_1_0__";
@@ -237,6 +240,7 @@ char *__asan_default_options() {
 char *__msan_default_options() {
 	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__DCC_LEAK_CHECK_1_0__";
 }
+#endif
 
 static void _signal_handler(int signum) {
 	signal(SIGABRT, SIG_IGN);
@@ -286,6 +290,7 @@ static void _explain_error(void) {
 	_dcc_exit();
 }
 
+#if !__DCC_STACK_USE_AFTER_RETURN__
 
 // hack to initialize (most of) stack to 0xbe
 // so uninitialized variables are more obvious
@@ -302,7 +307,6 @@ static void clear_stack(void) {
 static void _memset_shim(void *p, int byte, size_t size) {
 	memset(p, byte, size);
 }
-
 #endif
 
 
