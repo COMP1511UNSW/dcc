@@ -4,7 +4,7 @@ unset CDPATH
 tests_dir=$(dirname $(readlink -f $0))
 cd "$tests_dir"
 
-trap 'rm -fr tmp.* a.out' EXIT INT TERM
+trap 'rm -fr tmp* a.out' EXIT INT TERM
 
 # some values reported in errors are not determinate (e.g. variable addresses)
 # and will vary between execution and definitely between platforms
@@ -35,7 +35,7 @@ mkdir -p $expected_output_dir
 test_failed=0
 
 # don't change the variable src_file some tests rely on it
-for src_file in tests/extracted_compile_time_tests/*.c tests/compile_time/*.c tests/run_time/*.c
+for src_file in tests/extracted_compile_time_tests/*.c tests/compile_time/*.c tests/run_time/*.*
 do
 	rm -f a.out
 
@@ -44,13 +44,21 @@ do
 
 	for compile_options in $compile_options_list
 	do
-		dcc_flags=
-		suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/["$]//g;s/src_file//'`
-		eval $compile_options
-		expected_stderr_file="$expected_output_dir/`basename $src_file .c`$suffix.txt"
-		#echo "$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file"
-		"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
-		test ! -s tmp.actual_stderr && ./a.out </dev/null   2>>tmp.actual_stderr >/dev/null
+		case "$src_file" in
+		*.c)
+			dcc_flags=
+			suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/["$]//g;s/src_file//'`
+			eval $compile_options
+			expected_stderr_file="$expected_output_dir/`basename $src_file .c`$suffix.txt"
+			#echo "$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file"
+			"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
+			test ! -s tmp.actual_stderr && ./a.out </dev/null   2>>tmp.actual_stderr >/dev/null
+			;;
+
+		*.sh)
+			expected_stderr_file="$expected_output_dir/`basename $src_file .sh`.txt"
+			$src_file </dev/null   2>tmp.actual_stderr >/dev/null
+		esac
 		
 		if test ! -s tmp.actual_stderr
 		then
