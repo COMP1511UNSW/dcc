@@ -81,7 +81,7 @@ def explain_error(output_stream, color):
 		print(color('Function Call Traceback', 'blue'), file=output_stream)
 		for (frame, caller) in zip(stack, stack[1:]):
 			print(frame.function + '(' + frame.params + ') was called from', caller.short_description(color), file=output_stream)
-		
+	output_stream.flush()	
 	gdb.flush(gdb.STDOUT)
 	gdb.flush(gdb.STDERR)
 
@@ -115,7 +115,7 @@ def explain_ubsan_error(loc, output_stream, color):
 	if loc:
 		source = loc.source_line(clean=True)
 			
-	debug_print(1, 'source', source)
+	debug_print(2, 'source', source)
 	explanation = None
 	prefix = '\n' + color('dcc explanation:', 'blue')
 	
@@ -398,7 +398,7 @@ def relevant_variables(c_source, color, arrays=[]):
 #		 expressions += indices
 	done = set(['NULL', 'char','int', 'double', 'while', 'if', 'else', 'for', 'while', 'return']) # avoid trying to evaluate types/keywords for efficiency
 	explanation = ''
-	debug_print(1, 'relevant_variables expressions=', c_source, expressions)
+	debug_print(2, 'relevant_variables expressions=', c_source, expressions)
 	for expression in sorted(expressions, key=lambda e: (len(re.findall(r'\w+', e)), e)):
 		try:
 			expression = expression.strip()
@@ -409,14 +409,13 @@ def relevant_variables(c_source, color, arrays=[]):
 					explanation +=	"%s = %s\n" % (expression, expression_value)
 		except RuntimeError as e:
 			debug_print(1, 'print_variables_expressions: RuntimeError', e)
-			pass
 	if explanation:
 		prefix = color('Values when execution stopped:', 'blue')
 		explanation = prefix + '\n\n' + explanation
 	return explanation
 
 def evaluate_expression(expression, color):
-	debug_print(1, 'expression:', expression)
+	debug_print(2, 'evaluate_expression:', expression)
 	if re.match(r'^-?\s*[\d\.]+$', expression):
 		return None	  # don't print(numbers)
 	if re.search(r'[a-zA-Z0-9_]\s*\(', expression):
@@ -443,11 +442,19 @@ def evaluate_expression(expression, color):
 # transform value into something a novice programmer more likely to understand
 
 def clarify_value(expression_value, expression_type, color):
+	debug_print(2, 'clarify_value expression_value=', expression_value)
+	
+	# novices will understand 0x0 better as NULL if it is a pointer
+	expression_value = re.sub(r'\b0x0\b', r'NULL', expression_value)
+	
+	# strip type cast from string
 	expression_value = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', expression_value)
-	if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value):
-		return None
-		 
-	expression_value = re.sub(r'^\([^()]+\s+\*\)\s*0x0\b', 'NULL', expression_value)
+	
+	# strip type cast from NULL pointer
+	expression_value = re.sub(r'^\([^()]+\s+\*\)\s*NULL\b', 'NULL', expression_value)
+
+	# strip type cast from uninitialized values
+	expression_value = re.sub(r'^\([^()]+\s+\*\)\s*0xbebebebe(\w+)', r'0xbebebebe\1', expression_value)
 	
 	if expression_type == 'char':
 		m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
@@ -465,9 +472,14 @@ def clarify_value(expression_value, expression_type, color):
 
 	warning_text = color("<uninitialized value>", 'red')
 
+	
 	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)', '0xbebebebe', '0xbebebebebebebebe']:
-		expression_value = re.sub(r'(^|\D)' + re.escape(value) + r'($|\D)', r'\1' + warning_text + r'\2', expression_value)
+		expression_value = re.sub(r'(^|\D)' + re.escape(value) + r'($|\W)', r'\1' + warning_text + r'\2', expression_value)
 
+	# don't print hexadeximal addresses
+	if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value):
+		return None
+		 
 	return expression_value
 
 def balance_bracket(str, depth=0):
@@ -482,31 +494,47 @@ def balance_bracket(str, depth=0):
 		return ""
 	return str[0] +	 balance_bracket(str[1:], depth)
 
-	
+
+# FIXME - this is very crude
 def extract_expressions(c_source):
-	expressions = []
+	debug_print(2, 'extract_expressions c_source=',  c_source)
 	# match declaration
 	m = re.match(r'[a-z][a-zA-Z0-9_]*\s+[a-z][a-zA-Z0-9_]*\s*\[(.*)', c_source, re.DOTALL)
 	if m:
 		 return extract_expressions(m.group(1))
+		 
 	m = re.match(r'([a-z][a-zA-Z0-9_]*)\s*\[(.*)', c_source, re.DOTALL)
 	if m:
+		expressions = []
 		index = balance_bracket(m.group(2))
 		if index:
 			expressions = [m.group(1), index, m.group(1) + '[' + index + ']']
-		remainder = m.group(2)
-	else:
-		m = re.match(r'([a-zA-Z][a-zA-Z0-9_]*)(.*)', c_source, re.DOTALL)
-		if m:
-			expressions = [m.group(1)]
-			remainder = m.group(2)
-		else:
-			m = re.match(r'^[^a-zA-Z]+(.*)', c_source, re.DOTALL)
+		return expressions + extract_expressions(m.group(2)) 
+
+	m = re.match(r'[a-z][a-zA-Z0-9_]*(?:\s*->\s*[a-z][a-zA-Z0-9_]*)+(.*)', c_source, re.DOTALL)
+	if m:
+		remainder = m.group(1)
+		expressions = []
+		for i in range(0, 8):
+			m = re.match(r'^[a-z][a-zA-Z0-9_]*(?:\s*->\s*[a-z][a-zA-Z0-9_]*){%s}' % i, c_source, re.DOTALL)
 			if m:
-				remainder = m.group(1)
+				expressions.append(m.group(0))
 			else:
-				return []
-	return expressions + extract_expressions(remainder)
+				break
+					
+		debug_print(2, 'extract_expressions expressions=',  list(expressions))
+		return expressions + extract_expressions(remainder) 
+
+	m = re.match(r'([a-zA-Z][a-zA-Z0-9_]*)(.*)', c_source, re.DOTALL)
+	if m:
+		return [m.group(1)] + extract_expressions(m.group(2))
+	
+	m = re.match(r'^[^a-zA-Z]+(.*)', c_source, re.DOTALL)
+	if m:
+		return extract_expressions(m.group(1))
+
+	return []
+	
 
 def explain_location(loc, color):
 	if not isinstance(loc, Location):

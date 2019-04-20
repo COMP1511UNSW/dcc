@@ -11,4 +11,7 @@ int main(void) {
 --> a->next->data = 42;
 }
 
+Values when execution stopped:
+
+a->next =  <deleted-value>
 
