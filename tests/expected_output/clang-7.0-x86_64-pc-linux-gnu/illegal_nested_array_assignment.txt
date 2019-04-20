@@ -1,8 +1,14 @@
-tests/run_time/illegal_nested_array_assignment.c:3:2: runtime error: index 4 out of bounds for type 'int [4]'
+
+tests/run_time/illegal_nested_array_assignment.c:3:2: runtime error - index 4 out of bounds for type 'int [4]'
+
+dcc explanation: You are using an illegal array index: 4
+  Valid indices for an array of size 4 are 0..3
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
 
 Execution stopped here in main() in tests/run_time/illegal_nested_array_assignment.c at line 3:
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) { 
 	int a[] = {1,2,3,4};
 -->	a[a[a[a[a[0]]]]] = 1;
 }

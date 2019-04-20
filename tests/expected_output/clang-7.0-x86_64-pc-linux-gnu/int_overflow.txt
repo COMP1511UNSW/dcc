@@ -1,8 +1,12 @@
-tests/run_time/int_overflow.c:5:6: runtime error: signed integer overflow: <deleted-large-integer-constant> + 1 cannot be represented in type 'int'
+
+tests/run_time/int_overflow.c:5:6: runtime error - signed integer overflow: <deleted-large-integer-constant> + 1 cannot be represented in type 'int'
+
+dcc explanation: There are limits in the range of values that can be represented in all types.
+  Your program has produced a value outside that range.
 
 Execution stopped here in main() in tests/run_time/int_overflow.c at line 5:
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) { 
 	int k = INT_MAX;
 -->	k += argc;
 }

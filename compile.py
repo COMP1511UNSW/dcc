@@ -131,14 +131,13 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 			print('incremental compilation, running: ', " ".join(command), file=sys.stderr)
 		sys.exit(subprocess.call(command))
 
-	compilation_args = ['-x', 'c', '-']
+	# -x - must come after any filenames but before ld options
+	command =  [args.c_compiler] + args.user_supplied_compiler_args + ['-x', 'c', '-', ] + sanitizer_args + EXTRA_C_COMPILER_ARGS
 	if args.ifdef_main:
-		compilation_args +=  ['-Dmain=__real_main']
+		command +=  ['-Dmain=__real_main']
 		wrapper_source = wrapper_source.replace('__wrap_main', 'main')
 	elif not args.no_wrap_main:
-		compilation_args +=  ['-Wl,-wrap,main']
-
-	command = [args.c_compiler] + compilation_args + incremental_compilation_args
+		command +=  ['-Wl,-wrap,main']
 
 	if args.debug:
 		print(" ".join(command), file=sys.stderr)

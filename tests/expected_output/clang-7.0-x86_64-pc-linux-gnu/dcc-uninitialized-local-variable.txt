@@ -1,10 +1,6 @@
-tests/extracted_compile_time_tests/dcc-uninitialized-local-variable.c:4:9: runtime error: index 0 out of bounds for type 'int [0]'
-
-Execution stopped here in main() in tests/extracted_compile_time_tests/dcc-uninitialized-local-variable.c at line 4:
-
-int main(void) {
-	int a[0];
--->	return a[0];
-}
-
+[01m[Ktests/extracted_compile_time_tests/dcc-uninitialized-local-variable.c:[m[K In function ‘[01m[Kmain[m[K’:
+[01m[Ktests/extracted_compile_time_tests/dcc-uninitialized-local-variable.c:4:10:[m[K [01;35m[Kwarning: [m[K‘[01m[Ka[0][m[K’ is used uninitialized in this function [[01;35m[K-Wuninitialized[m[K]
+  return [01;35m[Ka[0][m[K;
+         [01;35m[K~^~~[m[K[0m
+dcc explanation: You are using the value of the variable a[0] before assigning a value to a[0].
 

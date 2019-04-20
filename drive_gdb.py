@@ -62,10 +62,13 @@ def explain_error(output_stream, color):
 	stack = gdb_set_frame()
 	loc = stack[0] if stack else None
 	signal_number = int(os.environ.get('DCC_SIGNAL', signal.SIGABRT))
+
 	if signal_number != signal.SIGABRT:
 		 print(explain_signal(signal_number), file=output_stream)
 	elif 'DCC_ASAN_ERROR' in os.environ:
 		explain_asan_error(loc, output_stream, color)
+	elif 'DCC_UBSAN_ERROR_KIND' in os.environ:
+		explain_ubsan_error(loc, output_stream, color)
 	elif os.environ.get('DCC_SANITIZER', '') == 'memory':
 		if loc:
 			print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
@@ -82,6 +85,125 @@ def explain_error(output_stream, color):
 	gdb.flush(gdb.STDOUT)
 	gdb.flush(gdb.STDERR)
 
+# explain UndefinedBehaviorSanitizer error
+# documentation: https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
+# source: https://code.woboq.org/gcc/libsanitizer/ubsan/ubsan_handlers.cc.html
+#
+# There is plenty of room here to provide more specific explanation
+# which would be more helpful to novice programmers
+ 
+def explain_ubsan_error(loc, output_stream, color):	
+	#kind = os.environ.get('DCC_UBSAN_ERROR_KIND', '')
+	message = os.environ.get('DCC_UBSAN_ERROR_MESSAGE', '')
+	filename = os.environ.get('DCC_UBSAN_ERROR_FILENAME', '')
+	try:
+		line_number = os.environ.get('DCC_UBSAN_ERROR_LINE', 0)
+	except ValueError:
+		line_number = 0
+	try:
+		column = int(os.environ.get('DCC_UBSAN_ERROR_COL', 0))
+	except ValueError:
+		column = 0
+	#memoryaddr = os.environ.get('DCC_UBSAN_ERROR_MEMORYADDR', '')
+	
+	if filename and line_number and (not loc or (loc.filename != filename or loc.line_number != line_number)):
+		loc = Location(filename, line_number)
+	if loc and column:
+		loc.column = column
+	
+	source = ''
+	if loc:
+		source = loc.source_line(clean=True)
+			
+	debug_print(1, 'source', source)
+	explanation = None
+	prefix = '\n' + color('dcc explanation:', 'blue')
+	
+	if message:
+		message = message[0].lower() + message[1:]
+	
+	m = re.search('(load|store).*(0xbebebebe|null pointer)', message.lower())
+	if m:
+		access = "accessing" if m.group(1) == "load" else "assigning to"
+		problem = "uninitialized" if m.group(2).startswith('0xbe') else "NULL"
+
+		if '*' in source and '[' not in source:
+			what = "*p"
+		elif '*' not in source and  '[' in source:
+			what = "p[index]"
+		else:
+			what = "*p or p[index]"
+			
+		message = "%s a value via a %s pointer" % (access, problem)
+		explanation = "You are using a pointer which "
+		
+		if problem == "uninitialized":
+			explanation += "has not been initialized\n"
+			explanation += "  A common error is %s %s without first assigning a value to p.\n" % (access, what)
+		else:
+			explanation += "is NULL\n"
+			explanation += "  A common error is %s %s when p == NULL.\n" % (access, what)
+
+	if not explanation:
+		m = re.search('member access.*(0xbebebebe|null pointer)', message.lower())
+		if m:
+			if m.group(1).startswith('0xbe'):
+				message = "accessing a field via an uninitialized pointer"
+				explanation = """You are using a pointer which has not been initialized
+  A common error is using p->field without first assigning a value to p.\n"""
+			else:
+				message = "accessing a field via a NULL pointer"
+				explanation = """You are using a pointer which is NULL
+  A common error is  using p->field when p == NULL.\n"""
+		
+	if not explanation and 'division by zero' in message:
+		if '/' in source and '%' not in source:
+			what = "x / y"
+		elif '/' not in source and '%'  in source:
+			what = "x % y"
+		else:
+			what = "x / y or x % y"
+		explanation = "A common error is to evaluate %s when y == 0 which is undefined.\n" % (what)
+	
+	# FIXME make this more specific				
+	if not explanation and ('overflow' in message or 'underflow' in message):
+		explanation = """There are limits in the range of values that can be represented in all types.
+  Your program has produced a value outside that range.\n"""
+
+	if not explanation and re.search(r'index .* out of bounds .*\[0\]', message):		
+		explanation = "You have created a array of size 0 which is illegal.\n"
+		
+	if not explanation:
+		m = re.search(r'index (-?\d+) out of bounds .*\[(\d+)\]', message)		
+		if m:
+			explanation =  """You are using an illegal array index: %s
+  Valid indices for an array of size %s are %s..%s
+""" % (color(m.group(1), "red"), color(m.group(2), "red"), color("0", "red"), color(str(int(m.group(2)) - 1), "red"))
+					
+	if not explanation:
+		m = re.search(r'index (-?\d+) out of bounds', message)		
+		if m:
+			explanation = "You are using an illegal array index: %s\n" % (color(m.group(1), "red"))
+					
+					
+	if not explanation and 'out of bounds' in message:
+		explanation =  "You are using an illegal array index."
+		
+	if explanation and 'out of bounds' in message:
+		explanation += """  Make sure the size of your array is correct.
+  Make sure your array indices are correct.\n"""
+					
+	if not message:
+		message = "undefined operation"
+
+	if loc:
+		print("%s:%d" % (loc.filename, loc.line_number), end='', file=output_stream)
+		if loc.column:
+			print(":%d" % (loc.column), end='', file=output_stream)
+	print(': runtime error -', color(message, 'red'), file=output_stream)
+	if explanation:
+		print(prefix, explanation, file=output_stream)
+	
 def explain_asan_error(loc, output_stream, color):	
 	if loc:
 		print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)

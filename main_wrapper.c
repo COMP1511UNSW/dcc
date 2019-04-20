@@ -191,17 +191,8 @@ static void _dcc_exit(void) {
 	_exit(1);
 }
 
-#if !__DCC_SANITIZER_IS_VALGRIND__
-
-// intercept ASAN explanation
-void _Unwind_Backtrace(void *a, ...) {
-	if (debug) fprintf(stderr, "_Unwind_Backtrace\n");
-	_explain_error();
-}
-
-extern char *__asan_get_report_description();
-extern  int __asan_report_present();
-
+// is __asan_on_error  called if !__DCC_SANITIZER_IS_ADDRESS__ 
+//
 // intercept ASAN explanation
 void __asan_on_error()
 #if __has_attribute(no_sanitize)
@@ -213,6 +204,8 @@ void __asan_on_error() {
 
 	char *report = "";
 #if __DCC_SANITIZER_IS_ADDRESS__
+	extern char *__asan_get_report_description();
+	extern  int __asan_report_present();
 	if (__asan_report_present()) {
 		report = __asan_get_report_description();
 	}
@@ -223,10 +216,6 @@ void __asan_on_error() {
 	
 	_explain_error();
 	// not reached
-}
-
-char *__ubsan_default_options() {
-	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__DCC_LEAK_CHECK_1_0__";
 }
 
 char *__asan_default_options() {
@@ -240,7 +229,52 @@ char *__asan_default_options() {
 char *__msan_default_options() {
 	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__DCC_LEAK_CHECK_1_0__";
 }
-#endif
+
+extern void __ubsan_get_current_report_data(char **OutIssueKind, char **OutMessage, char **OutFilename, unsigned int *OutLine, unsigned int *OutCol, char **OutMemoryAddr);
+
+void __ubsan_on_report(void) {
+	if (debug) fprintf(stderr, "__ubsan_on_report\n");
+	char *OutIssueKind;
+	char *OutMessage;
+	char *OutFilename;
+	unsigned int OutLine;
+	unsigned int OutCol;
+	char *OutMemoryAddr;
+	__ubsan_get_current_report_data(&OutIssueKind, &OutMessage, &OutFilename, &OutLine, &OutCol, &OutMemoryAddr);
+	// buffers + putenv is ugly - but safer?
+	char buffer0[128];
+	snprintf(buffer0, sizeof buffer0, "DCC_UBSAN_ERROR_KIND=%s", OutIssueKind);
+	putenvd(buffer0);
+	char buffer1[4096];
+	snprintf(buffer1, sizeof buffer1, "DCC_UBSAN_ERROR_MESSAGE=%s", OutMessage);
+	putenvd(buffer1);
+	char buffer2[4096];
+	snprintf(buffer2, sizeof buffer2, "DCC_UBSAN_ERROR_FILENAME=%s", OutFilename);
+	putenvd(buffer2);
+	char buffer3[128];
+	snprintf(buffer3, sizeof buffer3, "DCC_UBSAN_ERROR_LINE=%u", OutLine);
+	putenvd(buffer3);
+	char buffer4[128];
+	snprintf(buffer4, sizeof buffer4, "DCC_UBSAN_ERROR_COL=%u", OutCol);
+	putenvd(buffer4);
+	char buffer5[128];
+	snprintf(buffer5, sizeof buffer5, "DCC_UBSAN_ERROR_MEMORYADDR=%s", OutMemoryAddr);
+	putenvd(buffer5);
+	
+	_explain_error();
+	// not reached
+}
+
+
+// intercept ASAN explanation
+void _Unwind_Backtrace(void *a, ...) {
+	if (debug) fprintf(stderr, "_Unwind_Backtrace\n");
+	_explain_error();
+}
+
+char *__ubsan_default_options() {
+	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__DCC_LEAK_CHECK_1_0__";
+}
 
 static void _signal_handler(int signum) {
 	signal(SIGABRT, SIG_IGN);
