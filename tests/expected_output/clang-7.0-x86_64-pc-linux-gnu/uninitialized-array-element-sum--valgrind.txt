@@ -11,6 +11,7 @@ Execution stopped here in main() in tests/run_time/uninitialized-array-element-s
 
 Values when execution stopped:
 
+a =  <deleted-value>
 i =  <deleted-value>
 sum =  <deleted-value>
 a[42] =  <deleted-value>

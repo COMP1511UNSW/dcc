@@ -100,6 +100,9 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		setbuf(stdout, NULL);		   
 		signal(SIGPIPE, SIG_DFL);
 		if (debug) fprintf(stderr, "running __real_main\n");
+#if !__DCC_STACK_USE_AFTER_RETURN__
+		clear_stack();
+#endif
 		return __real_main(argc, argv, envp);
 	}
 	
@@ -112,10 +115,10 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		setbuf(valgrind_error_pipe, NULL);			
 		valgrind_error_fd = (int)fileno(valgrind_error_pipe);
 	} else {
+		if (debug) perror("popen failed");
 #if !__DCC_STACK_USE_AFTER_RETURN__
 		clear_stack();
 #endif
-		if (debug) perror("popen failed");
 		return __real_main(argc, argv, envp);
 	}
 	setenvd("DCC_VALGRIND_RUNNING", "1");
@@ -342,7 +345,6 @@ static void _memset_shim(void *p, int byte, size_t size) {
 	memset(p, byte, size);
 }
 #endif
-
 
 static void setenvd(char *n, char *v) {
 	setenv(n, v, 1);
