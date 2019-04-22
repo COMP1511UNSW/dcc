@@ -28,7 +28,9 @@ def get_explanation(message, colorize_output):
 # explanation - if explanation is callable, it is called with message and regex match results as arguments
 #               and value returned as explanation
 #               if explanation is a string, it is evaluated as f-string with the fields from the message object
-#               available as local variables, and the result return as the explanation
+#               available as local variables,
+#               Note, this includes the highlighted_word and underlined_word in the compiler message (if any)
+#               The result of the evluation returned as the explanation
 #
 # show_note - print the note (if any)  on a clang warning
 #
@@ -394,6 +396,28 @@ int main(void) {
 }
 """,
 	),
+	
+	Explanation(
+		label = 'dcc-function-variable-clash',
+		
+		regex = r"called object type '.*' is not a function or function pointer",
+		
+		precondition = lambda message, match: re.match(r'^\w+$', message.underlined_word),
+		
+		long_explanation = True,
+		
+		explanation = """'{emphasize(underlined_word)}' is the name of a variable but you you are trying to call it as a function.
+  If '{emphasize(underlined_word)}' is also the name of a function, you can avoid the clash,
+  by changing the name of the variable '{emphasize(underlined_word)}' to something else.""",
+		
+		reproduce = """
+int main(void) { 
+	int main;
+	return main();
+}
+""",
+	),
+	
 ]
 
 def extract_system_include_file(string):
