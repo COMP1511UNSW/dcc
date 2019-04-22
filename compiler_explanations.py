@@ -406,7 +406,7 @@ int main(void) {
 		
 		long_explanation = True,
 		
-		explanation = """'{emphasize(underlined_word)}' is the name of a variable but you you are trying to call it as a function.
+		explanation = """'{emphasize(underlined_word)}' is the name of a variable but you are trying to call it as a function.
   If '{emphasize(underlined_word)}' is also the name of a function, you can avoid the clash,
   by changing the name of the variable '{emphasize(underlined_word)}' to something else.""",
 		
