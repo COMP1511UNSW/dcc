@@ -57,8 +57,8 @@ and print a message a novice programmer can hopefully understand. For example:
 
     argc = 1
     a[42] = 42
-    a[43] = -1094795586 <-- warning appears to be uninitialized value
-    a[argc] = -1094795586 <-- warning appears to be uninitialized value
+    a[43] = <uninitialized value>
+    a[argc] = <uninitialized value>
 
 # Valgrind
 
@@ -80,8 +80,8 @@ dcc can alternatively embed code in the binary to run valgrind instead of the bi
 
     argc = 1
     a[42] = 42
-    a[43] = 0
-    a[argc] = 0
+    a[43] = <uninitialized value>
+    a[argc] = <uninitialized value>
 
 valgrind is slower but more comprehensive in its detection of uninitialized variables than MemorySanitizer.
 
@@ -150,7 +150,7 @@ extracts into it the program source and Python from the embedded tar file, and e
 
     * starts gdb, and uses it to print current values of variables used in source lines near where the error occurred.
 
-# Dirtying Stack Pages to Facilitate Uninitialized Variable Detection
+#  Facilitating Clear errors from Uninitialized Variables
 
 Linux initializes stack pages to zero.  As a consequence novice programmers  writing small programs with few function calls
 are likely to find zero in uninitialized local variables.  This often results in apparently correct behaviour from a
@@ -158,7 +158,29 @@ invalid program with uninitialized local variables.
 
 dcc embeds code in the binary which initializes the first few megabytes of the stack to 0xbe (see `clear-stack` in [main_wrapper.c].
 
-When printing variable values, dcc warns the user if a variable looks to consist of 0xbe bytes, and thus is likely uninitialized.
+For valgrind dcc uses its malloc-fill and --free-fill options to achieve the same result (see main_wrapper.c).  AddressSanitizer & MemorySanitizer use a malloc which does this by default.
+
+When printing variable values, dcc prints ints, doubles & pointers consisting of 0xbe bytes as "<uninitialized>". 
+
+Indirection using pointers consisting of 0xbe bytes will produced an unaligned access error from  UndefinedBehaviourSanitizer, unless the pointer is to char.  dcc intercepts these and explanations suitable for novice programmers (see  explain_ubsan_error in [drive_gdb.py])
+
+    $ dcc dereference_uninitialized.c
+    $ ./a.out
+	tests/run_time/dereference_uninitialized_with_arrow.c:9:14: runtime error - accessing a field via an uninitialized pointer
+	
+	dcc explanation: You are using a pointer which has not been initialized
+	  A common error is using p->field without first assigning a value to p.
+	
+	Execution stopped here in main() in dereference_uninitialized.c at line 9:
+	
+	int main(void) { 
+	    struct list_node *a = malloc(sizeof *a);
+	--> a->next->data = 42;
+	}
+	
+	Values when execution stopped:
+	
+	a->next = <uninitialized value>
 
 # Build Instructions
 
