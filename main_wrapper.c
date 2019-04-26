@@ -123,18 +123,29 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	}
 	setenvd("DCC_VALGRIND_RUNNING", "1");
 	
-	char fd_buffer[1024];
-	sprintf(fd_buffer, "--log-fd=%d", valgrind_error_fd);
-	char *valgrind_command[] = {"/usr/bin/valgrind", "-q", "--vgdb=yes", "--leak-check=__DCC_LEAK_CHECK_YES_NO__", "--suppressions=__DCC_SUPRESSIONS_FILE__", "--max-stackframe=16000000", "--partial-loads-ok=no", fd_buffer, "--vgdb-error=1"};
+	char fd_buffer[64];
+	snprintf(fd_buffer, sizeof fd_buffer, "--log-fd=%d", valgrind_error_fd);
+	char *valgrind_command[] = {
+		"/usr/bin/valgrind",
+		fd_buffer,
+		"-q",
+		"--vgdb=yes",
+		"--leak-check=__DCC_LEAK_CHECK_YES_NO__",
+		"--suppressions=__DCC_SUPRESSIONS_FILE__",
+		"--max-stackframe=16000000",
+		"--partial-loads-ok=no",
+		"--malloc-fill=0xbe",
+		"--free-fill=0xbe",
+		 "--vgdb-error=1"
+	};
 
 	int valgrind_command_len = sizeof valgrind_command / sizeof valgrind_command[0];
-	char *valgrind_argv[argc + 1 + valgrind_command_len];
+	char *valgrind_argv[valgrind_command_len + argc + 1];
 	for (int i = 0; i < valgrind_command_len; i++)
 		valgrind_argv[i] = valgrind_command[i];
-	valgrind_argv[valgrind_command_len] = argv[0];
-	for (int i = 1; i < argc; i++)
-		valgrind_argv[i+valgrind_command_len] = argv[i];
-	valgrind_argv[argc+valgrind_command_len] = NULL;
+	for (int i = 0; i < argc; i++)
+		valgrind_argv[valgrind_command_len + i] = argv[i];
+	valgrind_argv[valgrind_command_len + argc] = NULL;
 
 	execvp("/usr/bin/valgrind", valgrind_argv);
 
@@ -237,6 +248,7 @@ extern void __ubsan_get_current_report_data(char **OutIssueKind, char **OutMessa
 
 void __ubsan_on_report(void) {
 	if (debug) fprintf(stderr, "__ubsan_on_report\n");
+
 	char *OutIssueKind;
 	char *OutMessage;
 	char *OutFilename;
@@ -244,26 +256,18 @@ void __ubsan_on_report(void) {
 	unsigned int OutCol;
 	char *OutMemoryAddr;
 	__ubsan_get_current_report_data(&OutIssueKind, &OutMessage, &OutFilename, &OutLine, &OutCol, &OutMemoryAddr);
-	// buffers + putenv is ugly - but safer?
-	char buffer0[128];
-	snprintf(buffer0, sizeof buffer0, "DCC_UBSAN_ERROR_KIND=%s", OutIssueKind);
-	putenvd(buffer0);
-	char buffer1[4096];
-	snprintf(buffer1, sizeof buffer1, "DCC_UBSAN_ERROR_MESSAGE=%s", OutMessage);
-	putenvd(buffer1);
-	char buffer2[4096];
-	snprintf(buffer2, sizeof buffer2, "DCC_UBSAN_ERROR_FILENAME=%s", OutFilename);
-	putenvd(buffer2);
-	char buffer3[128];
-	snprintf(buffer3, sizeof buffer3, "DCC_UBSAN_ERROR_LINE=%u", OutLine);
-	putenvd(buffer3);
-	char buffer4[128];
-	snprintf(buffer4, sizeof buffer4, "DCC_UBSAN_ERROR_COL=%u", OutCol);
-	putenvd(buffer4);
-	char buffer5[128];
-	snprintf(buffer5, sizeof buffer5, "DCC_UBSAN_ERROR_MEMORYADDR=%s", OutMemoryAddr);
-	putenvd(buffer5);
-	
+
+	// buffer + putenv is ugly - but safer?
+	char buffer[6][128];
+	snprintf(buffer[0], sizeof buffer[0], "DCC_UBSAN_ERROR_KIND=%s", OutIssueKind);
+	snprintf(buffer[1], sizeof buffer[1], "DCC_UBSAN_ERROR_MESSAGE=%s", OutMessage);
+	snprintf(buffer[2], sizeof buffer[2], "DCC_UBSAN_ERROR_FILENAME=%s", OutFilename);
+	snprintf(buffer[3], sizeof buffer[3], "DCC_UBSAN_ERROR_LINE=%u", OutLine);
+	snprintf(buffer[4], sizeof buffer[4], "DCC_UBSAN_ERROR_COL=%u", OutCol);
+	snprintf(buffer[5], sizeof buffer[5], "DCC_UBSAN_ERROR_MEMORYADDR=%s", OutMemoryAddr);
+	for (int i = 0; i < sizeof buffer/sizeof buffer[0]; i++) 
+		putenv(buffer[i]);
+
 	_explain_error();
 	// not reached
 }
@@ -288,8 +292,8 @@ static void _signal_handler(int signum) {
 	signal(SIGFPE, SIG_IGN);
 	signal(SIGILL, SIG_IGN);
 	
-	char signum_buffer[1024];
-	sprintf(signum_buffer, "DCC_SIGNAL=%d", (int)signum);
+	char signum_buffer[64];
+	snprintf(signum_buffer, sizeof signum_buffer, "DCC_SIGNAL=%d", (int)signum);
 	putenvd(signum_buffer); // less likely? to trigger another error than direct setenv
 	
 	_explain_error();
