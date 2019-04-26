@@ -101,6 +101,7 @@ class Message():
 	note = []
 	note_without_ansi_codes = []
 	highlighted_word = ''
+	underlined_word = ''
 	
 	def is_same_line(self, message):
 		return message and (message.file, message.line_number) == (self.file, self.line_number)
