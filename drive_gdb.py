@@ -16,7 +16,7 @@ source = {}
 def drive_gdb():
 	global debug
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
-	output_stream = os.fdopen(3, "w")
+	output_stream = os.fdopen(3, "w", encoding='utf-8', errors='replace')
 	colorize_output = output_stream.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 	if colorize_output:
 		color = colors.color
@@ -307,7 +307,7 @@ def fileline(filename, line_number, clean=False):
 			return clean_c_source(source[filename][line_number - 1])
 		return source[filename][line_number - 1]
 	try:
-		with open(filename) as f:
+		with open(filename, encoding='utf-8', errors='replace') as f:
 			source[filename] = f.readlines()
 			for line in source[filename]:
 				m = re.match(r'^\s*#\s*define\s*(\w+)\s*(.*\S)', line)

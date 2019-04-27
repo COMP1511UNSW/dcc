@@ -383,7 +383,7 @@ int main(int argc, char *argv[]) {
 	),
 	
 	Explanation(
-		label = 'dcc-uninitialized-local-variable',
+		label = 'uninitialized-local-variable',
 		
 		regex = r"'(.*)' is used uninitialized in this function",
 		
@@ -398,7 +398,7 @@ int main(void) {
 	),
 	
 	Explanation(
-		label = 'dcc-function-variable-clash',
+		label = 'function-variable-clash',
 		
 		regex = r"called object type '.*' is not a function or function pointer",
 		
@@ -418,6 +418,46 @@ int main(void) {
 """,
 	),
 	
+	
+	Explanation(
+		label = 'function-definition-not-allowed-here',
+		
+		regex = r"function definition is not allowed here",
+		
+		precondition = lambda message, match: message.line_number and int(message.line_number) > 1,
+		
+		long_explanation = True,
+		
+		explanation = """There is likely a closing brace (curly bracket) missing before line {line_number}.
+Is a {emphasize('} missing')} in the previous function?""",
+		
+		no_following_explanations = True,
+
+		reproduce = """
+int f(int a) {
+	return a;
+	
+int main(void) { 
+	return f(0);
+}
+""",
+	),
+	
+	Explanation(
+		label = 'indirection-requires-pointer-operand',
+		
+		regex = r"indirection requires pointer operand \('(.*)' invalid\)",
+		
+		explanation = """ you are trying to use '{emphasize(underlined_word)}' as a pointer.
+  You can not do this because '{emphasize(underlined_word)}' is of type {emphasize(match.group(1))}.
+""",
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	return *argc;
+}
+""",
+	),
 ]
 
 def extract_system_include_file(string):
