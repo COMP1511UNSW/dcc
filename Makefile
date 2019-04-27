@@ -20,7 +20,10 @@ dcc.1: dcc help2man_include.txt
 	help2man --include=help2man_include.txt ./dcc >dcc.1
 	
 tests: dcc
-	tests/do_tests.sh
+	tests/do_tests.sh ./dcc
+	
+tests_all_clang_versions: dcc
+	set -x ; for compiler in /usr/bin/clang-[1-24-9]* ; do tests/do_tests.sh ./dcc $$compiler; done
 	
 debian: dcc
 	rm -rf debian

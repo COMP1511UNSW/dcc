@@ -39,15 +39,16 @@ for src_file in tests/extracted_compile_time_tests/*.c tests/compile_time/*.c te
 do
 	rm -f a.out
 
-	compile_options_list=$(egrep '^//dcc_flags=' "$src_file"|sed 's?//??;s? ?#?g')
+	compile_options_list=$(egrep '^//dcc_flags=' "$src_file"|sed 's?//??;s/ /#/g')
 	compile_options_list=${compile_options_list:-'dcc_flags=""'}
 
 	for compile_options in $compile_options_list
 	do
+		compile_options=$(echo "$compile_options"|sed 's/#/ /g')
 		case "$src_file" in
 		*.c)
 			dcc_flags=
-			suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/["$]//g;s/src_file//'`
+			suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/ /_/g;s/["$]//g;s/src_file//'`
 			eval $compile_options
 			expected_stderr_file="$expected_output_dir/`basename $src_file .c`$suffix.txt"
 			#echo "$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file"

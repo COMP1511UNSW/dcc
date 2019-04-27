@@ -1,4 +1,7 @@
-tests/run_time/mod_zero.c:7:20: runtime error: division by zero
+
+tests/run_time/mod_zero.c:7:20: runtime error - division by zero
+
+dcc explanation: A common error is to evaluate x % y when y == 0 which is undefined.
 
 Execution stopped here in main() in tests/run_time/mod_zero.c at line 7:
 

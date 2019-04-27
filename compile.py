@@ -10,8 +10,9 @@ from explain_compiler_output import explain_compiler_output
 COMMON_WARNING_ARGS = "-Wall -Wno-unused -Wunused-variable -Wunused-value -Wno-unused-result".split()
 COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-std=gnu11 -g -lm".split()
 
-EXTRA_C_COMPILER_ARGS = COMMON_COMPILER_ARGS + "-Wunused-comparison -fcolor-diagnostics  -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
-GCC_ARGS = COMMON_COMPILER_ARGS + "-Wunused-but-set-variable -O -fdiagnostics-color -o /dev/null".split()
+CLANG_ONLY_ARGS = "-Wunused-comparison -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+
+GCC_ARGS = COMMON_COMPILER_ARGS + "-Wunused-but-set-variable -O  -o /dev/null".split()
 
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
 
@@ -25,7 +26,13 @@ FILES_EMBEDDED_IN_BINARY = ["start_gdb.py", "drive_gdb.py", "watch_valgrind.py",
 def compile(debug=False):
 	os.environ['PATH'] = os.path.dirname(os.path.realpath(sys.argv[0])) + ':/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '') 
 	args = parse_args(sys.argv[1:])
-
+	
+	# we have to set these explicitly because 
+	clang_args = COMMON_COMPILER_ARGS + CLANG_ONLY_ARGS
+	if args.colorize_output:
+		clang_args += ['-fcolor-diagnostics']
+		clang_args += ['-fdiagnostics-color']
+		
 	if args.which_sanitizer == "memory" and platform.architecture()[0][0:2] == '32':
 		if search_path('valgrind'):
 			# -fsanitize=memory requires 64-bits so we fallback to embedding valgrind
@@ -37,18 +44,21 @@ def compile(debug=False):
 
 	clang_version = None
 	try:
-		clang_version = subprocess.check_output(["clang", "--version"], universal_newlines=True)
+		clang_version = subprocess.check_output([args.c_compiler, "--version"], universal_newlines=True)
 		if debug:
 			print("clang version:", clang_version)
-		m = re.search("clang version (\d+\.\d+\.\d+)", clang_version, flags=re.I)
+		m = re.search("clang version ((\d+)\.(\d+)\.\d+)", clang_version, flags=re.I)
 		if m is not None:
 			clang_version = m.group(1)
+			clang_version_major = m.group(2)
+			clang_version_minor = m.group(3)
+			clang_version_float = float(m.group(2) + "." + m.group(3))
 	except OSError as e:
 		if debug:
 			print(e)
 
 	if not clang_version:
-		print("Can not get clang version", file=sys.stderr)
+		print("Can not get version information for '%s'" % args.c_compiler, file=sys.stderr)
 		sys.exit(1)
 
 	if args.which_sanitizer == "address" and platform.architecture()[0][0:2] == '32':
@@ -66,7 +76,7 @@ def compile(debug=False):
 			if debug:
 				print(e)
 
-		if clang_version and libc_version and clang_version[0] in "345" and libc_version >= 2.27:
+		if  libc_version and clang_version_float < 6 and libc_version >= 2.27:
 			print("incompatible clang libc versions, disabling error detection by sanitiziers", file=sys.stderr)
 			sanitizer_args = []
 			
@@ -79,8 +89,6 @@ def compile(debug=False):
 		tar_n_bytes, tar_source = source_for_embedded_tarfile(args) 
 
 	if args.which_sanitizer == "valgrind":
-		sanitizer_args = []
-		sanitizer_args = ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_VALGRIND__', '1')
 		if args.embed_source:
 			watcher = fr"python3 -E -c \"import os,sys,tarfile,tempfile\n\
@@ -92,27 +100,36 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		else:
 			watcher = dcc_path +  "--watch-stdin-for-valgrind-errors"
 		wrapper_source = wrapper_source.replace('__DCC_MONITOR_VALGRIND__', watcher)
+		sanitizer_args = []
 	elif args.which_sanitizer == "memory":
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_MEMORY__', '1')
-		# FIXME if we enable  '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer'
-		# which would be preferable here we get uninitialized variable error message for undefined errors
+		args.which_sanitizer = "memory"
 		sanitizer_args = ['-fsanitize=memory']
 	else:
 		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_ADDRESS__', '1')
 		# fixme add code to check version supports these
-		sanitizer_args = ['-fsanitize=address', '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']
+		sanitizer_args = ['-fsanitize=address']
 		args.which_sanitizer = "address"
+		
+	if args.which_sanitizer != "memory":
+		# FIXME if we enable  '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
+		# which would be preferable here we get uninitialized variable error message for undefined errors
+		sanitizer_args += ['-fsanitize=undefined']
+		if clang_version_float >= 3.6:
+			sanitizer_args += ['-fno-sanitize-recover=undefined,integer']
 
 	wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK_YES_NO__', "yes" if args.leak_check else "no")
 	wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK_1_0__', "1" if args.leak_check else "0")
 	wrapper_source = wrapper_source.replace('__DCC_SUPRESSIONS_FILE__', args.suppressions_file)
 	wrapper_source = wrapper_source.replace('__DCC_STACK_USE_AFTER_RETURN__', "1" if args.stack_use_after_return else "0")
 	wrapper_source = wrapper_source.replace('__DCC_NO_WRAP_MAIN__', "1" if args.no_wrap_main else "0")
+	wrapper_source = wrapper_source.replace('__DCC_CLANG_VERSION_MAJOR__', clang_version_major)
+	wrapper_source = wrapper_source.replace('__DCC_CLANG_VERSION_MINOR__', clang_version_minor)
 	
 	# shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
 	# and we can't override with verify_asan_link_order=0 for clang version < 5
 	# and with clang-6 on debian __asan_default_options not called with shared_libasan
-	if args.shared_libasan is None and clang_version[0] not in "3456":
+	if args.shared_libasan is None and clang_version_float >= 7.0:
 		args.shared_libasan = True
 
 	if args.shared_libasan and args.which_sanitizer == "address":
@@ -124,7 +141,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		wrapper_source = wrapper_source.replace('__DCC_EMBED_SOURCE__', '1')
 		wrapper_source = tar_source + wrapper_source
 
-	incremental_compilation_args = sanitizer_args + EXTRA_C_COMPILER_ARGS + args.user_supplied_compiler_args
+	incremental_compilation_args = sanitizer_args + clang_args + args.user_supplied_compiler_args
 	command = [args.c_compiler] + incremental_compilation_args
 	if args.incremental_compilation:
 		if args.debug:
@@ -132,7 +149,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		sys.exit(subprocess.call(command))
 
 	# -x - must come after any filenames but before ld options
-	command =  [args.c_compiler] + args.user_supplied_compiler_args + ['-x', 'c', '-', ] + sanitizer_args + EXTRA_C_COMPILER_ARGS
+	command =  [args.c_compiler] + args.user_supplied_compiler_args + ['-x', 'c', '-', ] + sanitizer_args + clang_args
 	if args.ifdef_main:
 		command +=  ['-Dmain=__real_main']
 		wrapper_source = wrapper_source.replace('__wrap_main', 'main')
@@ -141,10 +158,16 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 
 	if args.debug:
 		print(" ".join(command), file=sys.stderr)
+
 	if args.debug > 1:
-		print(" ".join(command), '<<eof', file=sys.stderr)
-		print(wrapper_source)
-		print("eof", file=sys.stderr)
+		debug_wrapper_file = "dcc_main_wrapper.c"
+		print("Leaving main_wrapper in", debug_wrapper_file, "compile with this command:", file=sys.stderr)
+		print(" ".join(command).replace('-x c -', debug_wrapper_file), file=sys.stderr)
+		try:
+			with open(debug_wrapper_file,"w") as f:
+				f.write(wrapper_source)
+		except OSError as e:
+			print(e)
 	process = subprocess.run(command, input=wrapper_source, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
 	# workaround for  https://github.com/android-ndk/ndk/issues/184
@@ -199,7 +222,8 @@ class Args(object):
 	user_supplied_compiler_args = []
 	explanations = True
 	max_explanations = 3
-	embed_source = True 
+	embed_source = True
+	# FIXME - check terminal actually support ANSI
 	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
 	source_files = set()
@@ -259,6 +283,10 @@ def parse_arg(arg, next_arg, args):
 		args.no_wrap_main = True
 	elif arg.startswith('--c-compiler='):
 		args.c_compiler = arg[arg.index('=') + 1:]
+	elif arg == '-fcolor-diagnostics':
+		args.colorize_output = True
+	elif arg == '-fno-color-diagnostics':
+		args.colorize_output = False
 	elif arg == '-v' or arg == '--version':
 		print('dcc version', VERSION)
 		sys.exit(0)
@@ -282,10 +310,6 @@ def parse_clang_arg(arg, next_arg, args):
 	args.user_supplied_compiler_args.append(arg)
 	if arg  == '-c':
 		args.incremental_compilation = True
-	elif arg == '-fcolor-diagnostics':
-		args.colorize_output = True
-	elif arg == '-fno-color-diagnostics':
-		args.colorize_output = False
 	elif arg == '-o' and next_arg:
 		object_filename = next_arg
 		if object_filename.endswith('.c') and os.path.exists(object_filename):

@@ -1,14 +1,14 @@
-[1mtests/compile_time/uninitialized_local_variable.c:5:13: [0m[0;1;35mwarning: [0m[1mvariable 's' is used uninitialized whenever 'if' condition is false [-Wsometimes-uninitialized][0m
+tests/compile_time/uninitialized_local_variable.c:5:13: warning: variable 's' is used uninitialized whenever 'if' condition is false [-Wsometimes-uninitialized]
         else if (argc < 2)
-[0;1;32m                 ^~~~~~~~
-[0m[1mtests/compile_time/uninitialized_local_variable.c:8:9: [0m[0;1;30mnote: [0muninitialized use occurs here[0m
+                 ^~~~~~~~
+tests/compile_time/uninitialized_local_variable.c:8:9: note: uninitialized use occurs here
         return s;
-[0;1;32m               ^
-[0m[1mtests/compile_time/uninitialized_local_variable.c:5:9: [0m[0;1;30mnote: [0mremove the 'if' if its condition is always true[0m
+               ^
+tests/compile_time/uninitialized_local_variable.c:5:9: note: remove the 'if' if its condition is always true
         else if (argc < 2)
-[0;1;32m             ^~~~~~~~~~~~~
-[0m[1mtests/compile_time/uninitialized_local_variable.c:2:7: [0m[0;1;30mnote: [0minitialize the variable 's' to silence this warning[0m
+             ^~~~~~~~~~~~~
+tests/compile_time/uninitialized_local_variable.c:2:7: note: initialize the variable 's' to silence this warning
         int s;
-[0;1;32m             ^
-[0m[0;32m              = 0[0m
+             ^
+              = 0[0m
 

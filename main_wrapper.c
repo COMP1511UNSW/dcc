@@ -16,9 +16,17 @@
 
 static int debug = 0;
 
-void __dcc_start(void) __attribute__((constructor));
+void __dcc_start(void) __attribute__((constructor))
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
 
-static void _dcc_exit(void);
+static void _dcc_exit(void)
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
 
 static void _signal_handler(int signum)
 #if __has_attribute(no_sanitize)
@@ -63,6 +71,12 @@ __attribute__((optnone))
 
 #undef main
 
+int __wrap_main(int argc, char *argv[], char *envp[])
+#if __has_attribute(no_sanitize)
+__attribute__((no_sanitize("address", "memory", "undefined")))
+#endif
+;
+
 #if !__DCC_SANITIZER_IS_VALGRIND__
 
 // wrapping ASAN
@@ -83,7 +97,6 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 #else
 
 // wrapping valgrind
-
 int __wrap_main(int argc, char *argv[], char *envp[]) {
 	extern int __real_main(int argc, char *argv[], char *envp[]);
 	char mypath[PATH_MAX];
@@ -217,7 +230,7 @@ void __asan_on_error() {
 	if (debug) fprintf(stderr, "__asan_on_error\n");
 
 	char *report = "";
-#if __DCC_SANITIZER_IS_ADDRESS__
+#if __DCC_SANITIZER_IS_ADDRESS__ && __DCC_CLANG_VERSION_MAJOR__ >= 6
 	extern char *__asan_get_report_description();
 	extern  int __asan_report_present();
 	if (__asan_report_present()) {
@@ -244,17 +257,18 @@ char *__msan_default_options() {
 	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__DCC_LEAK_CHECK_1_0__";
 }
 
-extern void __ubsan_get_current_report_data(char **OutIssueKind, char **OutMessage, char **OutFilename, unsigned int *OutLine, unsigned int *OutCol, char **OutMemoryAddr);
-
 void __ubsan_on_report(void) {
 	if (debug) fprintf(stderr, "__ubsan_on_report\n");
 
+#if __DCC_CLANG_VERSION_MAJOR__ >= 7 && !__DCC_SANITIZER_IS_MEMORY__
 	char *OutIssueKind;
 	char *OutMessage;
 	char *OutFilename;
 	unsigned int OutLine;
 	unsigned int OutCol;
 	char *OutMemoryAddr;
+	extern void __ubsan_get_current_report_data(char **OutIssueKind, char **OutMessage, char **OutFilename, unsigned int *OutLine, unsigned int *OutCol, char **OutMemoryAddr);
+
 	__ubsan_get_current_report_data(&OutIssueKind, &OutMessage, &OutFilename, &OutLine, &OutCol, &OutMemoryAddr);
 
 	// buffer + putenv is ugly - but safer?
@@ -267,7 +281,7 @@ void __ubsan_on_report(void) {
 	snprintf(buffer[5], sizeof buffer[5], "DCC_UBSAN_ERROR_MEMORYADDR=%s", OutMemoryAddr);
 	for (int i = 0; i < sizeof buffer/sizeof buffer[0]; i++) 
 		putenv(buffer[i]);
-
+#endif
 	_explain_error();
 	// not reached
 }

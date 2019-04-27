@@ -1,6 +1,6 @@
-[1mtests/extracted_compile_time_tests/stack_use_after_return.c:4:15: [0m[0;1;35mwarning: [0m[1maddress of stack memory associated with local variable 'i' returned [-Wreturn-stack-address][0m
+tests/extracted_compile_time_tests/stack_use_after_return.c:4:15: warning: address of stack memory associated with local variable 'i' returned [-Wreturn-stack-address]
         return (int)&i;
-[0;1;32m                     ^[0m
+                     ^
 dcc explanation: you are trying to return a pointer to the local variable 'i'.
   You can not do this because i will not exist after the function returns.
   See more information here: https://comp1511unsw.github.io/dcc/stack_use_after_return.html

@@ -5,12 +5,13 @@ Execution stopped here in main() in tests/run_time/uninitialized-array-element-s
 
   	a[42] = 42;
   	for (i = 0; i < 1000; i++)
--->		sum += a[i];
+-->		sum += a[i] % 2;
   	if (sum < 1000) {
   		return sum;
 
 Values when execution stopped:
 
+a =  <deleted-value>
 i =  <deleted-value>
 sum =  <deleted-value>
 a[42] =  <deleted-value>

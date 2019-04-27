@@ -1,6 +1,6 @@
-[1mtests/extracted_compile_time_tests/assign_function_to_int.c:3:6: [0m[0;1;35mwarning: [0m[1mincompatible pointer to integer conversion initializing 'int' with an expression of type 'int (int, char **)' [-Wint-conversion][0m
+tests/extracted_compile_time_tests/assign_function_to_int.c:3:6: warning: incompatible pointer to integer conversion initializing 'int' with an expression of type 'int (int, char **)' [-Wint-conversion]
         int a = main;
-[0;1;32m            ^   ~~~~[0m
+            ^   ~~~~
 dcc explanation: you are attempting to assign main which is a function to an int variable.
 Perhaps you are trying to call the function and have forgotten the round brackets and any parameter values.
   See more information here: https://comp1511unsw.github.io/dcc/assign_function_to_int.html

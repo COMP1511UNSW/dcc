@@ -1,6 +1,6 @@
-[1mtests/extracted_compile_time_tests/assign_to_multidimensional_array.c:4:4: [0m[0;1;31merror: [0m[1marray type 'int [3][1]' is not assignable[0m
+tests/extracted_compile_time_tests/assign_to_multidimensional_array.c:4:4: error: array type 'int [3][1]' is not assignable
         a = b;
-[0;1;32m        ~ ^[0m
+        ~ ^
 dcc explanation: you are trying to assign to 'a' which is an array.
   You can not assign to a whole array.
   You can use a nested loop to assign to each array element individually.

@@ -1,0 +1,14 @@
+tests/run_time/dereference_null_with_arrow_arrow.c:9:14: runtime error: member access within null pointer of type 'struct list_node'
+
+Execution stopped here in main() in tests/run_time/dereference_null_with_arrow_arrow.c at line 9:
+
+    struct list_node s = {0};
+    struct list_node *a = &s;
+--> a->next->next->data = 42;
+}
+
+Values when execution stopped:
+
+s = {next = NULL, data =  <deleted-value>
+a->next =  <deleted-value>
+
