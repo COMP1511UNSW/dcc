@@ -77,10 +77,13 @@ def explain_error(output_stream, color):
 	if loc:
 		print(explain_location(loc, color), file=output_stream)
 		print(relevant_variables(loc.surrounding_source(color, clean=True), color), file=output_stream)
+
 	if (len(stack) > 1):
 		print(color('Function Call Traceback', 'blue'), file=output_stream)
 		for (frame, caller) in zip(stack, stack[1:]):
-			print(frame.function + '(' + frame.params + ') was called from', caller.short_description(color), file=output_stream)
+			print(frame.function_call(color), 'called at line', color(caller.line_number, 'red'), 'of', color(caller.filename, 'red'), file=output_stream)
+		print(stack[-1].function_call(color), file=output_stream)
+
 	output_stream.flush()	
 	gdb.flush(gdb.STDOUT)
 	gdb.flush(gdb.STDERR)
@@ -264,25 +267,28 @@ class Location():
 		self.params = params
 		self.variable = variable
 		self.frame_number = frame_number
+
 	def __str__(self):
 		return "Location(%s,%s,column=%s,function=%s,params=%s,variable=%s)" % (self.filename, self.line_number, self.column, self.function, self.params, self.variable)
-	def description(self):
-		params = self.params
+
+	def function_call(self, color):
+		params = clarify_values(self.params, color)
 		if self.function == 'main' and params.startswith('argc=1,'):
 			params = ''
-		return "in %s(%s) at\n%s:%s: %s" % (self.function, params, self.filename, self.line_number, self.source_line())
+		return self.function + '(' + params + ')'
+
+	def location(self, color):
+		return  color(self.filename, 'red') + ' at ' + color('line ' + str(self.line_number), 'red')
+
 	def short_description(self, color):
-		params = self.params
-		if self.function == 'main' and params.startswith('argc=1,'):
-			params = ''
-		return self.function + '(' + params + ') in ' + color(self.filename, 'red') + ' at ' + color('line ' + str(self.line_number), 'red')
+		return self.function_call(color) + ' in ' + self.location(color)
+
 	def long_description(self, color):
-		params = self.params
-		if self.function == 'main' and params.startswith('argc=1,'):
-			params = ''
 		return  'in ' + self.short_description(color) + ':\n\n' + self.surrounding_source(color, markMiddle=True)
+
 	def source_line(self, clean=False):
 		return fileline(self.filename, self.line_number, clean)
+
 	def surrounding_source(self, color, radius=2, clean=False, markMiddle=False):
 		source = ''
 		for offset in range(-radius, radius+1):
@@ -291,6 +297,7 @@ class Location():
 				line = color(re.sub(r'^ {0,3}', '-->', line), 'red')
 			source += line
 		return source
+
 	def is_user_location(self):
 		if not re.match(r'^[a-zA-Z]', self.function): return False 
 		if re.match(r'^/(usr|build)/', self.filename): return False 
@@ -437,24 +444,16 @@ def evaluate_expression(expression, color):
 		):
 		return None
 	
-	return clarify_value(expression_value, expression_type, color)
+	expression_value = clarify_expression_value(expression_value, expression_type, color)
+	# don't print hexadeximal addresses
+	if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value):
+		return None
+	return expression_value	 
 
 # transform value into something a novice programmer more likely to understand
 
-def clarify_value(expression_value, expression_type, color):
-	debug_print(2, 'clarify_value expression_value=', expression_value)
-	
-	# novices will understand 0x0 better as NULL if it is a pointer
-	expression_value = re.sub(r'\b0x0\b', r'NULL', expression_value)
-	
-	# strip type cast from string
-	expression_value = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', expression_value)
-	
-	# strip type cast from NULL pointer
-	expression_value = re.sub(r'^\([^()]+\s+\*\)\s*NULL\b', 'NULL', expression_value)
-
-	# strip type cast from uninitialized values
-	expression_value = re.sub(r'^\([^()]+\s+\*\)\s*0xbebebebe(\w+)', r'0xbebebebe\1', expression_value)
+def clarify_expression_value(expression_value, expression_type, color):
+	debug_print(1, 'clarify_value expression_value=', expression_value)
 	
 	if expression_type == 'char':
 		m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
@@ -468,19 +467,30 @@ def clarify_value(expression_value, expression_type, color):
 				 expression_value = "0 = '\\0'"
 			else:
 				 expression_value = "%s = '%s'" % m.groups()
-	expression_value = re.sub(r"'\000'", r"'\\0'", expression_value)
+	return clarify_values(expression_value, color)
+	
+# transform value into something a novice programmer more likely to understand
+def clarify_values(values, color):
+	# novices will understand 0x0 better as NULL if it is a pointer
+	values = re.sub(r'\b0x0\b', 'NULL', values)
+	
+	# strip type cast from strings
+	values = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', values)
+	
+	# strip type cast from NULL pointers
+	values = re.sub(r'^\([^()]+\s+\*\)\s*NULL\b', 'NULL', values)
+
+	# strip type cast from uninitialized valuess
+	values = re.sub(r'^\([^()]+\s+\*\)\s*0xbebebebe(\w+)', r'0xbebebebe\1', values)
+
+	values = re.sub(r"'\000'", r"'\\0'", values)
 
 	warning_text = color("<uninitialized value>", 'red')
-
 	
 	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)', '0xbebebebe', '0xbebebebebebebebe']:
-		expression_value = re.sub(r'(^|\D)' + re.escape(value) + r'($|\W)', r'\1' + warning_text + r'\2', expression_value)
+		values = re.sub(r'(^|\D)' + re.escape(value) + r'($|\W)', r'\1' + warning_text + r'\2', values)
+	return values
 
-	# don't print hexadeximal addresses
-	if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value):
-		return None
-		 
-	return expression_value
 
 def balance_bracket(str, depth=0):
 #	 debug_print(1, 'balance_bracket(%s, %s)' % (str, depth))

@@ -90,7 +90,7 @@ do
 			echo "Test dcc $dcc_flags  failed output different to expected - rm '$expected_stderr_file' if output is correct"
 			echo Differences are:
 			echo
-			diff -u  -iBw --color=always "$expected_stderr_file" tmp.corrected_stderr
+			diff -u  -iBw "$expected_stderr_file" tmp.corrected_stderr
 			echo
 			echo "if output is correct: rm '$expected_stderr_file'"
 			test_failed=1

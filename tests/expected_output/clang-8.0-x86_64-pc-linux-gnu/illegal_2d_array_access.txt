@@ -19,4 +19,5 @@ Values when execution stopped:
 b[5][2] =  <deleted-value>
 
 Function Call Traceback
-twod(b=0x<deleted-hexadecimal-constant>) was called from main() in tests/run_time/illegal_2d_array_access.c at line 9
+twod(b=0x<deleted-hexadecimal-constant>) called at line 9 of tests/run_time/illegal_2d_array_access.c
+main()
