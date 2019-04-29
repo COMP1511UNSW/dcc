@@ -400,7 +400,7 @@ int main(void) {
 	Explanation(
 		label = 'function-variable-clash',
 		
-		regex = r"called object type '.*' is not a function or function pointer",
+		regex = r"called object type .* is not a function or function pointer",
 		
 		precondition = lambda message, match: re.match(r'^\w+$', message.underlined_word),
 		
