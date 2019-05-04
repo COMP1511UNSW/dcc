@@ -132,7 +132,23 @@ valgrind also usually detect this type of error, e.g.:
 	-->	printf("%d\n", *f(50));
 	}
 
+# Installation
 
+* Installation on Linux and Windows Subsystem for Linux
+
+	curl https://github.com/COMP1511UNSW/dcc/releases/download/1.11/dcc_1.11_all.deb -o /tmp/dcc_1.11_all.deb
+	sudo apt install /tmp/dcc_1.11_all.deb
+
+	# On WSL this might be necessary to run programs
+	sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope;echo 1 >/proc/sys/vm/overcommit_memory"
+
+* Installation on  OSX
+
+	Install python3 - see https://docs.python-guide.org/starting/install3/osx/
+	Install gdb - see https://sourceware.org/gdb/wiki/PermissionsDarwin
+	sudo curl https://github.com/COMP1511UNSW/dcc/releases/download/1.11/dc -o /usr/bin/dcc
+	sudo chmod o+rx  /usr/bin/dcc
+	
 # Run-time Error Handling Implementation
 
 * dcc by default enables clang's  AddressSanitizer (`-fsanitize=address`) and UndefinedBehaviorSanitizer (`-fsanitize=undefined`) extensions.
