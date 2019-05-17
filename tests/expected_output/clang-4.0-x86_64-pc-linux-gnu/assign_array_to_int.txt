@@ -1,9 +1,0 @@
-[1mtests/extracted_compile_time_tests/assign_array_to_int.c:3:17: [0m[0;1;35mwarning: [0m[1msuggest braces around initialization of subobject [-Wmissing-braces][0m
-        int a[3][3] = {0};
-[0;1;32m                       ^
-[0m[0;32m                       {}[0m
-[0m[1mtests/extracted_compile_time_tests/assign_array_to_int.c:4:10: [0m[0;1;35mwarning: [0m[1mincompatible pointer to integer conversion assigning to 'int' from 'int [3]' [-Wint-conversion][0m
-        a[0][0] = a[1];
-[0;1;32m                ^ ~~~~[0m
-dcc explanation: you are attempting to assign a[1] which is an array to an int variable.
-

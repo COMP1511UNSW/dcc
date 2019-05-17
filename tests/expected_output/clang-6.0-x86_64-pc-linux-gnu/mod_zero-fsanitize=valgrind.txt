@@ -1,0 +1,2 @@
+tests/run_time_errors/mod_zero.c:7:20: runtime error: division by zero
+

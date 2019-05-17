@@ -1,6 +1,0 @@
-[1mtests/compile_time/printf_int_string_mismatch.c:4:17: [0m[0;1;35mwarning: [0m[1mformat specifies type 'int' but the argument has type 'char *' [-Wformat][0m
-        printf("%d\n", "hello!");
-[0;1;32m                ~~     ^~~~~~~~
-[0m[0;32m                %s[0m
-dcc explanation: make sure you are using the correct format code (e.g., `%d` for integers, `%lf` for floating-point values) in your format string on line 4
-

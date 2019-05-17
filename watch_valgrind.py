@@ -12,13 +12,13 @@ def watch_valgrind():
 	else:
 		color = lambda text, color_name: text
 
-	debug = int(os.environ.get('DCC_DEBUG', '0'))
-	if debug: print('watch_valgrind() running', file=sys.stderr)
+	debug_level = int(os.environ.get('DCC_DEBUG', '0'))
+	if debug_level > 1: print('watch_valgrind() running', file=sys.stderr)
 	while True:
 		line = sys.stdin.readline()
 		if not line:
 			break
-		if debug: print('valgrind: ', line, file=sys.stderr)
+		if debug_level > 1: print('valgrind: ', line, file=sys.stderr, end='')
 
 		if 'vgdb me' in line:
 			error = 'Runtime error: ' + color('uninitialized variable accessed.', 'red')
@@ -26,7 +26,7 @@ def watch_valgrind():
 			print('\n' + error, file=sys.stderr)
 			sys.stderr.flush()
 			start_gdb()
-			sys.exit(0)
+			break
 		elif 'below stack pointer' in line:
 			error = f"""Runtime error: {color('access to function variables after function has returned', 'red')}
 You have used a pointer to a local variable that no longer exists.
@@ -38,7 +38,7 @@ For more information see: {DEFAULT_EXPLANATION_URL}/stack_use_after_return.html'
 			print('\n' + error, file=sys.stderr)
 			sys.stderr.flush()
 			start_gdb()
-			sys.exit(0)
+			break
 		elif 'loss record' in line:
 			line = sys.stdin.readline()
 			if 'malloc' in line:
@@ -50,7 +50,9 @@ For more information see: {DEFAULT_EXPLANATION_URL}/stack_use_after_return.html'
 					print('Error: free not called for memory allocated with malloc.', file=sys.stderr)
 			else:
 				print('Error: memory allocated not de-allocated.', file=sys.stderr)
-			sys.exit(0)
+			break
+	if debug_level > 1: print('watch_valgrind() - exiting', file=sys.stderr)
+	sys.exit(0)
 	
 if __name__ == '__main__':
 	watch_valgrind()

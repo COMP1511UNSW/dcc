@@ -1,4 +1,4 @@
-tests/compile_time/printf_int_string_mismatch.c:4:17: warning: format specifies type 'int' but the argument has type 'char *' [-Wformat]
+tests/compile_time_errors/printf_int_string_mismatch.c:4:17: warning: format specifies type 'int' but the argument has type 'char *' [-Wformat]
         printf("%d\n", "hello!");
                 ~~     ^~~~~~~~
                 %s

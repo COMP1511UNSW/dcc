@@ -1,7 +1,7 @@
-tests/extracted_compile_time_tests/misspelt_printf.c:4:2: warning: implicit declaration of function 'print' is invalid in C99 [-Wimplicit-function-declaration]
+tests/extracted_compile_time_errors/misspelt_printf.c:4:2: warning: implicit declaration of function 'print' is invalid in C99 [-Wimplicit-function-declaration]
         print("hello");
         ^
-dcc explanation: you are calling a function named print on line 4 of tests/extracted_compile_time_tests/misspelt_printf.c but dcc does not recognize print as a function.
+dcc explanation: you are calling a function named print on line 4 of tests/extracted_compile_time_errors/misspelt_printf.c but dcc does not recognize print as a function.
 Maybe you meant printf?
 
 

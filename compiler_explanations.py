@@ -112,6 +112,8 @@ int main(void) {
 			
 		explanation = "Your program does not contain a main function - a C program must contain a main function.",
 		
+		no_following_explanations = True,
+
 		reproduce = """
 """
 	),

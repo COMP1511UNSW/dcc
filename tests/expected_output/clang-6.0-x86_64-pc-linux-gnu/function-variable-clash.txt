@@ -1,4 +1,4 @@
-tests/extracted_compile_time_tests/function-variable-clash.c:4:13: error: called object type 'int' is not a function or function pointer
+tests/extracted_compile_time_errors/function-variable-clash.c:4:13: error: called object type 'int' is not a function or function pointer
         return main();
                ~~~~^
 dcc explanation: 'main' is the name of a variable but you are trying to call it as a function.

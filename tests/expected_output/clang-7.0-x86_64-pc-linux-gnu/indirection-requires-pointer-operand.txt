@@ -1,4 +1,4 @@
-tests/extracted_compile_time_tests/indirection-requires-pointer-operand.c:3:9: error: indirection requires pointer operand ('int' invalid)
+tests/extracted_compile_time_errors/indirection-requires-pointer-operand.c:3:9: error: indirection requires pointer operand ('int' invalid)
         return *argc;
                ^~~~~
 dcc explanation:  you are trying to use 'argc' as a pointer.

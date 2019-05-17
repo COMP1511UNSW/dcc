@@ -1,9 +1,0 @@
-[1mtests/extracted_compile_time_tests/misspelt_printf.c:4:2: [0m[0;1;35mwarning: [0m[1mimplicit declaration of function 'print' is invalid in C99 [-Wimplicit-function-declaration][0m
-        print("hello");
-[0;1;32m        ^[0m
-dcc explanation: you are calling a function named print on line 4 of tests/extracted_compile_time_tests/misspelt_printf.c but dcc does not recognize print as a function.
-Maybe you meant printf?
-
-
- undefined reference to `print'
-clang: [0;1;31merror: [0mlinker command failed with exit code 1 (use -v to see invocation)[0m

@@ -1,5 +1,1 @@
-
- undefined reference to `main'
-clang: error: linker command failed with exit code 1 (use -v to see invocation)
-dcc explanation: Your program does not contain a main function - a C program must contain a main function.
-
+Error: your program does not contain a main function - a C program must contain a main function

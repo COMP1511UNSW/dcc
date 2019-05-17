@@ -1,16 +1,17 @@
 =================================================================
 
-tests/run_time/illegal_malloc_array_index.c:5 runtime error - malloc buffer overflow
+tests/run_time_errors/illegal_malloc_array_index.c:9 runtime error - malloc buffer overflow
 
 dcc explanation: access past the end of malloc'ed memory.
   Make sure you have allocated enough memory for the size of your struct/array.
   A common error is to use the size of a pointer instead of the size of the struct or array.
 
-Execution stopped here in main() in tests/run_time/illegal_malloc_array_index.c at line 5:
+Execution stopped here in main() in tests/run_time_errors/illegal_malloc_array_index.c at line 9:
 
 int main(int argc, char **argv) {
 	int *a = malloc(1000 * sizeof (int));
 -->	a[999 + argc] = 42;
+	return 0;
 }
 
 Values when execution stopped:

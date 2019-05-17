@@ -1,5 +1,5 @@
-tests/compile_time/relational_expression_with_comma.c:2:11: warning: relational comparison result unused [-Wunused-comparison]
+tests/compile_time_errors/relational_expression_with_comma.c:2:11: warning: relational comparison result unused [-Wunused-comparison]
         if (argc < 1, argc < 2)
             ~~~~~^~~
-dcc explanation: Looks like you're comparing two values on line 2 of `tests/compile_time/relational_expression_with_comma.c` but not using the result?
+dcc explanation: Looks like you're comparing two values on line 2 of `tests/compile_time_errors/relational_expression_with_comma.c` but not using the result?
 

@@ -1,4 +1,4 @@
-tests/extracted_compile_time_tests/assign_to_multidimensional_array.c:4:4: error: array type 'int [3][1]' is not assignable
+tests/extracted_compile_time_errors/assign_to_multidimensional_array.c:4:4: error: array type 'int [3][1]' is not assignable
         a = b;
         ~ ^
 dcc explanation: you are trying to assign to 'a' which is an array.

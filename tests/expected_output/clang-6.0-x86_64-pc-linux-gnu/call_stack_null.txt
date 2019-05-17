@@ -1,6 +1,6 @@
-tests/run_time/call_stack_null.c:5:11: runtime error: load of null pointer of type 'int'
+tests/run_time_errors/call_stack_null.c:5:11: runtime error: load of null pointer of type 'int'
 
-Execution stopped here in f3(a=NULL) in tests/run_time/call_stack_null.c at line 5:
+Execution stopped here in f3(a=NULL) in tests/run_time_errors/call_stack_null.c at line 5:
 
 int f3(int *a) {
 	int b[] = {0};
@@ -13,7 +13,7 @@ Values when execution stopped:
 a =  <deleted-value>
 
 Function Call Traceback
-f3(a=NULL) called at line 8 of tests/run_time/call_stack_null.c
-f2(a=NULL) called at line 12 of tests/run_time/call_stack_null.c
-f1(a=NULL) called at line 16 of tests/run_time/call_stack_null.c
+f3(a=NULL) called at line 8 of tests/run_time_errors/call_stack_null.c
+f2(a=NULL) called at line 12 of tests/run_time_errors/call_stack_null.c
+f1(a=NULL) called at line 16 of tests/run_time_errors/call_stack_null.c
 main()

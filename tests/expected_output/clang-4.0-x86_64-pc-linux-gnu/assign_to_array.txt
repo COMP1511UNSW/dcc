@@ -1,7 +1,0 @@
-[1mtests/extracted_compile_time_tests/assign_to_array.c:4:4: [0m[0;1;31merror: [0m[1marray type 'int [1]' is not assignable[0m
-        a = b;
-[0;1;32m        ~ ^[0m
-dcc explanation: you are trying to assign to 'a' which is an array with 1 element.
-  You can not assign to a whole array.
-  You can use a loop to assign to each array element individually.
-  See more information here: https://comp1511unsw.github.io/dcc/assign_to_array.html

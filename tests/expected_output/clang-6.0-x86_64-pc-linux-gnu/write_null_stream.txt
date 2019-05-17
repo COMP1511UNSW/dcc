@@ -1,5 +1,5 @@
-tests/run_time/write_null_stream.c: In function ‘main’:
-tests/run_time/write_null_stream.c:4:2: warning: null argument where non-null required (argument 1) [-Wnonnull]
+tests/run_time_errors/write_null_stream.c: In function ‘main’:
+tests/run_time_errors/write_null_stream.c:4:2: warning: null argument where non-null required (argument 1) [-Wnonnull]
   fprintf(NULL, "Hello world\n");
   ^~~~~~~
 

@@ -1,2 +1,0 @@
-clang: [0;1;31merror: [0munsupported option '--valgrind#--leak-check'[0m
-

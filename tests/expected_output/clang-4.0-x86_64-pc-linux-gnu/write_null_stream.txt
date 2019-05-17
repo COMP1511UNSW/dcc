@@ -1,5 +1,0 @@
-[01m[Ktests/run_time/write_null_stream.c:[m[K In function ‘[01m[Kmain[m[K’:
-[01m[Ktests/run_time/write_null_stream.c:4:2:[m[K [01;35m[Kwarning: [m[Knull argument where non-null required (argument 1) [[01;35m[K-Wnonnull[m[K]
-  [01;35m[Kfprintf[m[K(NULL, "Hello world\n");
-  [01;35m[K^~~~~~~[m[K[0m
-

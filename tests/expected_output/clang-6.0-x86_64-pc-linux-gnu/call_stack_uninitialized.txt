@@ -1,8 +1,8 @@
-tests/run_time/call_stack_uninitialized.c:4:9: runtime error: load of misaligned address 0x<deleted-hexadecimal-constant> for type 'int', which requires 4 byte alignment
+tests/run_time_errors/call_stack_uninitialized.c:4:9: runtime error: load of misaligned address 0x<deleted-hexadecimal-constant> for type 'int', which requires 4 byte alignment
 0x<deleted-hexadecimal-constant>: note: pointer points here
 <memory cannot be printed>
 
-Execution stopped here in f3(a=<uninitialized value>) in tests/run_time/call_stack_uninitialized.c at line 4:
+Execution stopped here in f3(a=<uninitialized value>) in tests/run_time_errors/call_stack_uninitialized.c at line 4:
 
 
 int f3(int *a) {
@@ -15,7 +15,7 @@ Values when execution stopped:
 a =  <deleted-value>
 
 Function Call Traceback
-f3(a=<uninitialized value>) called at line 7 of tests/run_time/call_stack_uninitialized.c
-f2(a=<uninitialized value>) called at line 11 of tests/run_time/call_stack_uninitialized.c
-f1(a=<uninitialized value>) called at line 15 of tests/run_time/call_stack_uninitialized.c
+f3(a=<uninitialized value>) called at line 7 of tests/run_time_errors/call_stack_uninitialized.c
+f2(a=<uninitialized value>) called at line 11 of tests/run_time_errors/call_stack_uninitialized.c
+f1(a=<uninitialized value>) called at line 15 of tests/run_time_errors/call_stack_uninitialized.c
 main()

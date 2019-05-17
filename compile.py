@@ -1,4 +1,4 @@
-import codecs,io, os, pkgutil, platform, re, subprocess, sys, tarfile
+import codecs,io, os, pkgutil, platform, re, subprocess, sys, tarfile, tempfile
 
 from version import VERSION 
 from explain_compiler_output import explain_compiler_output 
@@ -20,26 +20,42 @@ CLANG_LIB_DIR="/usr/lib/clang/{clang_version}/lib/linux"
 
 FILES_EMBEDDED_IN_BINARY = ["start_gdb.py", "drive_gdb.py", "watch_valgrind.py", "colors.py"]
 
+DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES = set(['assert.h', 'complex.h', 'ctype.h', 'errno.h', 'fenv.h', 'float.h', 'inttypes.h', 'iso646.h', 'limits.h', 'locale.h', 'math.h', 'setjmp.h', 'stdalign.h', 'stdarg.h', 'stdatomic.h', 'stdbool.h', 'stddef.h', 'stdint.h', 'stdio.h', 'stdlib.h', 'stdnoreturn.h', 'string.h', 'tgmath.h', 'time.h', 'uchar.h', 'wchar.h', 'wctype.h', 'sanitizer/asan_interface.h', 'malloc.h', 'strings.h', 'sysexits.h']) 
+
 #
 # Compile the user's program adding some C code
 #
 def compile(debug=False):
 	os.environ['PATH'] = os.path.dirname(os.path.realpath(sys.argv[0])) + ':/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '') 
 	args = parse_args(sys.argv[1:])
-	
 	# we have to set these explicitly because 
 	clang_args = COMMON_COMPILER_ARGS + CLANG_ONLY_ARGS
 	if args.colorize_output:
 		clang_args += ['-fcolor-diagnostics']
 		clang_args += ['-fdiagnostics-color']
-		
-	if args.which_sanitizer == "memory" and platform.architecture()[0][0:2] == '32':
-		if search_path('valgrind'):
-			# -fsanitize=memory requires 64-bits so we fallback to embedding valgrind
-			args.which_sanitizer = "valgrind"
+
+	if not args.sanitizers:
+		reason = ""
+		if args.incremental_compilation:
+			reason = "incremental compilation"
+		elif args.object_files_being_linked:
+			reason = "object files being linkedn"
+		elif args.object_files_being_linked:
+			reason = "library other than C standard library used"
+		elif args.threads_used:
+			reason = "threads used"
+		elif not args.system_includes_used.issubset(DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES):
+			offending_includes = list(args.system_includes_used - DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES)
+			reason = offending_includes[0]+ " used"
+		if reason:
+			print('warning uninititialized variable checking disabled:', reason, file=sys.stderr)
+			args.sanitizers = ["address"]
 		else:
-			print("%s: uninitialized value checking not supported on 32-bit architectures", file=sys.stderr)
-			sys.exit(1)
+			args.sanitizers = ["address", "valgrind"]
+		
+	if "memory" in args.sanitizers and platform.architecture()[0][0:2] == '32':
+		print("MemorySanitizer not available on 32-bit architectures", file=sys.stderr)
+		sys.exit(1)
 			
 
 	clang_version = None
@@ -61,7 +77,7 @@ def compile(debug=False):
 		print("Can not get version information for '%s'" % args.c_compiler, file=sys.stderr)
 		sys.exit(1)
 
-	if args.which_sanitizer == "address" and platform.architecture()[0][0:2] == '32':
+	if "address" in args.sanitizers  and platform.architecture()[0][0:2] == '32':
 		libc_version = None
 		try:
 			libc_version = subprocess.check_output(["ldd", "--version"]).decode("ascii")
@@ -78,142 +94,201 @@ def compile(debug=False):
 
 		if  libc_version and clang_version_float < 6 and libc_version >= 2.27:
 			print("incompatible clang libc versions, disabling error detection by sanitiziers", file=sys.stderr)
-			sanitizer_args = []
-			
-	dcc_path = get_my_path()
-	wrapper_source = pkgutil.get_data('src', 'main_wrapper.c').decode('utf8')
-	wrapper_source = wrapper_source.replace('__DCC_PATH__', dcc_path)
-	wrapper_source = wrapper_source.replace('__DCC_SANITIZER__', args.which_sanitizer)
+			args.sanitizers = [a for a in args.sanitizers if a != "address"]
 
-	if args.embed_source:
-		tar_n_bytes, tar_source = source_for_embedded_tarfile(args) 
-
-	if args.which_sanitizer == "valgrind":
-		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_VALGRIND__', '1')
-		if args.embed_source:
-			watcher = fr"python3 -E -c \"import os,sys,tarfile,tempfile\n\
-with tempfile.TemporaryDirectory() as temp_dir:\n\
-	tarfile.open(fileobj=sys.stdin.buffer, bufsize={tar_n_bytes}, mode='r|xz').extractall(temp_dir)\n\
-	os.chdir(temp_dir)\n\
-	exec(open('watch_valgrind.py').read())\n\
-\""
-		else:
-			watcher = dcc_path +  "--watch-stdin-for-valgrind-errors"
-		wrapper_source = wrapper_source.replace('__DCC_MONITOR_VALGRIND__', watcher)
-		sanitizer_args = []
-	elif args.which_sanitizer == "memory":
-		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_MEMORY__', '1')
-		args.which_sanitizer = "memory"
-		sanitizer_args = ['-fsanitize=memory']
-	else:
-		wrapper_source = wrapper_source.replace('__DCC_SANITIZER_IS_ADDRESS__', '1')
-		# fixme add code to check version supports these
-		sanitizer_args = ['-fsanitize=address']
-		args.which_sanitizer = "address"
-		
-	if args.which_sanitizer != "memory":
-		# FIXME if we enable  '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
-		# which would be preferable here we get uninitialized variable error message for undefined errors
-		sanitizer_args += ['-fsanitize=undefined']
-		if clang_version_float >= 3.6:
-			sanitizer_args += ['-fno-sanitize-recover=undefined,integer']
-
-	wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK_YES_NO__', "yes" if args.leak_check else "no")
-	wrapper_source = wrapper_source.replace('__DCC_LEAK_CHECK_1_0__', "1" if args.leak_check else "0")
-	wrapper_source = wrapper_source.replace('__DCC_SUPRESSIONS_FILE__', args.suppressions_file)
-	wrapper_source = wrapper_source.replace('__DCC_STACK_USE_AFTER_RETURN__', "1" if args.stack_use_after_return else "0")
-	wrapper_source = wrapper_source.replace('__DCC_NO_WRAP_MAIN__', "1" if args.no_wrap_main else "0")
-	wrapper_source = wrapper_source.replace('__DCC_CLANG_VERSION_MAJOR__', clang_version_major)
-	wrapper_source = wrapper_source.replace('__DCC_CLANG_VERSION_MINOR__', clang_version_minor)
-	
 	# shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
 	# and we can't override with verify_asan_link_order=0 for clang version < 5
 	# and with clang-6 on debian __asan_default_options not called with shared_libasan
 	if args.shared_libasan is None and clang_version_float >= 7.0:
 		args.shared_libasan = True
 
-	if args.shared_libasan and args.which_sanitizer == "address":
-		lib_dir = CLANG_LIB_DIR.replace('{clang_version}', clang_version)
-		if os.path.exists(lib_dir):
-			sanitizer_args += ['-shared-libasan', '-Wl,-rpath,' + lib_dir]
+	if args.incremental_compilation and len(args.sanitizers) > 1:
+		print("only a single sanitizer supported with incremental compilation", file=sys.stderr)
+		sys.exit(1)
+		
+	if args.object_files_being_linked and len(args.sanitizers) > 1:
+		print("only a single sanitizer supported with linking of .o files", file=sys.stderr)
+		sys.exit(1)
 			
-	if args.embed_source:
-		wrapper_source = wrapper_source.replace('__DCC_EMBED_SOURCE__', '1')
-		wrapper_source = tar_source + wrapper_source
+	dcc_path = get_my_path()
 
-	incremental_compilation_args = sanitizer_args + clang_args + args.user_supplied_compiler_args
-	command = [args.c_compiler] + incremental_compilation_args
+	wrapper_source = ''.join(pkgutil.get_data('src', f).decode('utf8') for f in ['dcc_main.c', 'dcc_dual_sanitizers.c', 'dcc_util.c'])
+	
+	wrapper_source = wrapper_source.replace('__PATH__', dcc_path)
+	wrapper_source = wrapper_source.replace('__SUPRESSIONS_FILE__', args.suppressions_file)
+	wrapper_source = wrapper_source.replace('__STACK_USE_AFTER_RETURN__', "1" if args.stack_use_after_return else "0")
+	wrapper_source = wrapper_source.replace('__CLANG_VERSION_MAJOR__', clang_version_major)
+	wrapper_source = wrapper_source.replace('__CLANG_VERSION_MINOR__', clang_version_minor)
+	wrapper_source = wrapper_source.replace('__N_SANITIZERS__', str(len(args.sanitizers)))
+	wrapper_source = wrapper_source.replace('__SANITIZER_1__', args.sanitizers[0].upper())
+	if len(args.sanitizers) > 1:
+		wrapper_source = wrapper_source.replace('__SANITIZER_2__', args.sanitizers[1].upper())
+	
+	if args.embed_source:
+		tar_n_bytes, tar_source = source_for_embedded_tarfile(args) 
+		watcher = fr"python3 -E -c \"import os,sys,tarfile,tempfile\n\
+with tempfile.TemporaryDirectory() as temp_dir:\n\
+ tarfile.open(fileobj=sys.stdin.buffer, bufsize={tar_n_bytes}, mode='r|xz').extractall(temp_dir)\n\
+ os.chdir(temp_dir)\n\
+ exec(open('watch_valgrind.py').read())\n\
+\""
+	else:
+		tar_n_bytes, tar_source = 0, ''
+		watcher = dcc_path +  "--watch-stdin-for-valgrind-errors"
+	wrapper_source = wrapper_source.replace('__MONITOR_VALGRIND__', watcher)
+	
+	# -x - must come after any filenames but before ld options
+	
+	#
+	# if we have two sanitizers we need to do first compile a binary with appropriate
+	# options for sanitizers 2 and embed the binary as C data inside the bianry for sanitizer 1
+	#
+	base_compile_command = [args.c_compiler] + args.user_supplied_compiler_args + ['-x', 'c', '-', ] +  clang_args
+	compiler_stdout = ''
+	executable_source = ''
+	if len(args.sanitizers) == 2:
+		sanitizer2_wrapper_source, sanitizer2_sanitizer_args = update_source(args.sanitizers[1], 2, wrapper_source, tar_source, args, clang_version, clang_version_float)
+		try:
+			with tempfile.NamedTemporaryFile(mode="rb") as f:
+				command = base_compile_command + sanitizer2_sanitizer_args + ['-o', f.name]
+				compiler_stdout = execute_compiler(command, sanitizer2_wrapper_source, args, debug_wrapper_file="tmp_dcc_sanitizer2.c")
+				executable_n_bytes, executable_source = source_for_sanitizer2_executable(f.read()) 
+		except FileNotFoundError:
+			# compiler may unlink temporary file resulting in this exception
+			sys.exit(1)	
+
+	# leave leak checking to valgrind if it is running
+	# because it currently gives better errors
+	wrapper_source, sanitizer_args = update_source(args.sanitizers[0], 1, wrapper_source, tar_source, args, clang_version, clang_version_float)
+
 	if args.incremental_compilation:
+		incremental_compilation_args = sanitizer_args + clang_args + args.user_supplied_compiler_args
+		command = [args.c_compiler] + incremental_compilation_args
 		if args.debug:
 			print('incremental compilation, running: ', " ".join(command), file=sys.stderr)
 		sys.exit(subprocess.call(command))
-
-	# -x - must come after any filenames but before ld options
-	command =  [args.c_compiler] + args.user_supplied_compiler_args + ['-x', 'c', '-', ] + sanitizer_args + clang_args
-	if args.ifdef_main:
-		command +=  ['-Dmain=__real_main']
-		wrapper_source = wrapper_source.replace('__wrap_main', 'main')
-	elif not args.no_wrap_main:
-		command +=  ['-Wl,-wrap,main']
-
-	if args.debug:
-		print(" ".join(command), file=sys.stderr)
-
-	if args.debug > 1:
-		debug_wrapper_file = "dcc_main_wrapper.c"
-		print("Leaving main_wrapper in", debug_wrapper_file, "compile with this command:", file=sys.stderr)
-		print(" ".join(command).replace('-x c -', debug_wrapper_file), file=sys.stderr)
-		try:
-			with open(debug_wrapper_file,"w") as f:
-				f.write(wrapper_source)
-		except OSError as e:
-			print(e)
-	process = subprocess.run(command, input=wrapper_source, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-
-	# workaround for  https://github.com/android-ndk/ndk/issues/184
-	# when not triggered earlier    
-	if "undefined reference to `__" in process.stdout:
-		command = [c for c in command if not c in ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']]
-		if args.debug:
-			print("undefined reference to `__mulodi4'", file=sys.stderr)
-			print("recompiling", " ".join(command), file=sys.stderr)
-		process = subprocess.run(command, input=wrapper_source, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-
-	if process.stdout:
-		if args.explanations:
-			explain_compiler_output(process.stdout, args)
-		else:
-			print(process.stdout, end='', file=sys.stderr)
-			
-	if process.returncode:
-		sys.exit(process.returncode)
-
+		
+	if executable_source:
+		wrapper_source = wrapper_source.replace('__EXECUTABLE_N_BYTES__', str(executable_n_bytes))
+		wrapper_source = executable_source + wrapper_source
+	
+	command = base_compile_command + sanitizer_args 
+	compiler_stdout = execute_compiler(command, wrapper_source, args, print_stdout=not compiler_stdout)
+	
 	# gcc picks up some errors at compile-time that clang doesn't, e.g 
 	# int main(void) {int a[1]; return a[0];}
 	# so run gcc as well if available
 
-	if not process.stdout and search_path('gcc') and 'gcc' not in args.c_compiler and not args.object_files_being_linked:
+	if not compiler_stdout and search_path('gcc') and 'gcc' not in args.c_compiler and not args.object_files_being_linked:
 		command = ['gcc'] + args.user_supplied_compiler_args + GCC_ARGS
 		if args.debug:
 			print("compiling with gcc for extra checking", file=sys.stderr)
-			print(" ".join(command), file=sys.stderr)
-		process = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
-		stdout = codecs.decode(process.stdout, 'utf8', errors='replace')
-		if stdout and 'command line' not in stdout:
-			if args.explanations:
-				explain_compiler_output(stdout, args)
-			else:
-				print(stdout, end='', file=sys.stderr)
+		execute_compiler(command, '', args)	
 
 	sys.exit(0)
+
+def update_source(sanitizer, sanitizer_n, wrapper_source, tar_source,  args, clang_version, clang_version_float):
+	wrapper_source = wrapper_source.replace('__SANITIZER__', sanitizer.upper())
+	if sanitizer == "valgrind":
+		sanitizer_args = []
+	elif sanitizer == "memory":
+		sanitizer_args = ['-fsanitize=memory']
+	else:
+		sanitizer_args = ['-fsanitize=address']
+	
+	if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
+		# FIXME if we enable  '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
+		# which would be preferable here we get uninitialized variable error message for undefined errors
+		wrapper_source = wrapper_source.replace('__UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__', '1')
+		sanitizer_args += ['-fsanitize=undefined']
+		if clang_version_float >= 3.6:
+			sanitizer_args += ['-fno-sanitize-recover=undefined,integer']
+
+	if args.shared_libasan and  sanitizer == "address":
+		lib_dir = CLANG_LIB_DIR.replace('{clang_version}', clang_version)
+		if os.path.exists(lib_dir):
+			sanitizer_args += ['-shared-libasan', '-Wl,-rpath,' + lib_dir]
+
+	wrapper_source = wrapper_source.replace('__LEAK_CHECK_YES_NO__', "yes" if args.leak_check else "no")
+	leak_check = args.leak_check
+	if leak_check and args.sanitizers[1:] == ["valgrind"]:
+		# do leak checking in valgrind (only) for (currently) better messages
+		leak_check = False
+	wrapper_source = wrapper_source.replace('__LEAK_CHECK_1_0__', "1" if leak_check else "0")
+
+	wrapper_source = wrapper_source.replace('__I_AM_SANITIZER1__', "1" if sanitizer_n == 1 else "0")
+	wrapper_source = wrapper_source.replace('__I_AM_SANITIZER2__', "1" if sanitizer_n == 2 else "0")
+	wrapper_source = wrapper_source.replace('__WHICH_SANITIZER__', "sanitizer2" if sanitizer_n == 2 else "sanitizer1")
+	
+	if tar_source:
+		wrapper_source = wrapper_source.replace('__EMBED_SOURCE__', '1')
+		wrapper_source = tar_source + wrapper_source
+	return wrapper_source, sanitizer_args
+	
+def execute_compiler(command, compiler_stdin, args, print_stdout=True, debug_wrapper_file="tmp_dcc_sanitizer1.c"):
+
+	if compiler_stdin:
+		wrapped_functions = ['main']
+		override_functions = []
+		if len(args.sanitizers) > 1:
+			override_functions  = ['clock', 'fdopen', 'fopen', 'freopen', 'system', 'time']
+		if args.ifdef_instead_of_wrap:
+			command +=  ['-D{}=__real_{}'.format(f, f) for f in wrapped_functions]
+			command +=  ['-D{}=__wrap_{}'.format(f, f) for f in override_functions]
+			for f in wrapped_functions:
+				compiler_stdin = compiler_stdin.replace('__wrap_' + f, f)
+			for f in override_functions:
+				compiler_stdin = compiler_stdin.replace('__real_' + f, f)
+		else:
+			command += ['-Wl' + ''.join(',-wrap,' + f for f in wrapped_functions + override_functions)]
+
+	if args.debug:
+		print(" ".join(command), file=sys.stderr)
+
+	if args.debug > 1 and compiler_stdin:
+		print("Leaving main_wrapper in", debug_wrapper_file, "compile with this command:", file=sys.stderr)
+		print(" ".join(command).replace('-x c -', debug_wrapper_file), file=sys.stderr)
+		try:
+			with open(debug_wrapper_file,"w") as f:
+				f.write(compiler_stdin)
+		except OSError as e:
+			print(e)
+	input = codecs.encode(compiler_stdin, 'utf8')
+	process = subprocess.run(command, input=input, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	stdout = codecs.decode(process.stdout, 'utf8', errors='replace')
+
+	# avoid a confusing mess of linker errors
+	if "undefined reference to `main" in stdout:
+		print("Error: your program does not contain a main function - a C program must contain a main function", file=sys.stderr)
+		sys.exit(1)
+
+	# workaround for  https://github.com/android-ndk/ndk/issues/184
+	# when not triggered earlier    
+	if "undefined reference to `__mul" in stdout:
+		command = [c for c in command if not c in ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']]
+		if args.debug:
+			print("undefined reference to `__mulodi4'", file=sys.stderr)
+			print("recompiling", " ".join(command), file=sys.stderr)
+		process = subprocess.run(command, input=input, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+		stdout = codecs.decode(process.stdout, 'utf8', errors='replace')
+
+	if process.stdout and print_stdout:
+		if args.explanations:
+			explain_compiler_output(stdout, args)
+		else:
+			print(stdout, end='', file=sys.stderr)
+			
+	if process.returncode:
+		sys.exit(process.returncode)
+		
+	return stdout	
 	
 class Args(object): 
 	c_compiler = "clang"
 #   for c_compiler in ["clang-3.9", "clang-3.8", "clang"]:
 #       if search_path(c_compiler):  # shutil.which not available in Python 2
 #           break
-	which_sanitizer = "address"
+	sanitizers = []
 	shared_libasan = None
 	stack_use_after_return = None
 	incremental_compilation = False
@@ -230,13 +305,15 @@ class Args(object):
 	tar_buffer = io.BytesIO()
 	tar = tarfile.open(fileobj=tar_buffer, mode='w|xz')
 	object_files_being_linked = False
-	ifdef_main = sys.platform == "darwin"
-	no_wrap_main = False
+	libraries_being_linked = False
+	threads_used = False
+	system_includes_used = set()
+	ifdef_instead_of_wrap = sys.platform == "darwin" # ld reportedly doesn't have wrap on Darwin
 	
 def parse_args(commandline_args):
 	args = Args()
 	if not commandline_args:
-		print("Usage: %s [--valgrind|--memory|--leak-check|--no-explanations|--no-shared-libasan|--no-embed-source] [clang-arguments] <c-files>" % sys.argv[0], file=sys.stderr)
+		print("Usage: %s [-fsanitize=sanitizer1,sanitizer2] [--leak-check] [clang-arguments] <c-files>" % sys.argv[0], file=sys.stderr)
 		sys.exit(1)
 
 	while commandline_args:
@@ -253,12 +330,28 @@ def get_my_path():
 	dcc_path = re.sub(r'^/tmp_amd/\w+/\w+ort/\d+/', '/home/', dcc_path) 
 	dcc_path = re.sub(r'^/(import|export)/\w+/\d+/', '/home/', dcc_path)    
 	return dcc_path
-	
+
+KNOWN_SANITIZERS = set()
+DEFAULT_SANITIZERS = set(['undefined'])
+
 def parse_arg(arg, next_arg, args):
-	if arg in ['-u', '--undefined', '--uninitialized', '--uninitialised', '-fsanitize=memory', '--memory']:
-		args.which_sanitizer = "memory"
-	elif arg == '--valgrind':
-		args.which_sanitizer = "valgrind"
+			#
+	if arg.startswith('-fsanitize='):
+		args.sanitizers = []
+		sanitizer_list = arg[len('-fsanitize='):].split(',')
+		for sanitizer in sanitizer_list:
+			if sanitizer in ['memory', 'address', 'valgrind']:
+				args.sanitizers.append(sanitizer)
+			elif sanitizer not in ['undefined']:
+				print("unknown sanitizer '%s'" % sanitizer, file=sys.stderr)
+				sys.exit(1)	
+		if len(args.sanitizers) not in [1,2]:
+			print("only 1 or sanitizers supported", file=sys.stderr)
+			sys.exit(1)	
+	elif arg in ['--memory']:	# for backwardscompatibility
+		args.sanitizers = ["memory"]
+	elif arg == '--valgrind':	# for backwardscompatibility
+		args.sanitizers = ["valgrind"]
 	elif arg == '--leak-check' or arg == '--leakcheck':
 		args.leak_check = True
 	elif arg.startswith('--suppressions='):
@@ -277,10 +370,8 @@ def parse_arg(arg, next_arg, args):
 		args.embed_source = True
 	elif arg == '--no-embed-source':
 		args.embed_source = False
-	elif arg == '--ifdef-main':
-		args.ifdef_main = True
-	elif arg == '--no-wrap-main':
-		args.no_wrap_main = True
+	elif arg == '--ifdef'  or arg == '--ifdef-main':
+		args.ifdef_instead_of_wrap = True
 	elif arg.startswith('--c-compiler='):
 		args.c_compiler = arg[arg.index('=') + 1:]
 	elif arg == '-fcolor-diagnostics':
@@ -292,14 +383,20 @@ def parse_arg(arg, next_arg, args):
 		sys.exit(0)
 	elif arg == '--help':
 		print("""
-  --memory                 check for uninitialized variable using MemorySanitizer
-  --leak-check             check for memory leaks, requires --valgrind to intercept errors
+  --fsanitize=<sanitizer1,sanitizer2>    run two sanitizers (default -fsanitize=address,valgrind)
+						   The second sanitizer is a separate process.
+						   The synchronisation of the 2 processes should be effective for most
+						   use of the standard C library and hence should work for novice programmers.
+						   If synchronisation is lost the 2nd sanitizer terminates silently.
+  --fsanitize=<sanitizer>  check for runtime errors using using a single sanitizer which can be one of
+						   address   - AddressSanitizer, invalid memory operations 
+						   valgrind  - valgrind, primarily uninitialized variables
+						   memory    - MemorySanitizer, primarily uninitialized variables
+  --leak-check             check for memory leaks, requires --fsanitizer=valgrind to intercept errors
   --no-explanations        do not add explanations to compile-time error messages
   --no-embed-source        do not embed program source in binary 
-  --no-shared-libasan      do not embed program source in binary 
-  --valgrind               check for uninitialized variables using Valgrind
-  --use-after-return       check for use of local variables after function returns
-  --ifdef-main             use ifdef to replace user's main function rather than ld's -wrap option
+  --no-shared-libasan      do not use libasan 
+  --ifdef                  use ifdef instead of ld's -wrap option
   
 """)
 		sys.exit(0)
@@ -308,8 +405,12 @@ def parse_arg(arg, next_arg, args):
 		
 def parse_clang_arg(arg, next_arg, args):
 	args.user_supplied_compiler_args.append(arg)
-	if arg  == '-c':
+	if arg == '-c':
 		args.incremental_compilation = True
+	elif arg.startswith('-l'):
+		args.libraries_being_linked = True
+	elif arg == '-pthreads':
+		args.threads_used = True
 	elif arg == '-o' and next_arg:
 		object_filename = next_arg
 		if object_filename.endswith('.c') and os.path.exists(object_filename):
@@ -317,10 +418,11 @@ def parse_clang_arg(arg, next_arg, args):
 			sys.exit(1)
 	else:
 		process_possible_source_file(arg, args)
-	
+
+# FIXME this is crude and brittle 
 def process_possible_source_file(pathname, args):
 	extension = os.path.splitext(pathname)[1]
-	if extension.lower() not in ['.c', '.h']:
+	if extension.lower() in ['.a', '.o', '.so']:
 		args.object_files_being_linked = True
 		return
 	# don't try to handle paths with .. or with leading /
@@ -349,10 +451,20 @@ def process_possible_source_file(pathname, args):
 				m = re.match(r'^\s*#\s*include\s*"(.*?)"', line)
 				if m:
 					process_possible_source_file(m.group(1), args)
+				m = re.match(r'^\s*#\s*include\s*<(.*?)>', line)
+				if m:
+					args.system_includes_used.add(m.group(1))
 	except OSError as e:
 		if args.debug:
 			print('process_possible_source_file', pathname, e)
 		return
+
+def source_for_sanitizer2_executable(executable):
+	source = "\nstatic unsigned char sanitizer2_executable[] = {";
+	source += ','.join(map(str, executable)) + ',\n'
+	source += "};\n";
+	n_bytes = len(executable)
+	return n_bytes, source
 
 def source_for_embedded_tarfile(args):
 	for file in FILES_EMBEDDED_IN_BINARY:

@@ -1,4 +1,4 @@
-tests/extracted_compile_time_tests/expression_not_assignable.c:3:23: error: expression is not assignable
+tests/extracted_compile_time_errors/expression_not_assignable.c:3:23: error: expression is not assignable
         if (argc = 1 || argc = 2) {
                    ~~~~~~~~~ ^
 dcc explanation: You are using =  <deleted-value>

@@ -1,6 +1,0 @@
-[1mtests/compile_time/array_string_index.c:3:3: [0m[0;1;31merror: [0m[1marray subscript is not an integer[0m
-        a["0"] = 0;
-[0;1;32m         ^~~~[0m
-dcc explanation: Looks like you're trying to access an element of the array `a` on line 3 of `tests/compile_time/array_string_index.c`, but your index (`"0"`) is not of type `int`.
- Right now, your index is of type `string` instead.
- Make sure your index (the value between square brackets) is an `int`.

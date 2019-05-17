@@ -1,0 +1,1 @@
+tests/do_tests.sh: line 55: ./a.out: No such file or directory

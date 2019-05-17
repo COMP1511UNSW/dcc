@@ -21,8 +21,8 @@ REMOVE_NON_DETERMINATE_VALUES='
 dcc="${1:-./dcc}"
 c_compiler="${2:-clang}"
 
-mkdir -p extracted_compile_time_tests
-cd extracted_compile_time_tests || exit
+mkdir -p extracted_compile_time_errors
+cd extracted_compile_time_errors || exit
 rm -f *.c
 python3 ../../compiler_explanations.py --create_test_files
 cd ../..
@@ -34,65 +34,84 @@ expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
 mkdir -p $expected_output_dir
 test_failed=0
 
-# don't change the variable src_file some tests rely on it
-for src_file in tests/extracted_compile_time_tests/*.c tests/compile_time/*.c tests/run_time/*.*
+for src_file in tests/extracted_compile_time_errors/*.c tests/compile_time_errors/*.c tests/run_time_errors/*.* tests/run_time_no_errors/*.*
 do
-	rm -f a.out
-
+	# don't change the name of the variable src_file some tests rely on it
 	compile_options_list=$(egrep '^//dcc_flags=' "$src_file"|sed 's?//??;s/ /#/g')
 	compile_options_list=${compile_options_list:-'dcc_flags=""'}
 
 	for compile_options in $compile_options_list
 	do
+		rm -f a.out
 		compile_options=$(echo "$compile_options"|sed 's/#/ /g')
 		case "$src_file" in
 		*.c)
 			dcc_flags=
 			suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/ /_/g;s/["$]//g;s/src_file//'`
 			eval $compile_options
-			expected_stderr_file="$expected_output_dir/`basename $src_file .c`$suffix.txt"
+			expected_output_file="$expected_output_dir/`basename $src_file .c`$suffix.txt"
 			#echo "$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file"
 			"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
-			test ! -s tmp.actual_stderr && ./a.out </dev/null   2>>tmp.actual_stderr >/dev/null
+			test ! -s tmp.actual_stderr && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
 			;;
 
 		*.sh)
-			expected_stderr_file="$expected_output_dir/`basename $src_file .sh`.txt"
+			expected_output_file="$expected_output_dir/`basename $src_file .sh`.txt"
 			$src_file </dev/null   2>tmp.actual_stderr >/dev/null
+			;;
+			
+		*)
+			echo Ignoring $src_file
+			continue
 		esac
 		
-		if test ! -s tmp.actual_stderr
-		then
-			echo
-			echo "Test dcc $dcc_flags $src_file failed - no error messages"
-			test_failed=1
-			continue
-		fi 
+		case "$src_file" in
+		*no_error*)
+			if test -s tmp.actual_stderr
+			then
+				echo
+				echo "Test dcc $dcc_flags $src_file failed - error messages"
+				cat tmp.actual_stderr
+				test_failed=1
+				continue
+			fi
+			actual_output_file=tmp.actual_stdout
+			;;
+		*)
+			if test ! -s tmp.actual_stderr
+			then
+				echo
+				echo "Test dcc $dcc_flags $src_file failed - no error messages"
+				test_failed=1
+				continue
+			fi
+			actual_output_file=tmp.actual_stderr
+		esac
 		
-		if test ! -e "$expected_stderr_file"
+		if test ! -e "$expected_output_file"
 		then
 			echo
-			echo "'$expected_stderr_file' does not exist, creating with these contents:"
+			echo "'$expected_output_file' does not exist, creating with these contents:"
 			echo
-			cat tmp.actual_stderr
-			sed "$REMOVE_NON_DETERMINATE_VALUES" tmp.actual_stderr >"$expected_stderr_file"
+			cat "$actual_output_file"
+			sed "$REMOVE_NON_DETERMINATE_VALUES" $actual_output_file >"$expected_output_file"
 			echo
-			echo "if above is not correct output for this test: rm '$expected_stderr_file' "
+			echo "if above is not correct output for this test: rm '$expected_output_file' "
 			continue
 		fi 
 	
-		sed -e "$REMOVE_NON_DETERMINATE_VALUES"  tmp.actual_stderr >tmp.corrected_stderr
-		if diff -iBw "$expected_stderr_file" tmp.corrected_stderr >/dev/null
+		sed -e "$REMOVE_NON_DETERMINATE_VALUES"  $actual_output_file >tmp.corrected_output
+		if diff -iBw "$expected_output_file" tmp.corrected_output >/dev/null
 		then
 			echo -n .
 		else
 			echo
-			echo "Test dcc $dcc_flags  failed output different to expected - rm '$expected_stderr_file' if output is correct"
+			echo "Test dcc $dcc_flags  failed output different to expected - rm '$expected_output_file' if output is correct"
 			echo Differences are:
 			echo
-			diff -u  -iBw "$expected_stderr_file" tmp.corrected_stderr
+			diff -u  -iBw "$expected_output_file" tmp.corrected_output
 			echo
-			echo "if output is correct: rm '$expected_stderr_file'"
+			echo "if output is correct: rm '$expected_output_file'"
 			test_failed=1
 			continue
 		fi

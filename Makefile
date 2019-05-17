@@ -1,4 +1,4 @@
-PACKAGED_SOURCE = start_gdb.py drive_gdb.py watch_valgrind.py colors.py main_wrapper.c
+PACKAGED_SOURCE = start_gdb.py drive_gdb.py watch_valgrind.py colors.py dcc_main.c dcc_dual_sanitizers.c dcc_util.c
 SOURCE = __main__.py compile.py explain_compiler_output.py compiler_explanations.py help_cs50.py $(PACKAGED_SOURCE)
 PACKAGE_NAME=src
 
@@ -23,7 +23,7 @@ tests: dcc
 	tests/do_tests.sh ./dcc
 	
 tests_all_clang_versions: dcc
-	set -x ; for compiler in /usr/bin/clang-[1-24-9]* ; do tests/do_tests.sh ./dcc $$compiler; done
+	for compiler in /usr/bin/clang-[1-24-9]* ; do echo $$compiler;tests/do_tests.sh ./dcc $$compiler; echo; done
 	
 debian: dcc
 	rm -rf debian

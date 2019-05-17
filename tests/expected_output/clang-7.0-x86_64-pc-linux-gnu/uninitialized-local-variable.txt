@@ -1,5 +1,5 @@
-tests/extracted_compile_time_tests/uninitialized-local-variable.c: In function ‘main’:
-tests/extracted_compile_time_tests/uninitialized-local-variable.c:4:10: warning: ‘a[0]’ is used uninitialized in this function [-Wuninitialized]
+tests/extracted_compile_time_errors/uninitialized-local-variable.c: In function ‘main’:
+tests/extracted_compile_time_errors/uninitialized-local-variable.c:4:10: warning: ‘a[0]’ is used uninitialized in this function [-Wuninitialized]
   return a[0];
          ~^~~[0m
 dcc explanation: You are using the value of the variable a[0] before assigning a value to a[0].

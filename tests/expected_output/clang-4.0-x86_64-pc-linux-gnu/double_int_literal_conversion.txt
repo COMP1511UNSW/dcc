@@ -1,5 +1,0 @@
-[1mtests/extracted_compile_time_tests/double_int_literal_conversion.c:3:10: [0m[0;1;35mwarning: [0m[1mimplicit conversion from 'double' to 'int' changes value from 6.7 to 6 [-Wliteral-conversion][0m
-        int i = 6.7;
-[0;1;32m            ~   ^~~[0m
-dcc explanation: you are assigning the floating point number 6.7 to the int variable i , if this is what you want, change 6.7 to 6
-

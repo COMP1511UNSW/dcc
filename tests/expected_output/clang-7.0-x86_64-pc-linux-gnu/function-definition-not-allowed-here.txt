@@ -1,4 +1,4 @@
-tests/extracted_compile_time_tests/function-definition-not-allowed-here.c:5:16: error: function definition is not allowed here
+tests/extracted_compile_time_errors/function-definition-not-allowed-here.c:5:16: error: function definition is not allowed here
 int main(void) { 
                ^
 dcc explanation: There is likely a closing brace (curly bracket) missing before line 5.

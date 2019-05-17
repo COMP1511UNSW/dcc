@@ -38,10 +38,10 @@ For example:
     a = {0, 1, 4, 9, 16, 25, 36, 49, 64, 81}
     i = 10
 
-dcc can alternatively embed code to detect use of uninitialized variables
+dcc also embeds code to detect use of uninitialized variables
 and print a message a novice programmer can hopefully understand. For example:
 
-    $ dcc --memory uninitialized.c
+    $ dcc uninitialized.c
     $ ./a.out
     uninitialized.c:6 runtime error uninitialized variable used
     
@@ -60,41 +60,22 @@ and print a message a novice programmer can hopefully understand. For example:
     a[43] = <uninitialized value>
     a[argc] = <uninitialized value>
 
-# Valgrind
+Uninitialized variables are detected by running valgrind simultaneously as a separate process.
 
-dcc can alternatively embed code in the binary to run valgrind instead of the binary:
+The synchronisation of the 2 processes is only effective for the standard C library (signal.h and threads.h excepted).
+which should include almost all typical programs writen by novice programmers.
+f synchronisation is lost the 2nd process should terminate silently.
 
-    $ dcc --valgrind buffer_overflow.c
-    $ ./a.out
-    Runtime error: uninitialized variable accessed.
-    
-    Execution stopped here in main() in uninitialized-array-element.c at line 6:
-
-        int a[1000];
-        a[42] = 42;
-    -->    if (a[argc]) {
-        a[43] = 43;
-    }
-
-    Values when execution stopped:
-
-    argc = 1
-    a[42] = 42
-    a[43] = <uninitialized value>
-    a[argc] = <uninitialized value>
-
-valgrind is slower but more comprehensive in its detection of uninitialized variables than MemorySanitizer.
-
+If libraries other the standard C library are used, uninitialized variables does not occur.
+ 
 # Leak checking
 
 dcc can also embed code to check for memory-leaks:
 
-    $ dcc --valgrind --leak-check leak.c
+    $ dcc  --leak-check leak.c
     $ ./a.out
     Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
 
-This option can not also be used for (the default) Address sanitizer but error are not intercepted and may be  cryptic
-for novice programmers.
 
 # Local Variable Use After Function Return Detection
 
@@ -149,6 +130,7 @@ valgrind also usually detect this type of error, e.g.:
 	sudo curl https://github.com/COMP1511UNSW/dcc/releases/download/1.11/dc -o /usr/bin/dcc
 	sudo chmod o+rx  /usr/bin/dcc
 	
+
 # Run-time Error Handling Implementation
 
 * dcc by default enables clang's  AddressSanitizer (`-fsanitize=address`) and UndefinedBehaviorSanitizer (`-fsanitize=undefined`) extensions.

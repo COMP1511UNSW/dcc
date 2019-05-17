@@ -1,5 +1,5 @@
-tests/extracted_compile_time_tests/stack_use_after_return.c: In function ‘main’:
-tests/extracted_compile_time_tests/stack_use_after_return.c:4:9: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+tests/extracted_compile_time_errors/stack_use_after_return.c: In function ‘main’:
+tests/extracted_compile_time_errors/stack_use_after_return.c:4:9: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
   return (int)&i;
          ^
 

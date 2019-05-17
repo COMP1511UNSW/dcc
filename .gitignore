@@ -14,4 +14,4 @@ tmp*
 
 # don't accidentally add random test files to repo
 /*.c
-!/main_wrapper.c
+!/dcc_*.c

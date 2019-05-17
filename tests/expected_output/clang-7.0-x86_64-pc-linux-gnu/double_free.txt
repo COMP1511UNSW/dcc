@@ -1,10 +1,10 @@
 =================================================================
 
-tests/run_time/double_free.c:6 runtime error - double free
+tests/run_time_errors/double_free.c:6 runtime error - double free
 
 dcc explanation: attempt to free memory that has already been freed.
 
-Execution stopped here in main() in tests/run_time/double_free.c at line 6:
+Execution stopped here in main() in tests/run_time_errors/double_free.c at line 6:
 
     void *p = malloc(4);
     free(p);

@@ -14,48 +14,52 @@ hash_define = collections.defaultdict(dict)
 source = {}
 
 def drive_gdb():
-	global debug
-	debug = int(os.environ.get('DCC_DEBUG', '0'))
+	global debug_level
+	debug_level = int(os.environ.get('DCC_DEBUG', '0'))
 	output_stream = os.fdopen(3, "w", encoding='utf-8', errors='replace')
 	colorize_output = output_stream.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 	if colorize_output:
 		color = colors.color
 	else:
 		color = lambda text, color_name: text
-	signal.signal(signal.SIGINT, interrupt_handler)
+#	signal.signal(signal.SIGINT, interrupt_handler)
 
 	try:
 		gdb_attach()
+		pid = os.environ.get('DCC_PID', '')
+		sanitizer2_pid = os.environ.get('DCC_SANITIZER2_PID', '')
+		sanitizer1_pid = os.environ.get('DCC_SANITIZER1_PID', '')
+		if pid and sanitizer2_pid and sanitizer1_pid:
+			if pid == sanitizer2_pid:
+				os.kill(int(sanitizer1_pid), signal.SIGUSR1)
 		explain_error(output_stream, color)
 	except gdb.error as e:
 		if 'ptrace' in str(e).lower() and os.path.exists('/.dockerenv'):
 			print('\ndcc : can not provide information about variables because docker not run with --cap-add=SYS_PTRACE\n' , file=output_stream)
-		elif debug:
+		elif debug_level:
 			traceback.print_exc(file=output_stream)
-		else:
-			print(e, file=output_stream)	
 		sys.exit(1)
 	except:
-		if debug: traceback.print_exc(file=output_stream)
+		if debug_level:
+			traceback.print_exc(file=output_stream)
 		sys.exit(1)
 
 	output_stream.flush()
-	gdb_execute('call (void)_exit(1)')
+	gdb_execute('call __dcc_error_exit()')
+#	kill_all()
 	gdb_execute('quit')
-	kill_program1()
 	
 def gdb_attach():
-	pid = None
-	pid = int(os.environ.get('DCC_PID', 0))
+	pid = int(os.environ.get('DCC_PID'))
 	if 'DCC_VALGRIND_ERROR' in os.environ:
-		debug_print(1, 'attaching gdb to valgrind', pid)
+		debug_print(2, 'attaching gdb to valgrind', pid)
 		gdb.execute('target remote | vgdb --pid=%d' % pid)
 	else:
-		debug_print(1, 'attaching gdb to ', pid)
+		debug_print(2, 'attaching gdb to ', pid)
 		gdb.execute('attach %s' % pid)
 	
 def explain_error(output_stream, color):
-	debug_print(1, 'explain_error() starting')
+	debug_print(2, 'explain_error() starting')
 	# file descriptor 3 is a dup of stderr (see below)
 	# stdout & stderr have been diverted to /dev/null
 	print(file=output_stream)
@@ -69,7 +73,7 @@ def explain_error(output_stream, color):
 		explain_asan_error(loc, output_stream, color)
 	elif 'DCC_UBSAN_ERROR_KIND' in os.environ:
 		explain_ubsan_error(loc, output_stream, color)
-	elif os.environ.get('DCC_SANITIZER', '') == 'memory':
+	elif os.environ.get('DCC_SANITIZER', '') == 'MEMORY':
 		if loc:
 			print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
 		print("runtime error",  color("uninitialized variable used", 'red'),  file=output_stream)
@@ -118,7 +122,7 @@ def explain_ubsan_error(loc, output_stream, color):
 	if loc:
 		source = loc.source_line(clean=True)
 			
-	debug_print(2, 'source', source)
+	debug_print(3, 'source', source)
 	explanation = None
 	prefix = '\n' + color('dcc explanation:', 'blue')
 	
@@ -231,10 +235,6 @@ def explain_asan_error(loc, output_stream, color):
   Make sure your array indices are correct.
 """, file=output_stream)
 	elif "use after return" in report:
-#		print(prefix, f"""You have used a pointer to a local variable that no longer exists.
-#  When a function returns its local variables are destroyed.
-#  For more information see: {DEFAULT_EXPLANATION_URL}/stack_use_after_return.html
-#""", file=output_stream)
 		print(prefix, """You have used a pointer to a local variable that no longer exists.
   When a function returns its local variables are destroyed.
 """, file=output_stream)
@@ -325,7 +325,7 @@ def fileline(filename, line_number, clean=False):
 			line = clean_c_source(line)
 		return line
 	except IOError:
-		debug_print(1, "fileline error can not open: %s" % (filename))
+		debug_print(2, "fileline error can not open: %s" % (filename))
 	except IndexError:
 		pass
 	return ""
@@ -341,16 +341,20 @@ def clean_c_source(c_source, leave_white_space=False):
 	return c_source.strip() + "\n"
 
 def gdb_evaluate(expression):
-	debug_print(1, 'gdb_evaluate:', expression,)
+	debug_print(2, 'gdb_evaluate:', expression,)
 	value = gdb_execute('print %s' % expression)
 	value = re.sub('^[^=]*=\s*', '', value).strip()
-	debug_print(1, '->', value,)
+	debug_print(2, '->', value,)
 	return value.strip()
 
 def gdb_execute(command):
-	debug_print(2, 'gdb.execute:', command)
-	str = gdb.execute(command, to_string=True)
-	debug_print(2, 'gdb.execute:', '->', str)
+	debug_print(3, 'gdb.execute:', command)
+	try:
+		str = gdb.execute(command, to_string=True)
+	except gdb.error as e:
+		debug_print(2, 'gdb.execute', e)
+		str = ''
+	debug_print(3, 'gdb.execute:', '->', str)
 	return str
 	
 def parse_gdb_stack_frame(line):
@@ -361,7 +365,7 @@ def parse_gdb_stack_frame(line):
 		r'(?P<function>[a-zA-Z][^\s\(]*).*\((?P<params>.*)\)\s+at\s+'
 		r'(?P<filename>[^\s:]+):(?P<line_number>\d+)\s*$',
 			line)
-	debug_print(1, 'parse_gdb_stack_frame', m != None, line)
+	debug_print(2, 'parse_gdb_stack_frame', m != None, line)
 	if m:
 		filename = m.group('filename')
 		if filename.startswith("/usr/") or filename.startswith("../sysdeps/"): 
@@ -373,7 +377,7 @@ def parse_gdb_stack_frame(line):
 def gdb_set_frame():
 	try:
 		stack = gdb_execute('where')
-		debug_print(1, "\nStack:\n",stack, "\n")
+		debug_print(2, "\nStack:\n",stack, "\n")
 		stack_lines = stack.splitlines()
 		reversed_stack_lines = reversed(stack_lines)
 		frames = []
@@ -391,21 +395,21 @@ def gdb_set_frame():
 		if frames:
 			gdb_execute('frame ' + str(frames[0].frame_number))
 		else:
-			debug_print(1, 'gdb_set_frame no frame number')
+			debug_print(2, 'gdb_set_frame no frame number')
 		return frames
 	except:
-		if debug: traceback.print_exc(file=sys.stderr)
+		if debug_level: traceback.print_exc(file=sys.stderr)
 	
 def relevant_variables(c_source, color, arrays=[]):
 	expressions = extract_expressions(c_source)
 #	 arrays=[r'[a-z][a-zA-Z0-9_]*']
-#	 debug_print(1, 'relevant_variables', arrays, c_source)
+#	 debug_print(2, 'relevant_variables', arrays, c_source)
 #	 for array in arrays:
 #		 indices = extract_indices(array, c_source)
 #		 expressions += indices
 	done = set(['NULL', 'char','int', 'double', 'while', 'if', 'else', 'for', 'while', 'return']) # avoid trying to evaluate types/keywords for efficiency
 	explanation = ''
-	debug_print(2, 'relevant_variables expressions=', c_source, expressions)
+	debug_print(3, 'relevant_variables expressions=', c_source, expressions)
 	for expression in sorted(expressions, key=lambda e: (len(re.findall(r'\w+', e)), e)):
 		try:
 			expression = expression.strip()
@@ -415,14 +419,14 @@ def relevant_variables(c_source, color, arrays=[]):
 				if expression_value is not None:
 					explanation +=	"%s = %s\n" % (expression, expression_value)
 		except RuntimeError as e:
-			debug_print(1, 'print_variables_expressions: RuntimeError', e)
+			debug_print(2, 'print_variables_expressions: RuntimeError', e)
 	if explanation:
 		prefix = color('Values when execution stopped:', 'blue')
 		explanation = prefix + '\n\n' + explanation
 	return explanation
 
 def evaluate_expression(expression, color):
-	debug_print(2, 'evaluate_expression:', expression)
+	debug_print(3, 'evaluate_expression:', expression)
 	if re.match(r'^-?\s*[\d\.]+$', expression):
 		return None	  # don't print(numbers)
 	if re.search(r'[a-zA-Z0-9_]\s*\(', expression):
@@ -430,21 +434,25 @@ def evaluate_expression(expression, color):
 		
 	expression_type = gdb_execute('whatis %s' % expression)
 	expression_type = re.sub(r'\s*type\s*=\s*', '',	 expression_type).strip()
-	debug_print(1, 'expresion_type=', expression_type)
+	debug_print(2, 'expresion_type=', expression_type)
 	if re.search(r'\<|\)$', expression_type):
 		return None
 
 	expression_value = gdb_evaluate(expression)
 
 	if (
+		expression_value == '' or
 		'_IO_FILE' in expression_value or
 		'here_cg_arc_record' in	expression_value or
-		expression_value == '<optimized out>' or
-		len(expression_value) > 128
+		expression_value == '<optimized out>'
 		):
 		return None
-	
+
 	expression_value = clarify_expression_value(expression_value, expression_type, color)
+
+	if len(expression_value) > 160:
+		return None
+	
 	# don't print hexadeximal addresses
 	if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value):
 		return None
@@ -453,7 +461,7 @@ def evaluate_expression(expression, color):
 # transform value into something a novice programmer more likely to understand
 
 def clarify_expression_value(expression_value, expression_type, color):
-	debug_print(1, 'clarify_value expression_value=', expression_value)
+	debug_print(2, 'clarify_value expression_value=', expression_value)
 	
 	if expression_type == 'char':
 		m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
@@ -489,11 +497,21 @@ def clarify_values(values, color):
 	
 	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)', '0xbebebebe', '0xbebebebebebebebe']:
 		values = re.sub(r'(^|\D)' + re.escape(value) + r'($|\W)', r'\1' + warning_text + r'\2', values)
+
+	values = re.sub(r"'\\276' <repeats (\d+) times>", color("<\\1 uninitialized values>", 'red'), values)
+	
+	# convert "\276\276\276" ->  <3 uninitialized values>
+	values = re.sub(r'"((\\276)+)"',  lambda m: color("<{} uninitialized values>".format(len(m.group(1))//4), 'red'), values)
+	
+	# make display of arrays more concise
+	if values and values[0] == '{' and len(values) > 128:
+		values = re.sub(r'\{(.{100}.*?),.*\}', r'{\1, ...}', values)
+		
 	return values
 
 
 def balance_bracket(str, depth=0):
-#	 debug_print(1, 'balance_bracket(%s, %s)' % (str, depth))
+#	 debug_print(2, 'balance_bracket(%s, %s)' % (str, depth))
 	if not str:
 		return ""
 	elif str[0] == ']' or str[0] == ')':
@@ -507,7 +525,7 @@ def balance_bracket(str, depth=0):
 
 # FIXME - this is very crude
 def extract_expressions(c_source):
-	debug_print(2, 'extract_expressions c_source=',  c_source)
+	debug_print(3, 'extract_expressions c_source=',  c_source)
 	# match declaration
 	m = re.match(r'[a-z][a-zA-Z0-9_]*\s+[a-z][a-zA-Z0-9_]*\s*\[(.*)', c_source, re.DOTALL)
 	if m:
@@ -532,7 +550,7 @@ def extract_expressions(c_source):
 			else:
 				break
 					
-		debug_print(2, 'extract_expressions expressions=',  list(expressions))
+		debug_print(3, 'extract_expressions expressions=',  list(expressions))
 		return expressions + extract_expressions(remainder) 
 
 	m = re.match(r'([a-zA-Z][a-zA-Z0-9_]*)(.*)', c_source, re.DOTALL)
@@ -551,26 +569,11 @@ def explain_location(loc, color):
 		return "Execution stopped at '%s'" % (loc)
 	else:
 		return 'Execution stopped here ' + loc.long_description(color)
-#
-# ensure the program compiled with dcc terminates after error
-#
-def kill_program1():
-	if 'DCC_PID' in os.environ:
-		try:
-			os.kill(int(os.environ['DCC_PID']), signal.SIGPIPE)
-			os.kill(int(os.environ['DCC_PID']), signal.SIGKILL)
-		except ProcessLookupError:
-			pass
-	sys.exit(1)
 
 def debug_print(level, *args, **kwargs):
-	if debug >= level:
+	if debug_level >= level:
 		kwargs['file'] = sys.stderr
 		print(*args, **kwargs)
-
-def interrupt_handler(signum, frame):
-	if debug: print >>sys.stderr, 'signal caught'
-	kill_program1()
 	
 if __name__ == '__main__':
 	drive_gdb()
