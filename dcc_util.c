@@ -278,6 +278,7 @@ int printf(const char *format, ...) {
     va_start(arg, format);
     int n = vprintf(format, arg);
     va_end(arg);
+    fflush(stdout);
 	quick_clear_stack();
     return n;
 }

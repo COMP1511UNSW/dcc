@@ -84,7 +84,6 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 
 static int to_sanitizer2_pipe[2];
 static int from_sanitizer2_pipe[2];
-static int synchronization_terminated;
 static FILE *get_cookie(FILE *f, const char *mode);
 
 #if __I_AM_SANITIZER2__

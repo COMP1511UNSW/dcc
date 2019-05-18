@@ -1,5 +1,4 @@
 #if __N_SANITIZERS__ > 1
-
 static void unlink_sanitizer2_executable() NO_SANITIZE;
 
 // communication infrastructure between sanitizer1 & sanitizer2
@@ -37,11 +36,16 @@ struct system_call {
 	int64_t n;
 };
 
+// only disconnect_sanitizers sets this variable
+static int synchronization_terminated;
+
 static void disconnect_sanitizers(void) {
+	if (synchronization_terminated) {
+		return;
+	}
 	// sanitizer2 sends SIGUSR1 if its printing an error
 	signal(SIGUSR1, SIG_IGN); 
 	signal(SIGPIPE, SIG_IGN); 
-	synchronization_terminated = 1;
 #if __I_AM_SANITIZER1__
 	close(to_sanitizer2_pipe[1]);
 	close(from_sanitizer2_pipe[0]);
@@ -49,14 +53,27 @@ static void disconnect_sanitizers(void) {
 	close(to_sanitizer2_pipe[0]);
 	close(from_sanitizer2_pipe[1]);
 #endif
+	synchronization_terminated = 1;
 }
 
+static void stop_sanitizer2(void);
+
+// FIXME - race condition
 #if __I_AM_SANITIZER1__
+static int sanitizer2_killed;
+
 static void wait_for_sanitizer2_to_terminate(void) {
 	set_signals_default();
 	debug_printf(3, "waiting\n");
-	pid_t pid = wait(NULL);
-	debug_printf(3, "wait returned %d\n", pid);
+	if (!sanitizer2_killed) {
+		pid_t pid = wait(NULL);
+		debug_printf(3, "wait returned %d\n", pid);
+		if (pid != sanitizer2_pid) {
+			stop_sanitizer2();
+		} else {
+			sanitizer2_killed = 1;
+		}
+	}
 }
 #endif
 
@@ -79,11 +96,9 @@ struct cookie {
 };
 #endif
 
-
 static void stop_sanitizer2(void) {
 	disconnect_sanitizers();
 #if __I_AM_SANITIZER1__
-	static int sanitizer2_killed = 0;
 	if (!sanitizer2_killed) {
 		debug_printf(2, "killing sanitizer2 pid=%d and unlinking executable\n", sanitizer2_pid);
 		kill(sanitizer2_pid, SIGPIPE);
@@ -220,11 +235,18 @@ static ssize_t __dcc_synchronize_read(void *v, char *buf, size_t size) {
 
 // pass results of a write sanitizer 1 -> sanitizer 2
 
+#if __I_AM_SANITIZER1__
+//static void __dcc_check_output(int fd, const char *buf, size_t size);
+#endif
+
 static ssize_t __dcc_synchronize_write(void *v, const char *buf, size_t size) {
 	synchronize_system_call(sc_write, size);
 #if __I_AM_SANITIZER1__
 	struct cookie *cookie = v;
 	size_t n_bytes_written = write(cookie->fd, buf, size);
+
+//	__dcc_check_output(cookie->fd, buf, size);
+
 	synchronize_system_call_result(sc_write, n_bytes_written);
 #else
 	size_t n_bytes_written = synchronize_system_call_result(sc_write);
@@ -457,9 +479,13 @@ FILE *__wrap_freopen(const char *pathname, const char *mode, FILE *stream) {
 }
 
 static void unlink_sanitizer2_executable() {
-	char *pathname = getenv("DCC_UNLINK");
-	if (pathname) {
-		unlink(pathname);
+	static int unlink_done;
+	if (!unlink_done) {
+		char *pathname = getenv("DCC_UNLINK");
+		if (pathname) {
+			unlink(pathname);
+		}
+		unlink_done = 1;
 	}
 }
 #endif
