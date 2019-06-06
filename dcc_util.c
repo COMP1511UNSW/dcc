@@ -1,5 +1,5 @@
 
-static int launch_valgrind(int argc, char *argv[], char *envp[]) {
+static void launch_valgrind(int argc, char *argv[], char *envp[]) {
 	debug_printf(2, "command=%s\n", "__MONITOR_VALGRIND__");
 	FILE *valgrind_error_pipe = popen("__MONITOR_VALGRIND__", "w");
 	int valgrind_error_fd = 2;
@@ -9,8 +9,8 @@ static int launch_valgrind(int argc, char *argv[], char *envp[]) {
 		setbuf(valgrind_error_pipe, NULL);			
 		valgrind_error_fd = (int)fileno(valgrind_error_pipe);
 	} else {
-		debug_printf(2, "popen failed");
-		return __real_main(argc, argv, envp);
+		debug_printf(2, "popen __MONITOR_VALGRIND__ failed");
+		return;
 	}
 	setenvd("DCC_VALGRIND_RUNNING", "1");
 	
@@ -42,9 +42,7 @@ static int launch_valgrind(int argc, char *argv[], char *envp[]) {
 		debug_printf(3, "valgrind_argv[%d] = %s\n", i, valgrind_argv[i]);
 	
 	execvp("/usr/bin/valgrind", valgrind_argv);
-
-	debug_printf(2, "execvp failed");
-	return __real_main(argc, argv, envp);
+	debug_printf(1, "execvp of /usr/bin/valgrind failed");
 }
 
 

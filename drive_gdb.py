@@ -73,6 +73,8 @@ def explain_error(output_stream, color):
 		explain_asan_error(loc, output_stream, color)
 	elif 'DCC_UBSAN_ERROR_KIND' in os.environ:
 		explain_ubsan_error(loc, output_stream, color)
+	elif 'DCC_OUTPUT_ERROR' in os.environ:
+		explain_output_error(loc, output_stream, color)
 	elif os.environ.get('DCC_SANITIZER', '') == 'MEMORY':
 		if loc:
 			print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
@@ -258,6 +260,12 @@ def explain_signal(signal_number):
 	else:
 		return "Execution terminated by signal %s" % signal_number
 
+# Expect output has been supplied as an environment variable
+# and the program has been stoped because the output was incorrect
+ 
+def explain_output_error(loc, output_stream, color):	
+	print("Incorrect output.\n", file=output_stream)
+
 class Location():
 	def __init__(self, filename, line_number, column='', function='', params='', variable='', frame_number=''):
 		self.filename = filename
@@ -368,7 +376,7 @@ def parse_gdb_stack_frame(line):
 	debug_print(2, 'parse_gdb_stack_frame', m != None, line)
 	if m:
 		filename = m.group('filename')
-		if filename.startswith("/usr/") or filename.startswith("../sysdeps/"): 
+		if filename.startswith("/usr/") or filename.startswith("../sysdeps/") or filename.endswith("libioP.h"): 
 			m = None
 	if m:
 		return Location(m.group('filename'), m.group('line_number'), function=m.group('function'), params=m.group('params'), frame_number=m.group('frame_number'))

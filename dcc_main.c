@@ -49,7 +49,7 @@ static void __dcc_start(void) __attribute__((constructor)) NO_SANITIZE;
 void __dcc_error_exit(void) NO_SANITIZE;
 static void __dcc_signal_handler(int signum) NO_SANITIZE;
 static void set_signals_default(void) NO_SANITIZE;
-static int launch_valgrind(int argc, char *argv[], char *envp[]) NO_SANITIZE;
+static void launch_valgrind(int argc, char *argv[], char *envp[]) NO_SANITIZE;
 static void setenvd_int(char *n, int v) NO_SANITIZE;
 static void setenvd(char *n, char *v) NO_SANITIZE;
 static void putenvd(char *s) NO_SANITIZE;
@@ -193,12 +193,12 @@ static void __dcc_main_sanitizer2(int argc, char *argv[], char *envp[], char *sa
 	
 #if __SANITIZER_2__ != VALGRIND
 	execvp(sanitizer2_executable_pathname, argv);
-	debug_printf(1, "execvp failed");
-	exit(__real_main(argc, argv, envp));
+	debug_printf(1, "execvp %s failed", sanitizer2_executable_pathname);
 #else
 	argv[0] = sanitizer2_executable_pathname;
-	exit(launch_valgrind(argc, argv, envp));
+	launch_valgrind(argc, argv, envp);
 #endif
+	exit(1);
 }
 #endif
 #endif
@@ -223,7 +223,11 @@ static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]) {
 		debug_printf(2, "__real_main returning %d\n", r);
 		return r;
 	}
-	return launch_valgrind(argc, argv, envp);
+	launch_valgrind(argc, argv, envp);
+	// if exec fails run program directly
+	int r = __real_main(argc, argv, envp);
+	debug_printf(1, "__real_main returning %d\n", r);
+	return r;
 #endif
 }
 
