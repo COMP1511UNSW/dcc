@@ -117,8 +117,8 @@ valgrind also usually detect this type of error, e.g.:
 
 * Installation on Linux and Windows Subsystem for Linux
 
-	curl https://github.com/COMP1511UNSW/dcc/releases/download/1.11/dcc_1.11_all.deb -o /tmp/dcc_1.11_all.deb
-	sudo apt install /tmp/dcc_1.11_all.deb
+	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.1/dcc_2.1_all.deb -o /tmp/dcc_2.1_all.deb
+	sudo apt install /tmp/dcc_2.1_all.deb
 
 	# On WSL this might be necessary to run programs
 	sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope;echo 1 >/proc/sys/vm/overcommit_memory"
