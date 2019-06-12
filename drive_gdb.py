@@ -85,7 +85,7 @@ def explain_error(output_stream, color):
 		print(relevant_variables(loc.surrounding_source(color, clean=True), color), file=output_stream)
 
 	if (len(stack) > 1):
-		print(color('Function Call Traceback', 'blue'), file=output_stream)
+		print(color('Function Call Traceback', 'cyan'), file=output_stream)
 		for (frame, caller) in zip(stack, stack[1:]):
 			print(frame.function_call(color), 'called at line', color(caller.line_number, 'red'), 'of', color(caller.filename, 'red'), file=output_stream)
 		print(stack[-1].function_call(color), file=output_stream)
@@ -126,7 +126,7 @@ def explain_ubsan_error(loc, output_stream, color):
 			
 	debug_print(3, 'source', source)
 	explanation = None
-	prefix = '\n' + color('dcc explanation:', 'blue')
+	prefix = '\n' + color('dcc explanation:', 'cyan')
 	
 	if message:
 		message = message[0].lower() + message[1:]
@@ -225,7 +225,7 @@ def explain_asan_error(loc, output_stream, color):
 		report = "illegal array, pointer or other operation"
 	print('runtime error -', color(report, 'red'), file=output_stream)
 
-	prefix = '\n' + color('dcc explanation:', 'blue') 
+	prefix = '\n' + color('dcc explanation:', 'cyan')
 	if "malloc buffer overflow" in report:
 		print(prefix, """access past the end of malloc'ed memory.
   Make sure you have allocated enough memory for the size of your struct/array.
@@ -429,7 +429,7 @@ def relevant_variables(c_source, color, arrays=[]):
 		except RuntimeError as e:
 			debug_print(2, 'print_variables_expressions: RuntimeError', e)
 	if explanation:
-		prefix = color('Values when execution stopped:', 'blue')
+		prefix = color('Values when execution stopped:', 'cyan')
 		explanation = prefix + '\n\n' + explanation
 	return explanation
 
