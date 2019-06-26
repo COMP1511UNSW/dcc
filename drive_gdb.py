@@ -442,7 +442,7 @@ def evaluate_expression(expression, color):
 		
 	expression_type = gdb_execute('whatis %s' % expression)
 	expression_type = re.sub(r'\s*type\s*=\s*', '',	 expression_type).strip()
-	debug_print(2, 'expresion_type=', expression_type)
+	debug_print(2, 'expression_type=', expression_type)
 	if re.search(r'\<|\)$', expression_type):
 		return None
 

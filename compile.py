@@ -93,7 +93,7 @@ def compile(debug=False):
 				print(e)
 
 		if  libc_version and clang_version_float < 6 and libc_version >= 2.27:
-			print("incompatible clang libc versions, disabling error detection by sanitiziers", file=sys.stderr)
+			print("incompatible clang libc versions, disabling error detection by sanitizers", file=sys.stderr)
 			args.sanitizers = [a for a in args.sanitizers if a != "address"]
 
 	# shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
