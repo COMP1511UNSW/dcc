@@ -39,7 +39,7 @@ def compile(debug=False):
 		if args.incremental_compilation:
 			reason = "incremental compilation"
 		elif args.object_files_being_linked:
-			reason = "object files being linkedn"
+			reason = "object files being linked"
 		elif args.object_files_being_linked:
 			reason = "library other than C standard library used"
 		elif args.threads_used:
@@ -126,11 +126,13 @@ def compile(debug=False):
 	
 	if args.embed_source:
 		tar_n_bytes, tar_source = source_for_embedded_tarfile(args) 
-		watcher = fr"python3 -E -c \"import os,sys,tarfile,tempfile\n\
+		watcher = fr"python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
- tarfile.open(fileobj=sys.stdin.buffer, bufsize={tar_n_bytes}, mode='r|xz').extractall(temp_dir)\n\
- os.chdir(temp_dir)\n\
- exec(open('watch_valgrind.py').read())\n\
+ buffer = io.BytesIO(sys.stdin.buffer.raw.read({tar_n_bytes}))\n\
+ if len(buffer.getbuffer()) == {tar_n_bytes}:\n\
+  tarfile.open(fileobj=buffer, bufsize={tar_n_bytes}, mode='r|xz').extractall(temp_dir)\n\
+  os.chdir(temp_dir)\n\
+  exec(open('watch_valgrind.py').read())\n\
 \""
 	else:
 		tar_n_bytes, tar_source = 0, ''

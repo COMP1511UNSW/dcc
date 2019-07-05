@@ -2,7 +2,7 @@
 
 # https://stackoverflow.com/questions/38153418/can-someone-give-a-python-requests-example-of-uploading-a-release-asset-in-githu/52354681#52354681
 
-import json, os, subprocess, sys
+import json, os, re, subprocess, sys
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -41,6 +41,14 @@ def upload_file(token, pathname, release_id):
 def run(command):
 	print(' '.join(command))
 	subprocess.check_call(command)
+
+def update_readme(tag):
+	with open('README.md') as f:
+		contents = f.read()
+	contents = re.sub(r'dcc/releases/download/[^/]+', 'dcc/releases/download/' + tag, contents)
+	contents = re.sub(r'dcc_[\w\.]+_all.deb', f'dcc_{tag}_all.deb', contents)
+	with open('README.md', 'w') as f:
+		f.write(contents)
 	
 def main():
 	if len(sys.argv) != 3:
@@ -51,6 +59,8 @@ def main():
 	token = os.environ.get('GITHUB_TOKEN', '')
 	with open(os.path.join(os.environ.get('HOME', ''), '.github_token')) as f:
 		token = f.read().strip()
+	update_readme(tag)
+	run(['git', 'commit', 'README.md', '-m', 'release ' + tag])
 	run(['git', 'tag', '-a', tag, '-m', description])
 	run(['git', 'push'])
 	run(['git', 'push', 'origin', tag])

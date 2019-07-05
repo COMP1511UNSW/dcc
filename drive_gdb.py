@@ -1,4 +1,4 @@
-import collections, os, re, sys, signal, traceback
+import collections, os, platform, re, sys, signal, traceback
 import colors
  
 DEFAULT_EXPLANATION_URL = "https://comp1511unsw.github.io/dcc/"
@@ -15,6 +15,7 @@ source = {}
 
 def drive_gdb():
 	global debug_level
+	windows_subsystem_for_linux = "microsoft" in platform.uname()[3].lower()
 	debug_level = int(os.environ.get('DCC_DEBUG', '0'))
 	output_stream = os.fdopen(3, "w", encoding='utf-8', errors='replace')
 	colorize_output = output_stream.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
@@ -45,7 +46,9 @@ def drive_gdb():
 		sys.exit(1)
 
 	output_stream.flush()
-	gdb_execute('call __dcc_error_exit()')
+	# __dcc_error_exit hangs for unknown reason on WSL
+	if not windows_subsystem_for_linux:
+		gdb_execute('call __dcc_error_exit()')
 #	kill_all()
 	gdb_execute('quit')
 	

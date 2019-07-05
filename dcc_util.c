@@ -210,14 +210,15 @@ static void __dcc_signal_handler(int signum) {
 }
 
 #if __EMBED_SOURCE__
-static char *run_tar_file = "python3 -E -c \"import os,sys,tarfile,tempfile\n\
+static char *run_tar_file = "python3 -B -E -c \"import io,os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
- try:\n\
-  tarfile.open(fileobj=sys.stdin.buffer, mode='r|xz').extractall(temp_dir)\n\
- except Exception:\n\
-  pass\n\
- os.chdir(temp_dir)\n\
- exec(open('start_gdb.py').read())\n\
+  buffer = io.BytesIO(sys.stdin.buffer.raw.read())\n\
+  buffer_length = len(buffer.getbuffer())\n\
+  if not buffer_length:\n\
+    sys.exit(1)\n\
+  tarfile.open(fileobj=buffer, bufsize=buffer_length, mode='r|xz').extractall(temp_dir)\n\
+  os.chdir(temp_dir)\n\
+  exec(open('start_gdb.py').read())\n\
 \"";
 #endif
 
