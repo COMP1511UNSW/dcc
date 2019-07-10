@@ -27,6 +27,15 @@ def watch_valgrind():
 			sys.stderr.flush()
 			start_gdb()
 			break
+		elif 'exit_group(status)' in line:
+			error = f"""Runtime error: {color('exit value is uninitialized', 'red')}
+
+Main is returning an uninitialized value or exit has been passed an uninitialized value.
+"""
+			os.environ['DCC_VALGRIND_ERROR'] = error
+			print('\n' + error, file=sys.stderr)
+			start_gdb()
+			sys.exit(1)
 		elif 'below stack pointer' in line:
 			error = f"""Runtime error: {color('access to function variables after function has returned', 'red')}
 You have used a pointer to a local variable that no longer exists.
