@@ -141,11 +141,11 @@ valgrind also usually detect this type of error, e.g.:
 
 * dcc embeds in the binary produced a xz-compressed tar file (see [compile.py]) containing the C source files for the program and some Python code which is executed if a runtime error occurs.
 
-* Sanitizer errors are intercepted by a shim for the function `__asan_on_error` in [main_wrapper.c].
+* Sanitizer errors are intercepted by a shim for the function `__asan_on_error` in [dcc_util.c].
 
-* A set of signals produced by runtime errors are trapped by `_signal_handler` in [main_wrapper.c].
+* A set of signals produced by runtime errors are trapped by `_signal_handler` in [dcc_util.c].
 
-* Both functions call `_explain_error` in [main_wrapper.c] which creates a temporary directory,
+* Both functions call `_explain_error` in [dcc_util.c] which creates a temporary directory,
 extracts into it the program source and Python from the embedded tar file, and executes the Python code, which:
 
     * runs the Python ([start_gdb.py]) to print an error message that a novice programmer will understand, then
@@ -158,9 +158,9 @@ Linux initializes stack pages to zero.  As a consequence novice programmers  wri
 are likely to find zero in uninitialized local variables.  This often results in apparently correct behaviour from a
 invalid program with uninitialized local variables.
 
-dcc embeds code in the binary which initializes the first few megabytes of the stack to 0xbe (see `clear-stack` in [main_wrapper.c].
+dcc embeds code in the binary which initializes the first few megabytes of the stack to 0xbe (see `clear-stack` in [dcc_util.c].
 
-For valgrind dcc uses its malloc-fill and --free-fill options to achieve the same result (see main_wrapper.c).  AddressSanitizer & MemorySanitizer use a malloc which does this by default.
+For valgrind dcc uses its malloc-fill and --free-fill options to achieve the same result see [dcc_util.c].  AddressSanitizer & MemorySanitizer use a malloc which does this by default.
 
 When printing variable values, dcc prints ints, doubles & pointers consisting of 0xbe bytes as "<uninitialized>". 
 
