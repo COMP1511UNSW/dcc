@@ -10,9 +10,9 @@ extern void f(void);
 int main(void) {f(); }
 eof
 
-dcc -c tmp1.c
-dcc -c tmp2.c
-dcc tmp1.o tmp2.o 
+$dcc -c tmp1.c
+$dcc -c tmp2.c
+$dcc tmp1.o tmp2.o 
 ./a.out
-dcc tmp1.o tmp2.c 
+$dcc tmp1.o tmp2.c 
 ./a.out

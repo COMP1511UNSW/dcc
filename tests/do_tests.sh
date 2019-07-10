@@ -18,7 +18,7 @@ REMOVE_NON_DETERMINATE_VALUES='
 	s?^/.*:??
 '
 
-dcc="${1:-./dcc}"
+export dcc="${1:-./dcc}"
 c_compiler="${2:-clang}"
 
 mkdir -p extracted_compile_time_errors

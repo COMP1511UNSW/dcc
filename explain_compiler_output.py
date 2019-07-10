@@ -37,6 +37,19 @@ def explain_compiler_output(output, args):
 				print('skipping warning because of number of explanations already made', file=sys.stderr)
 			continue
 
+		# dcc use -D on command-line for several purposes
+		# e.g -Dread=__real_read to avoid a user-defined read being called from dcc's own code
+		# so we tidy error mentioning such names to hide this
+		
+		text = "\n".join(message.text_without_ansi_codes)
+		
+		for prefix in ['__renamed_', '__real_', '__wrap_']:
+			if prefix in text:
+				message.text = [s.replace(prefix, '') for s in message.text]
+				message.text_without_ansi_codes = [s.replace(prefix, '') for s in message.text_without_ansi_codes]
+				# note may mention command line arguments
+				message.note = []
+				message.note_without_ansi_codes = []		
 
 		last_message = message
 
@@ -56,6 +69,7 @@ def explain_compiler_output(output, args):
 		message_lines = message.text
 		if not explanation or explanation.show_note:
 			message_lines += message.note
+			
 		text = '\n'.join(message_lines)
 		if message.has_ansi_codes():
 			text += ANSI_DEFAULT

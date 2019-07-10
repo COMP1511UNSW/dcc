@@ -2,6 +2,17 @@
 // C code to intercept runtime errors and run this program
 //
 
+#undef _exit
+#undef close
+#undef execvp
+#undef getpid
+#undef lseek
+#undef pipe
+#undef read
+#undef sleep
+#undef unlink
+#undef write
+
 #define ADDRESS 			1 
 #define MEMORY				2
 #define VALGRIND			3
@@ -144,7 +155,6 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		__dcc_error_exit();
 	}
 	close(sanitizer2_executable_fd);
-
 	setenvd_int("DCC_SANITIZER1_PID", (int)getpid());
 	sanitizer2_pid = fork();
 	if (sanitizer2_pid < 0) {

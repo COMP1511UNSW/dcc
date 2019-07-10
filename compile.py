@@ -20,6 +20,9 @@ CLANG_LIB_DIR="/usr/lib/clang/{clang_version}/lib/linux"
 
 FILES_EMBEDDED_IN_BINARY = ["start_gdb.py", "drive_gdb.py", "watch_valgrind.py", "colors.py"]
 
+# list of system includes for standard lib fucntion which will not
+# interfer with dual sanitizer synchronization
+
 DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES = set(['assert.h', 'complex.h', 'ctype.h', 'errno.h', 'fenv.h', 'float.h', 'inttypes.h', 'iso646.h', 'limits.h', 'locale.h', 'math.h', 'setjmp.h', 'stdalign.h', 'stdarg.h', 'stdatomic.h', 'stdbool.h', 'stddef.h', 'stdint.h', 'stdio.h', 'stdlib.h', 'stdnoreturn.h', 'string.h', 'tgmath.h', 'time.h', 'uchar.h', 'wchar.h', 'wctype.h', 'sanitizer/asan_interface.h', 'malloc.h', 'strings.h', 'sysexits.h']) 
 
 #
@@ -33,7 +36,9 @@ def compile(debug=False):
 	if args.colorize_output:
 		clang_args += ['-fcolor-diagnostics']
 		clang_args += ['-fdiagnostics-color']
-
+		
+	args.unsafe_system_includes = list(args.system_includes_used - DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES)
+	
 	if not args.sanitizers:
 		reason = ""
 		if args.incremental_compilation:
@@ -44,9 +49,8 @@ def compile(debug=False):
 			reason = "library other than C standard library used"
 		elif args.threads_used:
 			reason = "threads used"
-		elif not args.system_includes_used.issubset(DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES):
-			offending_includes = list(args.system_includes_used - DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES)
-			reason = offending_includes[0]+ " used"
+		elif args.unsafe_system_includes:
+			reason = args.unsafe_system_includes[0]+ " used"
 		if reason:
 			print('warning uninititialized variable checking disabled:', reason, file=sys.stderr)
 			args.sanitizers = ["address"]
@@ -151,11 +155,14 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 	if len(args.sanitizers) == 2:
 		sanitizer2_wrapper_source, sanitizer2_sanitizer_args = update_source(args.sanitizers[1], 2, wrapper_source, tar_source, args, clang_version, clang_version_float)
 		try:
-			with tempfile.NamedTemporaryFile(mode="rb") as f:
-				command = base_compile_command + sanitizer2_sanitizer_args + ['-o', f.name]
-				compiler_stdout = execute_compiler(command, sanitizer2_wrapper_source, args, debug_wrapper_file="tmp_dcc_sanitizer2.c")
-				executable_n_bytes, executable_source = source_for_sanitizer2_executable(f.read()) 
-		except FileNotFoundError:
+			# can't use tempfile.NamedTemporaryFile becaus emay be multiple opens
+			executable = tempfile.mkstemp(prefix='dcc_sanitizer2')[1]
+			command = base_compile_command + sanitizer2_sanitizer_args + ['-o', executable]
+			compiler_stdout = execute_compiler(command, sanitizer2_wrapper_source, args, debug_wrapper_file="tmp_dcc_sanitizer2.c")
+			with open(executable, "rb") as f:
+				executable_n_bytes, executable_source = source_for_sanitizer2_executable(f.read())
+			os.unlink(executable)
+		except OSError:
 			# compiler may unlink temporary file resulting in this exception
 			sys.exit(1)	
 
@@ -185,9 +192,10 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 		command = ['gcc'] + args.user_supplied_compiler_args + GCC_ARGS
 		if args.debug:
 			print("compiling with gcc for extra checking", file=sys.stderr)
-		execute_compiler(command, '', args)	
+		execute_compiler(command, '', args, rename_functions=False)	
 
 	sys.exit(0)
+
 
 def update_source(sanitizer, sanitizer_n, wrapper_source, tar_source,  args, clang_version, clang_version_float):
 	wrapper_source = wrapper_source.replace('__SANITIZER__', sanitizer.upper())
@@ -226,14 +234,25 @@ def update_source(sanitizer, sanitizer_n, wrapper_source, tar_source,  args, cla
 		wrapper_source = wrapper_source.replace('__EMBED_SOURCE__', '1')
 		wrapper_source = tar_source + wrapper_source
 	return wrapper_source, sanitizer_args
-	
-def execute_compiler(command, compiler_stdin, args, print_stdout=True, debug_wrapper_file="tmp_dcc_sanitizer1.c"):
 
+	
+def execute_compiler(base_command, compiler_stdin, args, rename_functions=True, print_stdout=True, debug_wrapper_file="tmp_dcc_sanitizer1.c"):
+	command = list(base_command)
 	if compiler_stdin:
+		if rename_functions and not args.unsafe_system_includes:
+			# unistd functions used by single-sanitizer dcc
+			rename_function_names = ['_exit', 'close', 'execvp', 'getpid']
+			# unistd functions used by dual-sanitizer dcc
+			if len(args.sanitizers) > 1:
+				rename_function_names += ['lseek', 'pipe', 'read', 'sleep', 'unlink', 'write']
+			command +=  ['-D{}=__renamed_{}'.format(f, f) for f in rename_function_names]
+
 		wrapped_functions = ['main']
+
 		override_functions = []
 		if len(args.sanitizers) > 1:
 			override_functions  = ['clock', 'fdopen', 'fopen', 'freopen', 'system', 'time']
+
 		if args.ifdef_instead_of_wrap:
 			command +=  ['-D{}=__real_{}'.format(f, f) for f in wrapped_functions]
 			command +=  ['-D{}=__wrap_{}'.format(f, f) for f in override_functions]
@@ -248,7 +267,7 @@ def execute_compiler(command, compiler_stdin, args, print_stdout=True, debug_wra
 		print(" ".join(command), file=sys.stderr)
 
 	if args.debug > 1 and compiler_stdin:
-		print("Leaving main_wrapper in", debug_wrapper_file, "compile with this command:", file=sys.stderr)
+		print("Leaving dcc code in", debug_wrapper_file, "compile with this command:", file=sys.stderr)
 		print(" ".join(command).replace('-x c -', debug_wrapper_file), file=sys.stderr)
 		try:
 			with open(debug_wrapper_file,"w") as f:
@@ -274,6 +293,14 @@ def execute_compiler(command, compiler_stdin, args, print_stdout=True, debug_wra
 		process = subprocess.run(command, input=input, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 		stdout = codecs.decode(process.stdout, 'utf8', errors='replace')
 
+	# a user call to a renamed unistd.h function appears to be undefined
+	# so recompile without renames
+	
+	if rename_functions and "undefined reference to `__renamed_" in stdout:
+		if args.debug:
+			print("undefined reference to `__renamed_' recompiling without -D renames", file=sys.stderr)
+		return execute_compiler(base_command, compiler_stdin, args, rename_functions=False, print_stdout=print_stdout, debug_wrapper_file=debug_wrapper_file)
+	
 	if process.stdout and print_stdout:
 		if args.explanations:
 			explain_compiler_output(stdout, args)

@@ -1,0 +1,4 @@
+tests/compile_time_errors/unistd_compile_error.c:7:6: error: redefinition of 'read'
+void read(void) {
+     ^
+

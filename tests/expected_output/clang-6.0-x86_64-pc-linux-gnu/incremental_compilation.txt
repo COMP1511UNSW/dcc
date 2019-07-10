@@ -1,2 +1,6 @@
+warning uninititialized variable checking disabled: incremental compilation
+warning uninititialized variable checking disabled: incremental compilation
+warning uninititialized variable checking disabled: object files being linked
 incremental compilation works
+warning uninititialized variable checking disabled: object files being linked
 incremental compilation works
