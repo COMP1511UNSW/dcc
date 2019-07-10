@@ -55,4 +55,5 @@ For more information see: {DEFAULT_EXPLANATION_URL}/stack_use_after_return.html'
 	sys.exit(0)
 	
 if __name__ == '__main__':
+	signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(1))
 	watch_valgrind()
