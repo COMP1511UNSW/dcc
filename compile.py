@@ -7,12 +7,21 @@ from explain_compiler_output import explain_compiler_output
 # novice programmers will often be told to ignore scanf's return value
 # when writing their first programs 
 
-COMMON_WARNING_ARGS = "-Wall -Wno-unused -Wunused-variable -Wunused-value -Wno-unused-result".split()
+COMMON_WARNING_ARGS = "-Wall -Wno-unused -Wunused-variable -Wunused-value -Wno-unused-result -Wshadow".split()
 COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-std=gnu11 -g -lm".split()
 
 CLANG_ONLY_ARGS = "-Wunused-comparison -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 
-GCC_ARGS = COMMON_COMPILER_ARGS + "-Wunused-but-set-variable -O  -o /dev/null".split()
+# gcc flags some novice programmer mistakes than clang doesn't so
+# we run it has an extra checking pass with several extra warnings enabled
+# -Wduplicated-branches was only added with gcc-8 so it'll break older versions of gcc 
+# but this will be silent - we could fix by  checking gcc version
+#
+# -Wnull-dererefence would be useful here fbut when it flags potential paths
+# the errors look confusing for novice programmers and there appears no way to get only definite null-derefs
+#
+# -O is needed with gcc to get warnings for some things 
+GCC_ONLY_ARGS = "-Wunused-but-set-variable -Wduplicated-cond -Wduplicated-branches -Wlogical-op -O  -o /dev/null".split()
 
 MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
 
@@ -33,9 +42,11 @@ def compile():
 	args = parse_args(sys.argv[1:])
 	# we have to set these explicitly because 
 	clang_args = COMMON_COMPILER_ARGS + CLANG_ONLY_ARGS
+	gcc_args = COMMON_COMPILER_ARGS + GCC_ONLY_ARGS
 	if args.colorize_output:
 		clang_args += ['-fcolor-diagnostics']
 		clang_args += ['-fdiagnostics-color']
+		gcc_args += ['-fdiagnostics-color=always']
 		
 	args.unsafe_system_includes = list(args.system_includes_used - DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES)
 	
@@ -196,10 +207,10 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 	# so run gcc as well if available
 
 	if not compiler_stdout and search_path('gcc') and 'gcc' not in args.c_compiler and not args.object_files_being_linked:
-		command = ['gcc'] + args.user_supplied_compiler_args + GCC_ARGS
+		command = ['gcc'] + args.user_supplied_compiler_args + gcc_args
 		if args.debug:
 			print("compiling with gcc for extra checking", file=sys.stderr)
-		execute_compiler(command, '', args, rename_functions=False)	
+		execute_compiler(command, '', args, rename_functions=False, checking_only=True)	
 
 	sys.exit(0)
 
@@ -243,7 +254,7 @@ def update_source(sanitizer, sanitizer_n, wrapper_source, tar_source,  args, cla
 	return wrapper_source, sanitizer_args
 
 	
-def execute_compiler(base_command, compiler_stdin, args, rename_functions=True, print_stdout=True, debug_wrapper_file="tmp_dcc_sanitizer1.c"):
+def execute_compiler(base_command, compiler_stdin, args, rename_functions=True, print_stdout=True, debug_wrapper_file="tmp_dcc_sanitizer1.c", checking_only=False):
 	command = list(base_command)
 	if compiler_stdin:
 		if rename_functions and not args.unsafe_system_includes:
@@ -285,6 +296,24 @@ def execute_compiler(base_command, compiler_stdin, args, rename_functions=True, 
 	process = subprocess.run(command, input=input, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 	stdout = codecs.decode(process.stdout, 'utf8', errors='replace')
 
+	if checking_only:
+		# we are running gcc as an extra checking phase
+		# and options don't match the gcc version so give up silently
+		if 'command line' in stdout:
+			if args.debug:
+				print(stdout, end='', file=sys.stderr)
+			return ''
+
+		# checking is run afterwe have already successfully generated an executable with clang
+		# so if we can get an error, unlink the executable
+		if process.returncode:
+			try:
+				os.unlink(args.object_filename)
+			except OSError as e:
+				if args.debug:
+					print(e)
+		
+		
 	# avoid a confusing mess of linker errors
 	if "undefined reference to `main" in stdout:
 		print("Error: your program does not contain a main function - a C program must contain a main function", file=sys.stderr)
@@ -292,7 +321,7 @@ def execute_compiler(base_command, compiler_stdin, args, rename_functions=True, 
 
 	# workaround for  https://github.com/android-ndk/ndk/issues/184
 	# when not triggered earlier    
-	if "undefined reference to `__mul" in stdout:
+	if "undefined reference to `__mul" in stdout and not checking_only:
 		command = [c for c in command if not c in ['-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer']]
 		if args.debug:
 			print("undefined reference to `__mulodi4'", file=sys.stderr)
@@ -303,12 +332,12 @@ def execute_compiler(base_command, compiler_stdin, args, rename_functions=True, 
 	# a user call to a renamed unistd.h function appears to be undefined
 	# so recompile without renames
 	
-	if rename_functions and "undefined reference to `__renamed_" in stdout:
+	if rename_functions and "undefined reference to `__renamed_" in stdout and not checking_only:
 		if args.debug:
 			print("undefined reference to `__renamed_' recompiling without -D renames", file=sys.stderr)
 		return execute_compiler(base_command, compiler_stdin, args, rename_functions=False, print_stdout=print_stdout, debug_wrapper_file=debug_wrapper_file)
 	
-	if process.stdout and print_stdout:
+	if stdout and print_stdout:
 		if args.explanations:
 			explain_compiler_output(stdout, args)
 		else:
@@ -328,6 +357,7 @@ class Args(object):
 	shared_libasan = None
 	stack_use_after_return = None
 	incremental_compilation = False
+	treat_warnings_as_errors = False
 	leak_check = False
 	suppressions_file = os.devnull
 	user_supplied_compiler_args = []
@@ -343,6 +373,7 @@ class Args(object):
 	object_files_being_linked = False
 	libraries_being_linked = False
 	threads_used = False
+	object_filename = "a.out"
 	system_includes_used = set()
 	ifdef_instead_of_wrap = sys.platform == "darwin" # ld reportedly doesn't have wrap on Darwin
 	
@@ -445,13 +476,17 @@ def parse_clang_arg(arg, next_arg, args):
 		args.incremental_compilation = True
 	elif arg.startswith('-l'):
 		args.libraries_being_linked = True
+	elif arg == '-Werror':
+		args.treat_warnings_as_errors = True
 	elif arg == '-pthreads':
 		args.threads_used = True
-	elif arg == '-o' and next_arg:
-		object_filename = next_arg
-		if object_filename.endswith('.c') and os.path.exists(object_filename):
-			print("%s: will not overwrite %s with machine code" % (os.path.basename(sys.argv[0]), object_filename), file=sys.stderr)
-			sys.exit(1)
+	elif arg.startswith('-o'):
+		object_filename = arg[2:] or next_arg
+		if object_filename:
+			args.object_filename = object_filename
+			if object_filename.endswith('.c') and os.path.exists(object_filename):
+				print("%s: will not overwrite %s with machine code" % (os.path.basename(sys.argv[0]), object_filename), file=sys.stderr)
+				sys.exit(1)
 	else:
 		process_possible_source_file(arg, args)
 

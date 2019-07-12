@@ -1,0 +1,10 @@
+tests/extracted_compile_time_errors/duplicated-branches.c: In function ‘main’:
+tests/extracted_compile_time_errors/duplicated-branches.c:3:5: warning: this condition has identical branches [-Wduplicated-branches]
+  if (argc == 1)
+     ^
+dcc explanation: Your if statement has identical then and else parts.
+It is pointless to have an if statement which executes the same code
+when the condition is true and when it is false.
+
+
+

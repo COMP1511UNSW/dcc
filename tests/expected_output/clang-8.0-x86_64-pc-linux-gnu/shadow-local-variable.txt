@@ -1,0 +1,11 @@
+tests/extracted_compile_time_errors/shadow-local-variable.c:4:7: warning: declaration shadows a local variable [-Wshadow]
+                int argc = 42;
+                    ^
+tests/extracted_compile_time_errors/shadow-local-variable.c:2:14: note: previous declaration is here
+int main(int argc, char *argv[]) {
+             ^[0m
+dcc explanation: Your already have a variable named 'argc'.
+It is confusing to have a second overlapping declaration of the same variable name.
+
+
+
