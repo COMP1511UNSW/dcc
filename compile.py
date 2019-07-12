@@ -28,7 +28,7 @@ DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES = set(['assert.h', 'complex.h', 'ctype.h', '
 #
 # Compile the user's program adding some C code
 #
-def compile(debug=False):
+def compile():
 	os.environ['PATH'] = os.path.dirname(os.path.realpath(sys.argv[0])) + ':/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:' + os.environ.get('PATH', '') 
 	args = parse_args(sys.argv[1:])
 	# we have to set these explicitly because 
@@ -62,19 +62,26 @@ def compile(debug=False):
 		sys.exit(1)
 			
 
+	# apple replaces clang version with xcode release
+	# which might break the workarounds below for old clang version
 	clang_version = None
 	try:
 		clang_version = subprocess.check_output([args.c_compiler, "--version"], universal_newlines=True)
-		if debug:
+		if args.debug:
 			print("clang version:", clang_version)
-		m = re.search("clang version ((\d+)\.(\d+)\.\d+)", clang_version, flags=re.I)
-		if m is not None:
+		# assume little about how version is printed, e.g. because Apple mangles it
+		m = re.search("((\d+)\.(\d+)\.\d+)", clang_version, flags=re.I)
+		if m:
 			clang_version = m.group(1)
 			clang_version_major = m.group(2)
 			clang_version_minor = m.group(3)
 			clang_version_float = float(m.group(2) + "." + m.group(3))
+		else:
+			print("Can not parse clang version '%s'" % clang_version, file=sys.stderr)
+			sys.exit(1)
+			
 	except OSError as e:
-		if debug:
+		if args.debug:
 			print(e)
 
 	if not clang_version:
@@ -85,7 +92,7 @@ def compile(debug=False):
 		libc_version = None
 		try:
 			libc_version = subprocess.check_output(["ldd", "--version"]).decode("ascii")
-			if debug:
+			if args.debug:
 				print("libc version:", libc_version)
 			m = re.search("([0-9]\.[0-9]+)", libc_version)
 			if m is not None:
@@ -93,7 +100,7 @@ def compile(debug=False):
 			else:
 				libc_version = None
 		except Exception as e:
-			if debug:
+			if args.debug:
 				print(e)
 
 		if  libc_version and clang_version_float < 6 and libc_version >= 2.27:
