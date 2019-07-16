@@ -263,26 +263,6 @@ __attribute__((optnone))
 ;
 #endif
 
-int scanf(const char *format, ...) {
-    va_list arg;
-    va_start(arg, format);
-    int n = vscanf(format, arg);
-    va_end(arg);
-	quick_clear_stack();
-    return n;
-}
-
-int printf(const char *format, ...) {
-    va_list arg;
-    va_start(arg, format);
-    int n = vprintf(format, arg);
-    va_end(arg);
-    fflush(stdout);
-	quick_clear_stack();
-    return n;
-}
-
-
 // hack to initialize (most of) stack to 0xbe
 // so uninitialized variables are more obvious
 
