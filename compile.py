@@ -50,7 +50,7 @@ def compile():
 		
 	args.unsafe_system_includes = list(args.system_includes_used - DUAL_SANITIZER_SAFE_SYSTEM_INCLUDES)
 	
-	if not args.sanitizers:
+	if not args.sanitizers or len(args.sanitizers) > 1:
 		reason = ""
 		if args.incremental_compilation:
 			reason = "incremental compilation"
@@ -62,9 +62,15 @@ def compile():
 			reason = "threads used"
 		elif args.unsafe_system_includes:
 			reason = args.unsafe_system_includes[0]+ " used"
+		elif sys.platform == "darwin":
+			reason = "not supported on OSX"
+
 		if reason:
-			print('warning uninititialized variable checking disabled:', reason, file=sys.stderr)
-			args.sanitizers = ["address"]
+			# if 2 sanitizer have been explicityl specified, give a warning
+			if len(args.sanitizers) > 1:
+				print('warning running 2 sanitizers will probably fail:', reason, file=sys.stderr)
+			else:
+				args.sanitizers = ["address"]
 		else:
 			args.sanitizers = ["address", "valgrind"]
 		
