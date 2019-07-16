@@ -351,8 +351,7 @@ int __wrap_system(const char *command) {
 
 // if we don't override getchar the fopencookie hooks are sometimes not called - reasons unclear
 int getchar(void) {
-	int c = fgetc(stdin);
-	return c;
+	return fgetc(stdin);
 }
 
 // if we don't override putchar the fopencookie hooks are sometimes not called - reasons unclear
