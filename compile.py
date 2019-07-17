@@ -143,6 +143,9 @@ def compile():
 	wrapper_source = ''.join(pkgutil.get_data('src', f).decode('utf8') for f in ['dcc_main.c', 'dcc_dual_sanitizers.c', 'dcc_util.c'])
 	
 	wrapper_source = wrapper_source.replace('__PATH__', dcc_path)
+	wrapper_source = wrapper_source.replace('__DCC_VERSION__', '"' + VERSION + '"')
+	wrapper_source = wrapper_source.replace('__HOSTNAME__', '"' +  platform.node() + '"')
+	wrapper_source = wrapper_source.replace('__CLANG_VERSION__', '"' + clang_version + '"')
 	wrapper_source = wrapper_source.replace('__SUPRESSIONS_FILE__', args.suppressions_file)
 	wrapper_source = wrapper_source.replace('__STACK_USE_AFTER_RETURN__', "1" if args.stack_use_after_return else "0")
 	wrapper_source = wrapper_source.replace('__CLANG_VERSION_MAJOR__', clang_version_major)

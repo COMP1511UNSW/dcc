@@ -216,6 +216,7 @@ static void __dcc_main_sanitizer2(int argc, char *argv[], char *envp[], char *sa
 
 
 static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]) {
+	debug_printf(2, "compiler information: dcc_version=%s clang_version=%s hostname=%s\n", __DCC_VERSION__, __CLANG_VERSION__, __HOSTNAME__);
 #if __SANITIZER__ != VALGRIND
 	clear_stack();
 	return __real_main(argc, argv, envp);
