@@ -311,15 +311,19 @@ static int debug_printf(int level, const char *format, ...) {
 	if (level > debug_level) {
 		return 0;
 	}
+	
+	FILE *stream = debug_stream ? debug_stream : stderr;
+	
 #if __N_SANITIZERS__ > 1
-	fprintf(debug_stream ? debug_stream : stderr, "__WHICH_SANITIZER__: ");
+	fprintf(stream, "__WHICH_SANITIZER__: ");
 #if __I_AM_SANITIZER2__
-	fprintf(debug_stream ? debug_stream : stderr, "\t");
+	fprintf(stream, "\t");
 #endif
 #endif
+
     va_list arg;
     va_start(arg, format);
-    int n = vfprintf(debug_stream ? debug_stream : stderr, format, arg);
+    int n = vfprintf(stream, format, arg);
     va_end(arg);
     return n;
 }
