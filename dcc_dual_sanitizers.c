@@ -206,6 +206,13 @@ static int64_t synchronize_system_call_result(enum which_system_call which
 // pass results of a read sanitizer 1 -> sanitizer 2
 
 static ssize_t __dcc_synchronize_read(void *v, char *buf, size_t size) {
+
+	// libc 2.28-5 doesn't flush stdout if it is a (linebuffered) fopencookie streams
+	// when there is a read on stdin which is a (linebuffered) fopencookie streams
+	// workaround by flushing stdout here on read of any stream
+	
+	fflush(stdout);
+	
 	synchronize_system_call(sc_read, size);
 #if __I_AM_SANITIZER1__
 	struct cookie *cookie = v;
