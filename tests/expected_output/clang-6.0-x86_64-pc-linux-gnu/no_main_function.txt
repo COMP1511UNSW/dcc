@@ -1,1 +1,1 @@
-Error: your program does not contain a main function - a C program must contain a main function
+dcc: error: your program does not contain a main function - a C program must contain a main function
