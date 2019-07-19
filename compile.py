@@ -18,7 +18,7 @@ MAXIMUM_SOURCE_FILE_EMBEDDED_BYTES = 1000000
 
 CLANG_LIB_DIR="/usr/lib/clang/{clang_version}/lib/linux"
 
-FILES_EMBEDDED_IN_BINARY = ["start_gdb.py", "drive_gdb.py", "watch_valgrind.py", "colors.py"]
+FILES_EMBEDDED_IN_BINARY = ["start_gdb.py", "drive_gdb.py", "explain_output_difference.py", "watch_valgrind.py", "colors.py"]
 
 # list of system includes for standard lib fucntion which will not
 # interfer with dual sanitizer synchronization
@@ -116,11 +116,12 @@ def compile(debug=False):
 			
 	dcc_path = get_my_path()
 
-	wrapper_source = ''.join(pkgutil.get_data('src', f).decode('utf8') for f in ['dcc_main.c', 'dcc_dual_sanitizers.c', 'dcc_util.c'])
+	wrapper_source = ''.join(pkgutil.get_data('src', f).decode('utf8') for f in ['dcc_main.c', 'dcc_dual_sanitizers.c', 'dcc_util.c', 'dcc_check_output.c'])
 	
 	wrapper_source = wrapper_source.replace('__PATH__', dcc_path)
 	wrapper_source = wrapper_source.replace('__SUPRESSIONS_FILE__', args.suppressions_file)
 	wrapper_source = wrapper_source.replace('__STACK_USE_AFTER_RETURN__', "1" if args.stack_use_after_return else "0")
+	wrapper_source = wrapper_source.replace('__CHECK_OUTPUT__', "1" if args.check_output else "0")
 	wrapper_source = wrapper_source.replace('__CLANG_VERSION_MAJOR__', clang_version_major)
 	wrapper_source = wrapper_source.replace('__CLANG_VERSION_MINOR__', clang_version_minor)
 	wrapper_source = wrapper_source.replace('__N_SANITIZERS__', str(len(args.sanitizers)))
@@ -320,6 +321,7 @@ class Args(object):
 	sanitizers = []
 	shared_libasan = None
 	stack_use_after_return = None
+	check_output = True
 	incremental_compilation = False
 	leak_check = False
 	suppressions_file = os.devnull

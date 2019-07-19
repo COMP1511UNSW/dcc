@@ -1,10 +1,15 @@
 #!/bin/bash
 unset CDPATH
 
+for var in $(env|egrep -v 'PATH|LOCALE|LC_|LANG'|grep '^[a-zA-Z0-9_]*='|cut -d= -f1)
+do
+	unset $var
+done
+
 tests_dir=$(dirname $(readlink -f $0))
 cd "$tests_dir"
 
-trap 'rm -fr tmp* a.out' EXIT INT TERM
+trap 'rm -fr tmp* a.out;exit' EXIT INT TERM
 
 # some values reported in errors are not determinate (e.g. variable addresses)
 # and will vary between execution and definitely between platforms
@@ -34,7 +39,7 @@ expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
 mkdir -p $expected_output_dir
 test_failed=0
 
-for src_file in tests/extracted_compile_time_errors/*.c tests/compile_time_errors/*.c tests/run_time_errors/*.* tests/run_time_no_errors/*.*
+for src_file in tests/extracted_compile_time_errors/*.c tests/compile_time_errors/*.c tests/run_time_errors/*.* tests/run_time_no_errors/*.* tests/check_output/*.sh
 do
 	# don't change the name of the variable src_file some tests rely on it
 	compile_options_list=$(egrep '^//dcc_flags=' "$src_file"|sed 's?//??;s/ /#/g')

@@ -1,4 +1,4 @@
-PACKAGED_SOURCE = start_gdb.py drive_gdb.py watch_valgrind.py colors.py dcc_main.c dcc_dual_sanitizers.c dcc_util.c
+PACKAGED_SOURCE = start_gdb.py drive_gdb.py explain_output_difference.py watch_valgrind.py colors.py dcc_main.c dcc_dual_sanitizers.c dcc_util.c dcc_check_output.c
 SOURCE = __main__.py compile.py explain_compiler_output.py compiler_explanations.py help_cs50.py $(PACKAGED_SOURCE)
 PACKAGE_NAME=src
 

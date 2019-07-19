@@ -77,6 +77,28 @@ dcc can also embed code to check for memory-leaks:
     Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
 
 
+# Output checking
+
+dcc can check a program's output is correct.  If a program outputs an incorrect line, the program is stopped.  A description of why the output is incorrect is printed.  The current execution location is shown with the current values of variables & expressions.
+
+The environment variable DCC_EXPECTED_STDOUT should be set to the expected output.
+
+If `DCC_IGNORE_CASE` is true, case is ignored when checking expected output.  Default false.
+
+`DCC_IGNORE_WHITE_SPACE` is true, white space is ignored when checking expected output.  Default false.
+
+`DCC_IGNORE_TRAILING_WHITE_SPACE` is true, trailing white space is ignored when checking expected output.   Default true.
+
+`DCC_IGNORE_EMPTY_LINES` is true, empty lines are ignored when checking expected output.  Default false.
+
+`DCC_COMPARE_ONLY_CHARACTERS` is set to a non-empty string, the characters not in the string are ignored when checking expected output. New-lines can not be ignored.
+
+`DCC_IGNORE_CHARACTERS` is set to a non-empty string, the characters in the string are ignored when checking expected output. New-lines can not be ignored.
+
+`DCC_IGNORE_CHARACTERS` and `DCC_IGNORE_WHITE_SPACE`  take precedence over `DCC_COMPARE_ONLY_CHARACTERS`
+
+Environment variables are considered true if their value is a non-empty string starting with a character other than '0', 'f' or 'F'.  They are considered false otherwise.
+
 # Local Variable Use After Function Return Detection
 
     $ dcc --use_after_return bad_function.c

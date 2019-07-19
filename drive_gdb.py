@@ -1,4 +1,5 @@
 import collections, os, platform, re, sys, signal, traceback
+from explain_output_difference import explain_output_difference
 import colors
  
 DEFAULT_EXPLANATION_URL = "https://comp1511unsw.github.io/dcc/"
@@ -22,7 +23,7 @@ def drive_gdb():
 	if colorize_output:
 		color = colors.color
 	else:
-		color = lambda text, color_name: text
+		color = lambda text, *args, **kwargs: text
 #	signal.signal(signal.SIGINT, interrupt_handler)
 
 	try:
@@ -77,7 +78,7 @@ def explain_error(output_stream, color):
 	elif 'DCC_UBSAN_ERROR_KIND' in os.environ:
 		explain_ubsan_error(loc, output_stream, color)
 	elif 'DCC_OUTPUT_ERROR' in os.environ:
-		explain_output_error(loc, output_stream, color)
+		explain_output_difference(loc, output_stream, color)
 	elif os.environ.get('DCC_SANITIZER', '') == 'MEMORY':
 		if loc:
 			print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
@@ -85,7 +86,7 @@ def explain_error(output_stream, color):
 
 	if loc:
 		print(explain_location(loc, color), file=output_stream)
-		print(relevant_variables(loc.surrounding_source(color, clean=True), color), file=output_stream)
+		print(relevant_variables(loc.surrounding_source(color, clean=True), color), end='', file=output_stream)
 
 	if (len(stack) > 1):
 		print(color('Function Call Traceback', 'cyan'), file=output_stream)
@@ -263,12 +264,6 @@ def explain_signal(signal_number):
 	else:
 		return "Execution terminated by signal %s" % signal_number
 
-# Expect output has been supplied as an environment variable
-# and the program has been stoped because the output was incorrect
- 
-def explain_output_error(loc, output_stream, color):	
-	print("Incorrect output.\n", file=output_stream)
-
 class Location():
 	def __init__(self, filename, line_number, column='', function='', params='', variable='', frame_number=''):
 		self.filename = filename
@@ -352,10 +347,10 @@ def clean_c_source(c_source, leave_white_space=False):
 	return c_source.strip() + "\n"
 
 def gdb_evaluate(expression):
-	debug_print(2, 'gdb_evaluate:', expression,)
+	debug_print(3, 'gdb_evaluate:', expression,)
 	value = gdb_execute('print %s' % expression)
 	value = re.sub('^[^=]*=\s*', '', value).strip()
-	debug_print(2, '->', value,)
+	debug_print(3, '->', value,)
 	return value.strip()
 
 def gdb_execute(command):
@@ -363,7 +358,7 @@ def gdb_execute(command):
 	try:
 		str = gdb.execute(command, to_string=True)
 	except gdb.error as e:
-		debug_print(2, 'gdb.execute', e)
+		debug_print(3, 'gdb.execute', e)
 		str = ''
 	debug_print(3, 'gdb.execute:', '->', str)
 	return str
@@ -376,7 +371,7 @@ def parse_gdb_stack_frame(line):
 		r'(?P<function>[a-zA-Z][^\s\(]*).*\((?P<params>.*)\)\s+at\s+'
 		r'(?P<filename>[^\s:]+):(?P<line_number>\d+)\s*$',
 			line)
-	debug_print(2, 'parse_gdb_stack_frame', m != None, line)
+	debug_print(3, 'parse_gdb_stack_frame', m != None, line)
 	if m:
 		filename = m.group('filename')
 		if filename.startswith("/usr/") or filename.startswith("../sysdeps/") or filename.endswith("libioP.h"): 
@@ -388,7 +383,7 @@ def parse_gdb_stack_frame(line):
 def gdb_set_frame():
 	try:
 		stack = gdb_execute('where')
-		debug_print(2, "\nStack:\n",stack, "\n")
+		debug_print(3, "\nStack:\n",stack, "\n")
 		stack_lines = stack.splitlines()
 		reversed_stack_lines = reversed(stack_lines)
 		frames = []
@@ -406,7 +401,7 @@ def gdb_set_frame():
 		if frames:
 			gdb_execute('frame ' + str(frames[0].frame_number))
 		else:
-			debug_print(2, 'gdb_set_frame no frame number')
+			debug_print(3, 'gdb_set_frame no frame number')
 		return frames
 	except:
 		if debug_level: traceback.print_exc(file=sys.stderr)
@@ -445,7 +440,7 @@ def evaluate_expression(expression, color):
 		
 	expression_type = gdb_execute('whatis %s' % expression)
 	expression_type = re.sub(r'\s*type\s*=\s*', '',	 expression_type).strip()
-	debug_print(2, 'expression_type=', expression_type)
+	debug_print(3, 'expression_type=', expression_type)
 	if re.search(r'\<|\)$', expression_type):
 		return None
 
@@ -472,7 +467,7 @@ def evaluate_expression(expression, color):
 # transform value into something a novice programmer more likely to understand
 
 def clarify_expression_value(expression_value, expression_type, color):
-	debug_print(2, 'clarify_value expression_value=', expression_value)
+	debug_print(3, 'clarify_value expression_value=', expression_value)
 	
 	if expression_type == 'char':
 		m = re.match(r"^(-?\d+) '(.*)'$", expression_value)

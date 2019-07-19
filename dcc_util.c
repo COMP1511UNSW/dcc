@@ -6,14 +6,14 @@ static void launch_valgrind(int argc, char *argv[], char *envp[]) {
 	if (valgrind_error_pipe) {
 		fwrite(tar_data, sizeof tar_data[0],  sizeof tar_data/sizeof tar_data[0], valgrind_error_pipe);
     	fflush(valgrind_error_pipe);
-		setbuf(valgrind_error_pipe, NULL);			
+		setbuf(valgrind_error_pipe, NULL);
 		valgrind_error_fd = (int)fileno(valgrind_error_pipe);
 	} else {
 		debug_printf(2, "popen __MONITOR_VALGRIND__ failed");
 		return;
 	}
 	setenvd("DCC_VALGRIND_RUNNING", "1");
-	
+
 	char fd_buffer[64];
 	snprintf(fd_buffer, sizeof fd_buffer, "--log-fd=%d", valgrind_error_fd);
 	char *valgrind_command[] = {
@@ -36,11 +36,11 @@ static void launch_valgrind(int argc, char *argv[], char *envp[]) {
 		valgrind_argv[i] = valgrind_command[i];
 	for (int i = 0; i < argc; i++)
 		valgrind_argv[valgrind_command_len + i] = argv[i];
-		
+
 	valgrind_argv[valgrind_command_len + argc] = NULL;
 	for (int i = 0; i < valgrind_command_len + argc; i++)
 		debug_printf(3, "valgrind_argv[%d] = %s\n", i, valgrind_argv[i]);
-	
+
 	execvp("/usr/bin/valgrind", valgrind_argv);
 	debug_printf(1, "execvp of /usr/bin/valgrind failed");
 }
@@ -52,12 +52,12 @@ static void __dcc_start(void) {
 		debug_level = atoi(debug_level_string);
 	}
 	debug_printf(2, "__dcc_start debug_level=%d\n", debug_level);
-	
+
 	setenvd("DCC_SANITIZER", "__SANITIZER__");
 	setenvd("DCC_PATH", "__PATH__");
 
 	setenvd_int("DCC_PID", getpid());
-	
+
 	signal(SIGABRT, __dcc_signal_handler);
 	signal(SIGSEGV, __dcc_signal_handler);
 	signal(SIGINT, __dcc_signal_handler);
@@ -70,11 +70,13 @@ static void __dcc_start(void) {
 	clear_stack();
 }
 
+static void disable_check_output();
 void __dcc_error_exit(void) {
+	disable_check_output();
 	debug_printf(2, "__dcc_error_exit()\n");
 
 #if __N_SANITIZERS__ > 1
-	cleanup_before_exit();
+	__dcc_cleanup_before_exit();
 #endif
 
 #if __SANITIZER__ != VALGRIND
@@ -82,8 +84,8 @@ void __dcc_error_exit(void) {
 	// exit or _exit keeps executing sanitizer code - including perhaps superfluous output
 	// but not with valgrind which will catch signal and start gdb
 	// SIGPIPE avoids killed message from bash
-	signal(SIGPIPE, SIG_DFL); 
-	kill(getpid(), SIGPIPE);   
+	signal(SIGPIPE, SIG_DFL);
+	kill(getpid(), SIGPIPE);
 #endif
 
 	_exit(1);
@@ -108,7 +110,7 @@ void __asan_on_error() {
 	char report_description[8192];
 	snprintf(report_description, sizeof report_description, "DCC_ASAN_ERROR=%s", report);
 	putenvd(report_description);
-	
+
 	_explain_error();
 	// not reached
 }
@@ -124,7 +126,7 @@ char *__asan_default_options() {
 
 	// NOTE setting detect_stack_use_after_return here stops
 	// clear_stack pre-initializing stack frames to 0xbe
-	
+
 	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0:detect_stack_use_after_return=__STACK_USE_AFTER_RETURN__";
 }
 #endif
@@ -138,7 +140,7 @@ char *__msan_default_options() {
 void __ubsan_on_report(void) {
 	debug_printf(2, "__ubsan_on_report\n");
 
-#if __UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__ && __CLANG_VERSION_MAJOR__ >= 7 
+#if __UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__ && __CLANG_VERSION_MAJOR__ >= 7
 	char *OutIssueKind;
 	char *OutMessage;
 	char *OutFilename;
@@ -157,7 +159,7 @@ void __ubsan_on_report(void) {
 	snprintf(buffer[3], sizeof buffer[3], "DCC_UBSAN_ERROR_LINE=%u", OutLine);
 	snprintf(buffer[4], sizeof buffer[4], "DCC_UBSAN_ERROR_COL=%u", OutCol);
 	snprintf(buffer[5], sizeof buffer[5], "DCC_UBSAN_ERROR_MEMORYADDR=%s", OutMemoryAddr);
-	for (int i = 0; i < sizeof buffer/sizeof buffer[0]; i++) 
+	for (int i = 0; i < sizeof buffer/sizeof buffer[0]; i++)
 		putenv(buffer[i]);
 #endif
 	_explain_error();
@@ -179,8 +181,8 @@ static void set_signals_default(void) {
 	signal(SIGXFSZ, SIG_DFL);
 	signal(SIGFPE, SIG_DFL);
 	signal(SIGILL, SIG_DFL);
-	signal(SIGPIPE, SIG_DFL); 
-	signal(SIGUSR1, SIG_IGN); 
+	signal(SIGPIPE, SIG_DFL);
+	signal(SIGUSR1, SIG_IGN);
 }
 
 static void __dcc_signal_handler(int signum) {
@@ -201,11 +203,11 @@ static void __dcc_signal_handler(int signum) {
 	__dcc_error_exit();
 #endif
 #endif
-	
+
 	char signum_buffer[64];
 	snprintf(signum_buffer, sizeof signum_buffer, "DCC_SIGNAL=%d", (int)signum);
 	putenvd(signum_buffer); // less likely? to trigger another error than direct setenv
-	
+
 	_explain_error();// not reached
 }
 
@@ -253,7 +255,7 @@ static void _explain_error(void) {
 	__dcc_error_exit();
 }
 
-#if !__STACK_USE_AFTER_RETURN__ 
+#if !__STACK_USE_AFTER_RETURN__
 static void _memset_shim(void *p, int byte, size_t size) NO_SANITIZE
 #if __has_attribute(noinline)
 __attribute__((noinline))
@@ -262,25 +264,6 @@ __attribute__((noinline))
 __attribute__((optnone))
 ;
 #endif
-
-int scanf(const char *format, ...) {
-    va_list arg;
-    va_start(arg, format);
-    int n = vscanf(format, arg);
-    va_end(arg);
-	quick_clear_stack();
-    return n;
-}
-
-int printf(const char *format, ...) {
-    va_list arg;
-    va_start(arg, format);
-    int n = vprintf(format, arg);
-    va_end(arg);
-    fflush(stdout);
-	quick_clear_stack();
-    return n;
-}
 
 
 // hack to initialize (most of) stack to 0xbe
@@ -324,7 +307,7 @@ static void setenvd_int(char *n, int v) {
 
 static void putenvd(char *s) {
 	putenv(s);
-	debug_printf(2, "putenv %s\n", s);
+	debug_printf(2, "putenv '%s'\n", s);
 }
 
 static int debug_printf(int level, const char *format, ...) {

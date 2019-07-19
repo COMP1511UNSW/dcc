@@ -13,25 +13,22 @@
 #undef unlink
 #undef write
 
-#define ADDRESS 			1 
+#define ADDRESS 			1
 #define MEMORY				2
 #define VALGRIND			3
 
-#if __N_SANITIZERS__ > 1
 // to get fopencookie
 #define _GNU_SOURCE
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <signal.h>
-
 #include <unistd.h>
+#include <stdint.h>
 
 #if __N_SANITIZERS__ > 1
-#include <stdint.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #endif
@@ -80,6 +77,7 @@ static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]);
 // displayed in user calls stack
 //
 
+static void init_cookies(void);
 
 #if __N_SANITIZERS__ == 1
 
@@ -95,7 +93,6 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 
 static int to_sanitizer2_pipe[2];
 static int from_sanitizer2_pipe[2];
-static FILE *get_cookie(FILE *f, const char *mode);
 
 #if __I_AM_SANITIZER2__
 
@@ -104,21 +101,13 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	to_sanitizer2_pipe[0] = atoi(getenv("DCC_PIPE_TO_CHILD"));
 	from_sanitizer2_pipe[1] = atoi(getenv("DCC_PIPE_FROM_CHILD"));
 	argv[0] = getenv("DCC_ARGV0");
-	stdin = get_cookie(stdin, "r");
-	stdout = get_cookie(stdout, "w");
-	stderr = get_cookie(stderr, "w");
-	
-	// in absence of portable way to determine appropriate buffering
-	// this should be workable
-	setlinebuf(stdin); 
-	setlinebuf(stdout); 
-	setbuf(stderr, NULL); 
+	init_cookies();
 	clear_stack();
 	exit(__real_main(argc, argv, envp));
 	return 1; // not reached
 }
 
-#else 
+#else
 
 static pid_t sanitizer2_pid;
 
@@ -173,21 +162,11 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	return 1; // not reached
 }
 
-FILE *get_cookie(FILE *f, const char *mode);
-
 static void __dcc_main_sanitizer1(int argc, char *argv[], char *envp[]) {
 	debug_printf(2, "main sanitizer1\n");
 	close(to_sanitizer2_pipe[0]);
 	close(from_sanitizer2_pipe[1]);
-	debug_stream = stderr;
-	stdin = get_cookie(stdin, "r");
-	stdout = get_cookie(stdout, "w");
-	stderr = get_cookie(stderr, "w");
-	// in absence of portable way to determine appropriate buffering
-	// this should be workable
-	setlinebuf(stdin); 
-	setlinebuf(stdout); 
-	setbuf(stderr, NULL); 
+
 	exit(__dcc_run_sanitizer1(argc, argv, envp));
 }
 
@@ -200,7 +179,7 @@ static void __dcc_main_sanitizer2(int argc, char *argv[], char *envp[], char *sa
 	setenvd_int("DCC_PIPE_FROM_CHILD", from_sanitizer2_pipe[1]);
 	setenvd("DCC_ARGV0", argv[0]);
 	setenvd("DCC_BINARY", sanitizer2_executable_pathname);
-	
+
 #if __SANITIZER_2__ != VALGRIND
 	execvp(sanitizer2_executable_pathname, argv);
 	debug_printf(1, "execvp %s failed", sanitizer2_executable_pathname);
@@ -214,8 +193,10 @@ static void __dcc_main_sanitizer2(int argc, char *argv[], char *envp[], char *sa
 #endif
 
 
+
 static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]) {
 #if __SANITIZER__ != VALGRIND
+	init_cookies();
 	clear_stack();
 	return __real_main(argc, argv, envp);
 #else
@@ -226,7 +207,7 @@ static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]) {
 		// valgrind errors get reported earlier if we unbuffer stdout
 		// otherwise uninitialized variables may not be detected until fflush when program exits
 		// which produces poor error message
-		setbuf(stdout, NULL);		   
+		init_cookies();
 		debug_printf(2, "running __real_main\n");
 		clear_stack();
 		int r = __real_main(argc, argv, envp);
