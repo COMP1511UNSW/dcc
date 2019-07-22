@@ -9,7 +9,7 @@ done
 tests_dir=$(dirname $(readlink -f $0))
 cd "$tests_dir"
 
-trap 'rm -fr tmp* a.out;exit' EXIT INT TERM
+trap 'exit_status=$?;rm -fr tmp* a.out;exit $exit_status' EXIT INT TERM
 
 # some values reported in errors are not determinate (e.g. variable addresses)
 # and will vary between execution and definitely between platforms

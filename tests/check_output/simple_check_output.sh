@@ -19,12 +19,12 @@ function run_test {
 	test_number=$((test_number + 1))
 
 	(
-		echo "*** Test $test_number - $label"
-		echo "*** Test Environment $environment_variables"
-		echo "expected output: $DCC_EXPECTED_STDOUT"
-		echo "actual output  : $actual_output"
+		echo "*** Test $test_number - $label" 1>&2
+		echo "*** Test Environment $environment_variables" 1>&2
+		echo "expected output: $DCC_EXPECTED_STDOUT" 1>&2
+		echo "actual output  : $actual_output" 1>&2
 		
-		eval "$environment_variables"' ./a.out "$actual_output"'
+		eval "$environment_variables"' ./a.out "$actual_output" >/dev/null'
 		exit_status=$?
 		
 		case "$label" in
@@ -34,7 +34,7 @@ function run_test {
 		
 		if (((exit_status != 0)  != $expected_result_status))
 		then
-			echo "*** Test failed ***"
+			echo "*** Test failed ***" 1>&2
 			exit 1
 		fi
 	) || exit 1
@@ -68,5 +68,5 @@ run_test compare-only-characters-3-fail "DCC_COMPARE_ONLY_CHARACTERS=hel"       
 run_test compare-only-characters-4      "DCC_IGNORE_CASE=1 DCC_COMPARE_ONLY_CHARACTERS=hel" $'Hell\n'
 
 
-echo All Tests Correct
+echo All Tests Correct 1>&2
 

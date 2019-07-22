@@ -1,0 +1,9 @@
+tests/extracted_compile_time_errors/logical-and-always-false.c: In function ‘main’:
+tests/extracted_compile_time_errors/logical-and-always-false.c:3:15: warning: logical ‘and’ of mutually exclusive tests is always false [-Wlogical-op]
+  if (argc > 1 && argc < 1)
+               ^~[0m
+dcc explanation: Your '&&' expression is always false, no matter what value variables have.
+Perhaps you meant to use '||' ?
+
+
+

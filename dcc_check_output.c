@@ -11,6 +11,7 @@ static void __dcc_check_close(int fd) {
 }
 
 static void __dcc_check_output_exit(void) {
+	debug_printf(3, "__dcc_cleanup_before_exit\n");
 	fflush(stdout);
 }
 
@@ -26,13 +27,13 @@ static void disable_check_output(void) {
 //lins longer than this will produce an error if output checking enabled
 #define ACTUAL_LINE_MAX 65536
 
+static unsigned char *expected_stdout;
+
 static int ignore_case;
 static int ignore_empty_lines;
 static int ignore_trailing_white_space;
 static int ignore_characters[N_ASCII];
 static int max_stdout_bytes;
-
-static unsigned char *expected_stdout;
 
 static int getenv_boolean(const char *name, int default_value);
 
@@ -117,8 +118,9 @@ static void __dcc_check_close(int fd) {
 }
 
 static void __dcc_check_output_exit(void) {
-	fflush(stdout);
+	debug_printf(3, "__dcc_cleanup_before_exit\n");
 	if (expected_stdout) {
+		fflush(stdout);
 		__dcc_check_all_output_seen_at_exit();
 	}
 }

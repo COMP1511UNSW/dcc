@@ -374,7 +374,12 @@ def parse_gdb_stack_frame(line):
 	debug_print(3, 'parse_gdb_stack_frame', m != None, line)
 	if m:
 		filename = m.group('filename')
-		if filename.startswith("/usr/") or filename.startswith("../sysdeps/") or filename.endswith("libioP.h"): 
+		if (
+			filename.startswith("/usr/") or
+			filename.startswith("../sysdeps/") or
+			filename.endswith("libioP.h") or 
+			filename.endswith("iofclose.c") 
+		   ): 
 			m = None
 	if m:
 		return Location(m.group('filename'), m.group('line_number'), function=m.group('function'), params=m.group('params'), frame_number=m.group('frame_number'))

@@ -1,5 +1,6 @@
 
-tests/run_time_errors/uninitialized-array-element-if.c:9 runtime error uninitialized variable used
+Runtime error: uninitialized variable accessed.
+
 Execution stopped here in main() in tests/run_time_errors/uninitialized-array-element-if.c at line 9:
 
 	int a[1000];

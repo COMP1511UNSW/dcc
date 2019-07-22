@@ -79,12 +79,14 @@ class Explanation():
 		if colorize_output:
 			color = colors.color
 		else:
-			color = lambda text, color_name: text
+			color = lambda text, *args, **kwargs: text
 
 		parameters = dict((name, getattr(message, name)) for name in dir(message) if not name.startswith('__'))
 		parameters['match'] = match
 		parameters['color'] = color
-		parameters['emphasize'] = lambda text: color(text, 'red')
+		parameters['emphasize'] = lambda text: color(text, style='bold')
+		parameters['danger'] = lambda text: color(text, color='red', style='bold')
+		parameters['info'] = lambda text: color(text, 'cyan', style='bold')
 		return eval('f"' + self.explanation.replace('\n', '\\n') +'"',  globals(), parameters)
 
 explanations = [
@@ -450,13 +452,137 @@ int main(void) {
 		
 		regex = r"indirection requires pointer operand \('(.*)' invalid\)",
 		
-		explanation = """ you are trying to use '{emphasize(underlined_word)}' as a pointer.
+		explanation = """You are trying to use '{emphasize(underlined_word)}' as a pointer.
   You can not do this because '{emphasize(underlined_word)}' is of type {emphasize(match.group(1))}.
 """,
 		
 		reproduce = """
 int main(int argc, char *argv[]) {
 	return *argc;
+}
+""",
+	),
+	
+	Explanation(
+		label = 'duplicated-cond',
+		
+		regex = r"duplicated .*\bif\b.* condition",
+		
+		explanation = """You have repeated the same condition in a chain of if statements.
+Only the first if statement using the condition can be executed.
+The others can never be executed.
+
+""",
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	if (argc == 1)
+		return 42;
+	else if (argc == 1)
+    	return 43;
+ 	else
+		return 44;
+}
+""",
+	),
+	
+	Explanation(
+		label = 'duplicated-branches',
+		
+		regex = r"condition has identical branches",
+		
+		explanation = """Your if statement has identical then and else parts.
+It is pointless to have an if statement which executes the same code
+when its condition is true and also when its condition is false.
+
+""",
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	if (argc == 1)
+		return 42;
+	else 
+    	return 42;
+}
+""",
+	),
+	
+	Explanation(
+		label = 'logical-or-always-true',
+		
+		regex = r"logical .?\bor\b.* is always true",
+		
+		explanation = """Your '{emphasize('||')}' expression is always true, no matter what value variables have.
+Perhaps you meant to use '{emphasize('&&')}' ?
+
+""",
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	if (argc > 1 || argc < 3)
+		return 42;
+	else 
+    	return 43;
+}
+""",
+	),
+	
+	Explanation(
+		label = 'logical-and-always-false',
+		
+		regex = r"logical .?\band\b.* is always false",
+		
+		explanation = """Your '{emphasize('&&')}' expression is always false, no matter what value variables have.
+Perhaps you meant to use '{emphasize('||')}' ?
+
+""",
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	if (argc > 1 && argc < 1)
+		return 42;
+	else 
+    	return 43;
+}
+""",
+	),
+	
+	Explanation(
+		label = 'logical-equal-expressions',
+		
+		regex = r"logical .?((and|or)).? of equal expressions",
+		
+		explanation = """Your have used '{emphasize(highlighted_word)}' with same lefthand and righthand operands.
+If this what you meant, it can be simplified: {emphasize('x ' + highlighted_word + ' x')} can be replaced with just {emphasize('x')}.
+
+""",
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	if (argc > 1 ||argc > 1)
+		return 42;
+	else 
+    	return 43;
+}
+""",
+	),
+	
+	Explanation(
+		label = 'shadow-local-variable',
+		
+		regex = r"declaration shadows a local variable",
+		
+		explanation = """Your already have a variable named '{emphasize(highlighted_word)}'.
+It is confusing to have a second overlapping declaration of the same variable name.
+
+""",
+		
+		reproduce = """
+int main(int argc, char *argv[]) {
+	{
+		int argc = 42;
+		return argc;
+	}
 }
 """,
 	),

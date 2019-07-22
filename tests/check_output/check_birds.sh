@@ -12,11 +12,11 @@ export DCC_EXPECTED_STDOUT="  ___
 
 for bird in "$bird_directory"/bird-*.c
 do
-	basename "$bird"
+	basename "$bird" 1>&2
 	$dcc "$bird"
-	./a.out || continue
-	echo "Test $bird failed" 
+	./a.out >/dev/null || continue
+	echo "Test $bird failed" 1>&2
 	exit 1
 done
-echo "All Tests Correct"
+echo "All Tests Correct" 1>&2
 exit 0

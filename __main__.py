@@ -33,7 +33,7 @@ def main():
 	signal.signal(signal.SIGINT, handler)
 	debug = int(os.environ.get('DCC_DEBUG', '0'))
 	colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
-	if debug: print(sys.argv, 'DCC_RUN_INSIDE_GDB="%s" DCC_PID="%s"' % (os.environ.get('DCC_RUN_INSIDE_GDB', ''), os.environ.get('DCC_PID', '')), file=sys.stderr)
+	if debug > 1: print(sys.argv, 'DCC_RUN_INSIDE_GDB="%s" DCC_PID="%s"' % (os.environ.get('DCC_RUN_INSIDE_GDB', ''), os.environ.get('DCC_PID', '')), file=sys.stderr)
 	if not sys.argv[1:] and 'DCC_RUN_INSIDE_GDB' in os.environ:
 		drive_gdb()
 	elif not sys.argv[1:] and 'DCC_PID' in os.environ:

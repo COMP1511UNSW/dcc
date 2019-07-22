@@ -162,6 +162,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	return 1; // not reached
 }
 
+
 static void __dcc_main_sanitizer1(int argc, char *argv[], char *envp[]) {
 	debug_printf(2, "main sanitizer1\n");
 	close(to_sanitizer2_pipe[0]);
