@@ -2,8 +2,7 @@
 
 import copy, re, sys
 import colors
-
-DEFAULT_EXPLANATION_URL = "https://comp1511unsw.github.io/dcc/"
+from drive_gdb import explanation_url
 
 def get_explanation(message, colorize_output):
 	for e in explanations:
@@ -55,7 +54,7 @@ class Explanation():
 	def get(self, message, colorize_output):
 		explanation = self.get_short_explanation(message, colorize_output)
 		if explanation and (self.long_explanation or self.long_explanation_url):
-			url = self.long_explanation_url or DEFAULT_EXPLANATION_URL + self.label + '.html'
+			url = self.long_explanation_url or explanation_url(self.label)
 			explanation += "\n  See more information here: " + url
 		return explanation
 
@@ -479,8 +478,8 @@ int main(int argc, char *argv[]) {
 	if (argc == 1)
 		return 42;
 	else if (argc == 1)
-    	return 43;
- 	else
+		return 43;
+	else
 		return 44;
 }
 """,
@@ -502,7 +501,7 @@ int main(int argc, char *argv[]) {
 	if (argc == 1)
 		return 42;
 	else 
-    	return 42;
+		return 42;
 }
 """,
 	),
@@ -522,7 +521,7 @@ int main(int argc, char *argv[]) {
 	if (argc > 1 || argc < 3)
 		return 42;
 	else 
-    	return 43;
+		return 43;
 }
 """,
 	),
@@ -542,7 +541,7 @@ int main(int argc, char *argv[]) {
 	if (argc > 1 && argc < 1)
 		return 42;
 	else 
-    	return 43;
+		return 43;
 }
 """,
 	),
@@ -562,7 +561,7 @@ int main(int argc, char *argv[]) {
 	if (argc > 1 ||argc > 1)
 		return 42;
 	else 
-    	return 43;
+		return 43;
 }
 """,
 	),

@@ -1,6 +1,6 @@
-import os, re, sys, signal, subprocess
+import os, re, sys, signal
 from start_gdb import start_gdb
-from drive_gdb import DEFAULT_EXPLANATION_URL
+from drive_gdb import explanation_url
 import colors
 
 # valgrind is being used - we have been invoked via the binary to watch for valgrind errors
@@ -41,7 +41,7 @@ Main is returning an uninitialized value or exit has been passed an uninitialize
 You have used a pointer to a local variable that no longer exists.
 When a function returns its local variables are destroyed.
 
-For more information see: {DEFAULT_EXPLANATION_URL}/stack_use_after_return.html'
+For more information see: {explanation_url("stack_use_after_return")}'
 """
 			os.environ['DCC_VALGRIND_ERROR'] = error
 			print('\n' + error, file=sys.stderr)

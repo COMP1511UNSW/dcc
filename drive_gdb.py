@@ -1,8 +1,6 @@
 import collections, os, platform, re, sys, signal, traceback
-from explain_output_difference import explain_output_difference
+from explain_output_difference import explain_output_difference, explanation_url
 import colors
- 
-DEFAULT_EXPLANATION_URL = "https://comp1511unsw.github.io/dcc/"
 
 #
 # Code below is executed from gdb.
@@ -85,11 +83,11 @@ def explain_error(output_stream, color):
 		print("runtime error",  color("uninitialized variable used", 'red'),  file=output_stream)
 
 	if loc:
-		print(explain_location(loc, color), file=output_stream)
+		print(explain_location(loc, color), end='', file=output_stream)
 		print(relevant_variables(loc.surrounding_source(color, clean=True), color), end='', file=output_stream)
 
 	if (len(stack) > 1):
-		print(color('Function Call Traceback', 'cyan'), file=output_stream)
+		print(color('\nFunction Call Traceback', 'cyan'), file=output_stream)
 		for (frame, caller) in zip(stack, stack[1:]):
 			print(frame.function_call(color), 'called at line', color(caller.line_number, 'red'), 'of', color(caller.filename, 'red'), file=output_stream)
 		print(stack[-1].function_call(color), file=output_stream)
@@ -126,7 +124,7 @@ def explain_ubsan_error(loc, output_stream, color):
 	
 	source = ''
 	if loc:
-		source = loc.source_line(clean=True)
+		source = clean_c_source(loc.source_line())
 			
 	debug_print(3, 'source', source)
 	explanation = None
@@ -244,7 +242,7 @@ def explain_asan_error(loc, output_stream, color):
 		print(prefix, """You have used a pointer to a local variable that no longer exists.
   When a function returns its local variables are destroyed.
 """, file=output_stream)
-		print('For more information see:', DEFAULT_EXPLANATION_URL + '/stack_use_after_return.html', file=output_stream)
+		print('For more information see:', explanation_url('stack_use_after_return'), file=output_stream)
 	elif "use after" in report:
 		print(prefix, "access to memory that has already been freed.\n", file=output_stream)
 	elif "double free" in report:
@@ -290,19 +288,45 @@ class Location():
 		return self.function_call(color) + ' in ' + self.location(color)
 
 	def long_description(self, color):
-		return  'in ' + self.short_description(color) + ':\n\n' + self.surrounding_source(color, markMiddle=True)
+		where =  'in ' + self.short_description(color)
+		source = self.surrounding_source(color, markMiddle=True)
+		if source:
+			where +=  ':\n\n' + source
+		return where
+		
+	def source_line(self):
+		return fileline(self.filename, self.line_number)
 
-	def source_line(self, clean=False):
-		return fileline(self.filename, self.line_number, clean)
 
 	def surrounding_source(self, color, radius=2, clean=False, markMiddle=False):
-		source = ''
-		for offset in range(-radius, radius+1):
-			line = fileline(self.filename, self.line_number+offset, clean=clean)
-			if markMiddle and offset == 0:
+		lines = []
+		marked_line = None
+		for offset in range(-3*radius, 2*radius):
+			line = fileline(self.filename, self.line_number+offset)
+
+			if re.match(r'^\S', line) and offset < 0:
+				lines = []
+
+			if markMiddle and offset == 0 and line :
+				marked_line = line
 				line = color(re.sub(r'^ {0,3}', '-->', line), 'red')
-			source += line
-		return source
+				
+			lines.append(clean_c_source(line) if clean else line)
+			
+			if re.match(r'^\S', line) and offset > 0:
+				break
+
+		while lines and re.match(r'^\s*$', lines[0]):
+			lines.pop(0)
+
+		while lines and re.match(r'^\s*$', lines[-1]):
+			lines.pop()
+
+		if len(lines) == 1 and not marked_line:
+			return ''
+
+		return ''.join(lines).rstrip('\n') + '\n'
+
 
 	def is_user_location(self):
 		if not re.match(r'^[a-zA-Z]', self.function): return False 
@@ -311,25 +335,18 @@ class Location():
 		return True
 	  
 	
-def fileline(filename, line_number, clean=False):
+def fileline(filename, line_number):
 	line_number = int(line_number)
-	if filename in source:
-		if line_number < 0 or line_number > len(source[filename]):
-			return ''
-		if clean:
-			return clean_c_source(source[filename][line_number - 1])
-		return source[filename][line_number - 1]
 	try:
+		if filename in source:
+			return source[filename][line_number - 1]
 		with open(filename, encoding='utf-8', errors='replace') as f:
 			source[filename] = f.readlines()
 			for line in source[filename]:
 				m = re.match(r'^\s*#\s*define\s*(\w+)\s*(.*\S)', line)
 				if m:
 					hash_define[filename][m.group(1)] = (line.rstrip(), m.group(2))
-		line = source[filename][line_number - 1].rstrip() + "\n"
-		if clean:
-			line = clean_c_source(line)
-		return line
+		return source[filename][line_number - 1].rstrip() + "\n"
 	except IOError:
 		debug_print(2, "fileline error can not open: %s" % (filename))
 	except IndexError:
@@ -378,7 +395,8 @@ def parse_gdb_stack_frame(line):
 			filename.startswith("/usr/") or
 			filename.startswith("../sysdeps/") or
 			filename.endswith("libioP.h") or 
-			filename.endswith("iofclose.c") 
+			filename.endswith("iofclose.c") or
+			filename.startswith("<") 
 		   ): 
 			m = None
 	if m:
@@ -432,7 +450,7 @@ def relevant_variables(c_source, color, arrays=[]):
 		except RuntimeError as e:
 			debug_print(2, 'print_variables_expressions: RuntimeError', e)
 	if explanation:
-		prefix = color('Values when execution stopped:', 'cyan')
+		prefix = color('\nValues when execution stopped:', 'cyan')
 		explanation = prefix + '\n\n' + explanation
 	return explanation
 
@@ -579,12 +597,13 @@ def explain_location(loc, color):
 	if not isinstance(loc, Location):
 		return "Execution stopped at '%s'" % (loc)
 	else:
-		return 'Execution stopped here ' + loc.long_description(color)
+		return 'Execution stopped ' + loc.long_description(color)
 
 def debug_print(level, *args, **kwargs):
 	if debug_level >= level:
 		kwargs['file'] = sys.stderr
 		print(*args, **kwargs)
+ 
 	
 if __name__ == '__main__':
 	drive_gdb()
