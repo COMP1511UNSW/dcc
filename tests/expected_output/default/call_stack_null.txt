@@ -1,4 +1,8 @@
-tests/run_time_errors/call_stack_null.c:5:11: runtime error: load of null pointer of type 'int'
+
+tests/run_time_errors/call_stack_null.c:5:11: runtime error - accessing a value via a NULL pointer
+
+dcc explanation: You are using a pointer which is NULL
+  A common error is accessing *p or p[index] when p == NULL.
 
 Execution stopped in f3(a=NULL) in tests/run_time_errors/call_stack_null.c at line 5:
 

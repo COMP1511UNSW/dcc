@@ -1,6 +1,8 @@
-tests/run_time_errors/call_stack_uninitialized.c:4:9: runtime error: load of misaligned address 0x<deleted-hexadecimal-constant> for type 'int', which requires 4 byte alignment
-0x<deleted-hexadecimal-constant>: note: pointer points here
-<memory cannot be printed>
+
+tests/run_time_errors/call_stack_uninitialized.c:4:9: runtime error - accessing a value via a uninitialized pointer
+
+dcc explanation: You are using a pointer which has not been initialized
+  A common error is accessing *p without first assigning a value to p.
 
 Execution stopped in f3(a=<uninitialized value>) in tests/run_time_errors/call_stack_uninitialized.c at line 4:
 

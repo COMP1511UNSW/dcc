@@ -1,7 +1,0 @@
-tests/extracted_compile_time_errors/missing_semicolon_line_before_assert.c:6:2: error: called object type 'int' is not a function or function pointer
-        assert(i == 10);
-        ^
- expanded from macro 'assert'
-  ((void) sizeof ((expr) ? 1 : 0), __extension__ ({                     \
-  ^[0m
-dcc explanation: there is probably a syntax error such as missing semi-colon on line 5 of tests/extracted_compile_time_errors/missing_semicolon_line_before_assert.c or an earlier line

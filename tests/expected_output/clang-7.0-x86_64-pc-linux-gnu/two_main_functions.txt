@@ -1,5 +1,0 @@
-
- first defined here
-clang: error: linker command failed with exit code 1 (use -v to see invocation)
-dcc explanation: Your program contains more than one main function - a C program can only contain one main function.
-

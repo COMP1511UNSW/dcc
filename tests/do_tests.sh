@@ -35,8 +35,9 @@ cd ../..
 clang_version=$($c_compiler -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
 platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
 
-expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
-mkdir -p $expected_output_dir
+version_expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
+default_expected_output_dir="$tests_dir/expected_output/default"
+mkdir -p "$version_expected_output_dir" "$default_expected_output_dir"
 test_failed=0
 
 for src_file in tests/extracted_compile_time_errors/*.c tests/compile_time_errors/*.c tests/run_time_errors/*.* tests/run_time_no_errors/*.* tests/check_output/*.sh
@@ -54,14 +55,14 @@ do
 			dcc_flags=
 			suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/ /_/g;s/["$]//g;s/src_file//'`
 			eval $compile_options
-			expected_output_file="$expected_output_dir/`basename $src_file .c`$suffix.txt"
+			expected_output_file="`basename $src_file .c`$suffix.txt"
 			#echo "$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file"
 			"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
 			test ! -s tmp.actual_stderr && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
 			;;
 
 		*.sh)
-			expected_output_file="$expected_output_dir/`basename $src_file .sh`.txt"
+			expected_output_file="`basename $src_file .sh`.txt"
 			$src_file </dev/null   2>tmp.actual_stderr >/dev/null
 			;;
 			
@@ -93,34 +94,58 @@ do
 			actual_output_file=tmp.actual_stderr
 		esac
 		
-		if test ! -e "$expected_output_file"
+version_expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
+default_expected_output_dir="$tests_dir/expected_output/default"
+
+		default_expected_output="$default_expected_output_dir/$expected_output_file"
+		version_expected_output="$version_expected_output_dir/$expected_output_file"
+		
+		sed -e "$REMOVE_NON_DETERMINATE_VALUES"  $actual_output_file >tmp.corrected_output
+		
+		if test ! -e "$default_expected_output"
 		then
 			echo
-			echo "'$expected_output_file' does not exist, creating with these contents:"
+			echo "'$default_expected_output' does not exist, creating with these contents:"
 			echo
 			cat "$actual_output_file"
-			sed "$REMOVE_NON_DETERMINATE_VALUES" $actual_output_file >"$expected_output_file"
+			cp  tmp.corrected_output "$default_expected_output"
 			echo
-			echo "if above is not correct output for this test: rm '$expected_output_file' "
+			echo "if above is not correct output for this test: rm '$default_expected_output' "
 			continue
 		fi 
 	
-		sed -e "$REMOVE_NON_DETERMINATE_VALUES"  $actual_output_file >tmp.corrected_output
-		if diff -iBw "$expected_output_file" tmp.corrected_output >/dev/null
+		
+		expected="$default_expected_output"
+		test -r "$version_expected_output" && expected="$default_expected_output"
+		
+		if diff -iBw "$expected" tmp.corrected_output >/dev/null
 		then
 			echo -n .
-		else
-			echo
-			echo "Test dcc $dcc_flags  failed output different to expected - rm '$expected_output_file' if output is correct"
-			echo Differences are:
-			echo
-			diff -u  -iBw "$expected_output_file" tmp.corrected_output
-			echo
-			echo "if output is correct: rm '$expected_output_file'"
-			test_failed=1
 			continue
 		fi
+		
+		
+		echo
+		echo "Test dcc $dcc_flags  failed - output different to expected"
+		echo Differences are:
+		echo
+		diff -u  -iBw "$expected" tmp.corrected_output
+		echo
+		echo "Enter u to update expected output."
+		echo "Enter p to create plaform-specific  expected output."
+		
+		echo -n "Action? "
+		read response
+		case "$response" in
+		u)
+			cp  tmp.corrected_output "$default_expected_output"
+			;;
+		p)
+			cp  tmp.corrected_output "$version_expected_output"
+			;;
+		*)
+			exit 1
+		esac
 	done
 done
-test $test_failed = 0 && echo && echo All tests passed
-exit $test_failed
+echo All tests passed

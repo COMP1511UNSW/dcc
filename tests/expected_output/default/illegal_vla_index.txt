@@ -1,4 +1,9 @@
-tests/run_time_errors/illegal_vla_index.c:3:2: runtime error: index 1000 out of bounds for type 'int [600 + argc]'
+
+tests/run_time_errors/illegal_vla_index.c:3:2: runtime error - index 1000 out of bounds for type 'int [600 + argc]'
+
+dcc explanation: You are using an illegal array index: 1000
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
 
 Execution stopped in main() in tests/run_time_errors/illegal_vla_index.c at line 3:
 
