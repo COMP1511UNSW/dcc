@@ -7,6 +7,7 @@ static int init_check_output(void) {
 }
 
 static void __dcc_check_output(int fd, const char *buf, size_t size) {
+	expected_stdout = (unsigned char *)getenv("DCC_EXPECTED_STDOUT");
 }
 
 static void __dcc_check_close(int fd) {

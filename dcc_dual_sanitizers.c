@@ -138,6 +138,7 @@ struct system_call {
 static int synchronization_terminated;
 
 static void disconnect_sanitizers(void) {
+	debug_printf(2, "disconnect_sanitizers()\n");
 	if (synchronization_terminated) {
 		return;
 	}
@@ -206,8 +207,8 @@ static void stop_sanitizer2(void) {
 
 static void synchronization_failed(void) {
 	debug_printf(1, "warning: sanitizer synchronization lost\n");
-	if (debug_level > 1) {
-		debug_printf(2, "sleeping for 3600 seconds because in debug mode\n");
+	if (debug_level > 3) {
+		debug_printf(3, "sleeping for 3600 seconds because in debug mode\n");
 		sleep(3600);
 	}
 	stop_sanitizer2();
@@ -219,7 +220,7 @@ static void synchronization_failed(void) {
 static void synchronize_system_call(enum which_system_call which, int64_t n) {
 	debug_printf(3, "synchronize_system_call(%s, %d)\n", system_call_names[which], (int)n);
 	if (synchronization_terminated) {
-		debug_printf(2, "synchronization_terminated\n");
+		debug_printf(2, "synchronize_system_calls - synchronization_terminated\n");
 #if __I_AM_SANITIZER2__
 		__dcc_error_exit();
 #endif
@@ -261,7 +262,7 @@ static int64_t synchronize_system_call_result(enum which_system_call which
 	, int64_t return_value) {
 	debug_printf(3, "synchronize_system_call_result(%s, %d)\n", system_call_names[which], (int)return_value);
 	if (synchronization_terminated) {
-		debug_printf(2, "synchronization_terminated\n");
+		debug_printf(2, "synchronize_system_call_result - synchronization_terminated\n");
 #if __I_AM_SANITIZER2__
 		__dcc_error_exit();
 #endif

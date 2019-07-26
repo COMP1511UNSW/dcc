@@ -15,13 +15,61 @@ Execution failed because program produced no output.
 The first expected line was:
 Hello!
 
-*** Test 3 - trailing-white-space-1
+*** Test 3 - one-byte-missing-fail
+*** Test Environment 
+expected output: Hello!
+
+actual output  : Hello
+
+
+Execution stopped because of an incorrect output line.
+Byte 6 of line 1 of program output was incorrect.
+A '!' was missing from the end of the output line.
+The correct output line was:
+Hello!
+Your program printed this line:
+Hello
+
+Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc =  <deleted-value>
+argv[1] =  <deleted-value>
+*** Test 4 - two-bytes-missing-fail
+*** Test Environment 
+expected output: Hello!
+
+actual output  : Hell
+
+
+Execution stopped because of an incorrect output line.
+Byte 5 of line 1 of program output was incorrect.
+The characters you printed were correct, but more characters were expected.
+The correct output line was:
+Hello!
+Your program printed this line:
+Hell
+
+Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc =  <deleted-value>
+argv[1] =  <deleted-value>
+*** Test 5 - trailing-white-space-1
 *** Test Environment 
 expected output: Hello!
 
 actual output  : Hello!   
 
-*** Test 4 - trailing-white-space-2-fail
+*** Test 6 - trailing-white-space-2-fail
 *** Test Environment DCC_IGNORE_TRAILING_WHITE_SPACE=0
 expected output: Hello!
 
@@ -44,7 +92,7 @@ Values when execution stopped:
 
 argc =  <deleted-value>
 argv[1] =  <deleted-value>
-*** Test 5 - extra-new-line-1-fail
+*** Test 7 - extra-new-line-1-fail
 *** Test Environment 
 expected output: Hello!
 
@@ -65,14 +113,14 @@ Values when execution stopped:
 
 argc =  <deleted-value>
 argv[1] =  <deleted-value>
-*** Test 6 - extra-new-line-2
+*** Test 8 - extra-new-line-2
 *** Test Environment DCC_IGNORE_EMPTY_LINES=1
 expected output: Hello!
 
 actual output  : Hello!
 
 
-*** Test 7 - missing-new-line-1-fail
+*** Test 9 - missing-new-line-1-fail
 *** Test Environment 
 expected output: Hello!
 
@@ -83,7 +131,7 @@ Your program produced all the expected output, except the last newline ('\n') wa
 
 For more information go to https://comp1511unsw.github.io/dcc/missing_newline.html
 
-*** Test 8 - ignore-case-1-fail
+*** Test 10 - ignore-case-1-fail
 *** Test Environment 
 expected output: Hello!
 
@@ -106,13 +154,13 @@ Values when execution stopped:
 
 argc =  <deleted-value>
 argv[1] =  <deleted-value>
-*** Test 9 - ignore-case-2
+*** Test 11 - ignore-case-2
 *** Test Environment DCC_IGNORE_CASE=1
 expected output: Hello!
 
 actual output  : hEllo!
 
-*** Test 10 - ignore-white-space-1-fail
+*** Test 12 - ignore-white-space-1-fail
 *** Test Environment 
 expected output: Hello!
 
@@ -135,19 +183,19 @@ Values when execution stopped:
 
 argc =  <deleted-value>
 argv[1] =  <deleted-value>
-*** Test 11 - ignore-white-space-2
+*** Test 13 - ignore-white-space-2
 *** Test Environment DCC_IGNORE_WHITE_SPACE=1
 expected output: Hello!
 
 actual output  : H ello	!
 
-*** Test 12 - ignore-characters-1
+*** Test 14 - ignore-characters-1
 *** Test Environment DCC_IGNORE_CHARACTERS=+
 expected output: Hello!
 
 actual output  : +++Hello!+++
 
-*** Test 13 - ignore-characters-2-fail
+*** Test 15 - ignore-characters-2-fail
 *** Test Environment DCC_IGNORE_CHARACTERS=lzn
 expected output: Hello!
 
@@ -171,13 +219,13 @@ Values when execution stopped:
 
 argc =  <deleted-value>
 argv[1] =  <deleted-value>
-*** Test 14 - ignore-characters-3
+*** Test 16 - ignore-characters-3
 *** Test Environment DCC_IGNORE_CHARACTERS=lzno!
 expected output: Hello!
 
 actual output  : Hen
 
-*** Test 15 - compare-only-characters-1-fail
+*** Test 17 - compare-only-characters-1-fail
 *** Test Environment DCC_COMPARE_ONLY_CHARACTERS=Hel
 expected output: Hello!
 
@@ -200,13 +248,13 @@ Values when execution stopped:
 
 argc =  <deleted-value>
 argv[1] =  <deleted-value>
-*** Test 16 - compare-only-characters-2
+*** Test 18 - compare-only-characters-2
 *** Test Environment DCC_COMPARE_ONLY_CHARACTERS=el
 expected output: Hello!
 
 actual output  : HiheHilloHi	!
 
-*** Test 17 - compare-only-characters-3-fail
+*** Test 19 - compare-only-characters-3-fail
 *** Test Environment DCC_COMPARE_ONLY_CHARACTERS=hel
 expected output: Hello!
 
@@ -229,7 +277,7 @@ Values when execution stopped:
 
 argc =  <deleted-value>
 argv[1] =  <deleted-value>
-*** Test 18 - compare-only-characters-4
+*** Test 20 - compare-only-characters-4
 *** Test Environment DCC_IGNORE_CASE=1 DCC_COMPARE_ONLY_CHARACTERS=hel
 expected output: Hello!
 

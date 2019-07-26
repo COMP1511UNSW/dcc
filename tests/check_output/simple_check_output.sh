@@ -43,6 +43,8 @@ function run_test {
 run_test default-1                        ""                                                $'Hello!\n'
 
 run_test no-output-1-fail                 ""                                                $''
+run_test one-byte-missing-fail            ""                                                $'Hello\n'
+run_test two-bytes-missing-fail            ""                                               $'Hell\n'
 
 run_test trailing-white-space-1           ""                                                $'Hello!   \n'
 run_test trailing-white-space-2-fail      "DCC_IGNORE_TRAILING_WHITE_SPACE=0"               $'Hello!   \n'

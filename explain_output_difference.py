@@ -122,11 +122,10 @@ def explain_output_difference1(loc, output_stream, color):
 		
 	print("of an", danger('incorrect output line.'), file=output_stream)
 	print('Byte', actual_column + 1, 'of line', line_number, "of program output was incorrect.", file=output_stream)
-
 	if not actual_line[actual_column+1:]:
 		if actual_line.rstrip(b'\n') + expected_byte == expected_line.rstrip(b'\n'):
 			print("A", "'" + danger(sanitize(expected_byte)) + "'", "was missing from the end of the output line.", file=output_stream)
-		else:
+		elif actual_column > 1:
 			print("The characters you printed were correct, but more characters were expected.", file=output_stream)
 	
 	print("The correct output line was:", file=output_stream)
