@@ -1,3 +1,5 @@
+static unsigned char *expected_stdout;
+
 #if !__CHECK_OUTPUT__ || !__I_AM_SANITIZER1__
 
 static int init_check_output(void) {
@@ -11,11 +13,14 @@ static void __dcc_check_close(int fd) {
 }
 
 static void __dcc_check_output_exit(void) {
-	debug_printf(3, "__dcc_cleanup_before_exit\n");
-	fflush(stdout);
+	debug_printf(3, "__dcc_check_output_exit\n");
+	if (expected_stdout) {
+		fflush(stdout);
+	}
 }
 
 static void disable_check_output(void) {
+	expected_stdout = NULL;
 }
 
 #else
@@ -26,8 +31,6 @@ static void disable_check_output(void) {
 
 //lins longer than this will produce an error if output checking enabled
 #define ACTUAL_LINE_MAX 65536
-
-static unsigned char *expected_stdout;
 
 static int ignore_case;
 static int ignore_empty_lines;
@@ -118,7 +121,7 @@ static void __dcc_check_close(int fd) {
 }
 
 static void __dcc_check_output_exit(void) {
-	debug_printf(3, "__dcc_cleanup_before_exit\n");
+	debug_printf(3, "__dcc_check_output_exit\n");
 	if (expected_stdout) {
 		fflush(stdout);
 		__dcc_check_all_output_seen_at_exit();

@@ -141,9 +141,6 @@ static void disconnect_sanitizers(void) {
 	if (synchronization_terminated) {
 		return;
 	}
-	// sanitizer2 sends SIGUSR1 if its printing an error
-	signal(SIGUSR1, SIG_IGN);
-	signal(SIGPIPE, SIG_IGN);
 #if __I_AM_SANITIZER1__
 	close(to_sanitizer2_pipe[1]);
 	close(from_sanitizer2_pipe[0]);
@@ -164,6 +161,9 @@ static void wait_for_sanitizer2_to_terminate(void) {
 	set_signals_default();
 	debug_printf(3, "waiting\n");
 	if (!sanitizer2_killed) {
+		// sanitizer2 sends SIGUSR1 if its printing an error
+		signal(SIGUSR1, SIG_IGN);
+		signal(SIGPIPE, SIG_IGN);
 		pid_t pid = wait(NULL);
 		debug_printf(3, "wait returned %d\n", pid);
 		if (pid != sanitizer2_pid) {

@@ -1,4 +1,4 @@
-Accidentally printing the special **EOF** value returned by the functions _getchar_, _getc_ and _fgetc_.
+Accidentally printing the special **EOF** value returned by the functions _getchar_, _getc_ and _fgetc_ is common bug.
 
 For example, this program prints  the **EOF** value before the loop exits:
 

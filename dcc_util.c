@@ -186,6 +186,7 @@ static void set_signals_default(void) {
 }
 
 static void __dcc_signal_handler(int signum) {
+	debug_printf(2, "received signal %d\n", signum);
 	set_signals_default();
 #if __N_SANITIZERS__ > 1
 #if __I_AM_SANITIZER1__
@@ -196,7 +197,6 @@ static void __dcc_signal_handler(int signum) {
 			__dcc_error_exit();
 		}
 	} else if (signum == SIGUSR1) {
-		debug_printf(2, "received SIGUSR\n");
 		__dcc_error_exit();
 	}
 #else
