@@ -233,6 +233,7 @@ def explain_asan_error(loc, output_stream, color):
   Make sure you have allocated enough memory for the size of your struct/array.
   A common error is to use the size of a pointer instead of the size of the struct or array.
 """, file=output_stream)
+		print('For more information see:', explanation_url('malloc_sizeof'), file=output_stream)
 	if "stack buffer overflow" in report:
 		print(prefix, """access past the end of a local variable.
   Make sure the size of your array is correct.
