@@ -1,3 +1,10 @@
+#if !__CHECK_OUTPUT__ && __N_SANITIZERS__ < 1
+
+static void init_cookies(void) {
+}
+
+#else
+
 #if __I_AM_SANITIZER1__
 struct cookie {
 	FILE *stream;
@@ -542,4 +549,5 @@ static void unlink_sanitizer2_executable() {
 		unlink_done = 1;
 	}
 }
+#endif
 #endif
