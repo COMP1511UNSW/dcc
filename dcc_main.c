@@ -199,7 +199,16 @@ static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]) {
 #if __SANITIZER__ != VALGRIND
 	init_cookies();
 	clear_stack();
-	return __real_main(argc, argv, envp);
+	int r = __real_main(argc, argv, envp);
+
+	// in some circumstances leaks are not detected without this call
+#if __LEAK_CHECK_1_0__ && __SANITIZER__ == ADDRESS
+	extern int __lsan_do_recoverable_leak_check();
+	__lsan_do_recoverable_leak_check();
+#endif
+
+	debug_printf(2, "__real_main returning %d\n", r);
+	return r;
 #else
 	int valgrind_running = getenv("DCC_VALGRIND_RUNNING") != NULL;
 	debug_printf(2, "__wrap_main(valgrind_running=%d)\n", valgrind_running);
@@ -218,7 +227,7 @@ static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]) {
 	launch_valgrind(argc, argv, envp);
 	// if exec fails run program directly
 	int r = __real_main(argc, argv, envp);
-	debug_printf(1, "__real_main returning %d\n", r);
+	debug_printf(2, "__real_main returning %d\n", r);
 	return r;
 #endif
 }
