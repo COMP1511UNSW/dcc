@@ -27,6 +27,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #if __N_SANITIZERS__ > 1
 #include <sys/stat.h>

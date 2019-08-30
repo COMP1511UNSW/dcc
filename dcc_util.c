@@ -5,7 +5,7 @@ static void launch_valgrind(int argc, char *argv[], char *envp[]) {
 	int valgrind_error_fd = 2;
 	if (valgrind_error_pipe) {
 		fwrite(tar_data, sizeof tar_data[0],  sizeof tar_data/sizeof tar_data[0], valgrind_error_pipe);
-    	fflush(valgrind_error_pipe);
+		fflush(valgrind_error_pipe);
 		setbuf(valgrind_error_pipe, NULL);
 		valgrind_error_fd = (int)fileno(valgrind_error_pipe);
 	} else {
@@ -41,7 +41,11 @@ static void launch_valgrind(int argc, char *argv[], char *envp[]) {
 	for (int i = 0; i < valgrind_command_len + argc; i++)
 		debug_printf(3, "valgrind_argv[%d] = %s\n", i, valgrind_argv[i]);
 
+	// assume valgrind is in /usr/bin so bad PATH or no PATH is (mostly) handled
 	execvp("/usr/bin/valgrind", valgrind_argv);
+	// but if exec fails look for it in PATH
+	valgrind_command[0] = "valgrind";
+	execvp("valgrind", valgrind_argv);
 	debug_printf(1, "execvp of /usr/bin/valgrind failed");
 }
 
@@ -250,7 +254,7 @@ static void _explain_error(void) {
 	if (items_written != n_items) {
 		debug_printf(1, "fwrite bad return %d returned %d expected\n", (int)items_written, (int)n_items);
 	}
-	fclose(python_pipe);
+	pclose(python_pipe);
 #endif
 	__dcc_error_exit();
 }
@@ -300,7 +304,7 @@ static void setenvd(char *n, char *v) {
 }
 
 static void setenvd_int(char *n, int v) {
-	char buffer[64];
+	char buffer[64] = {0};
 	snprintf(buffer, sizeof buffer, "%d", v);
 	setenvd(n, buffer);
 }

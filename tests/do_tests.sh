@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 unset CDPATH
 
 for var in $(env|egrep -v 'PATH|LOCALE|LC_|LANG'|grep '^[a-zA-Z0-9_]*='|cut -d= -f1)

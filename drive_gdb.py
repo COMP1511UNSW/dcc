@@ -61,7 +61,7 @@ def gdb_attach():
 		gdb.execute('attach %s' % pid)
 	
 def explain_error(output_stream, color):
-	debug_print(2, 'explain_error() starting')
+	debug_print(2, 'explain_error() in drive_gdb.py starting')
 	# file descriptor 3 is a dup of stderr (see below)
 	# stdout & stderr have been diverted to /dev/null
 	print(file=output_stream)

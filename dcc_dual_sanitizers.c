@@ -82,21 +82,29 @@ FILE *open_cookie(void *cookie, const char *mode) {
 				});
 }
 
+#ifndef getchar
 // if we don't override getchar the fopencookie hooks are sometimes not called - reasons unclear
+// but don't if getchar is a macro
 int getchar(void) {
 	int c = fgetc(stdin);
 	return c;
 }
+#endif
 
+#ifndef putchar
 // if we don't override putchar the fopencookie hooks are sometimes not called - reasons unclear
+// but don't if putchar is a macro
 int putchar(int c) {
 	return fputc(c, stdout);
 }
+#endif
 
+#ifndef puts
 // overriding puts in case this is also needed to ensure fopencookie hooks called
 int puts(const char *s) {
 	return fputs(s, stdout);
 }
+#endif
 
 #if __N_SANITIZERS__ == 1
 
