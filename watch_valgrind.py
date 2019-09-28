@@ -48,6 +48,15 @@ For more information see: {explanation_url("stack_use_after_return")}'
 			sys.stderr.flush()
 			start_gdb()
 			break
+		elif 'Invalid write of size' in line:
+			error = f"""Runtime error: invalid assignment.
+A huge local array can produce this error.
+"""
+			os.environ['DCC_VALGRIND_ERROR'] = error
+			print('\n' + error, file=sys.stderr)
+			sys.stderr.flush()
+			start_gdb()
+			break
 		elif 'loss record' in line:
 			line = sys.stdin.readline()
 			if 'malloc' in line:

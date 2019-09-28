@@ -317,10 +317,10 @@ class Location():
 			if re.match(r'^\S', line) and offset > 0:
 				break
 
-		while lines and re.match(r'^\s*$', lines[0]):
+		while lines and re.match(r'^[\s}]*$', lines[0]):
 			lines.pop(0)
 
-		while lines and re.match(r'^\s*$', lines[-1]):
+		while lines and re.match(r'^[\s{]*$', lines[-1]):
 			lines.pop()
 
 		if len(lines) == 1 and not marked_line:
@@ -437,7 +437,10 @@ def relevant_variables(c_source, color, arrays=[]):
 #	 for array in arrays:
 #		 indices = extract_indices(array, c_source)
 #		 expressions += indices
-	done = set(['NULL', 'char','int', 'double', 'while', 'if', 'else', 'for', 'while', 'return']) # avoid trying to evaluate types/keywords for efficiency
+
+	# avoid trying to evaluate types/keywords for efficiency
+	done = set(['NULL', 'char', 'int', 'double', 'while', 'if', 'else', 'for', 'while', 'return', 'main'])
+
 	explanation = ''
 	debug_print(3, 'relevant_variables expressions=', c_source, expressions)
 	for expression in sorted(expressions, key=lambda e: (len(re.findall(r'\w+', e)), e)):

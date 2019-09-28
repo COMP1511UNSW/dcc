@@ -41,3 +41,16 @@ int main(void) {
 
 }
 ```
+
+This video introduces the concepts underlying malloc:
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/l9D_PSNoxxo" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+This video takes you though using these concepts:
+
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/d1PJKOTjzDs" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
