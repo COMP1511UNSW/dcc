@@ -66,6 +66,8 @@ def compile():
 	if options.incremental_compilation:
 		incremental_compilation_args = sanitizer_args + options.clang_args + options.user_supplied_compiler_args
 		command = [options.c_compiler] + incremental_compilation_args
+		if options.object_pathname != 'a.out':
+			command += ['-o', options.object_pathname]
 		options.debug_print('incremental compilation, running: ', " ".join(command))
 		sys.exit(subprocess.call(command))
 
