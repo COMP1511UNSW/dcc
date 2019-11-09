@@ -402,7 +402,7 @@ def parse_args(commandline_args):
 		if arg.startswith('@'):
 			try:
 				with open(arg[1:]) as argfile:
-					commandline_args = [line[:-1] for line in argfile] + commandline_args
+					commandline_args = [ext_arg for line in argfile for ext_arg in line[:-1].split(' ')] + commandline_args
 				continue
 			except:
 				pass
