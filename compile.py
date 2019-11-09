@@ -400,10 +400,13 @@ def parse_args(commandline_args):
 	while commandline_args:
 		arg = commandline_args.pop(0)
 		if arg.startswith('@'):
-			with open(arg[1:]) as argfile:
-                                commandline_args = [line[:-1] for line in argfile] + commandline_args
-		else:
-			parse_arg(arg, commandline_args, options)
+			try:
+				with open(arg[1:]) as argfile:
+					commandline_args = [line[:-1] for line in argfile] + commandline_args
+				continue
+			except:
+				pass
+		parse_arg(arg, commandline_args, options)
 
 	return options
 
