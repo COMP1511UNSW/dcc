@@ -502,6 +502,17 @@ def process_possible_source_file(pathname, options):
 	if extension.lower() in ['.a', '.o', '.so']:
 		options.object_files_being_linked = True
 		return
+	try:
+		with open(pathname, encoding='utf-8', errors='replace') as f:
+			for line in f:
+				m = re.match(r'^\s*#\s*include\s*"(.*?)"', line)
+				if m:
+					process_possible_source_file(m.group(1), options)
+				m = re.match(r'^\s*#\s*include\s*<(.*?)>', line)
+				if m:
+					options.system_includes_used.add(m.group(1))
+	except OSError as e:
+		return
 	# don't try to handle paths with .. or with leading /
 	# should we convert argument to normalized relative path if possible
 	# before passing to to compiler?
@@ -523,14 +534,6 @@ def process_possible_source_file(pathname, options):
 		options.tar.add(pathname)
 		options.source_files.add(pathname)
 		options.debug_print('adding', pathname, 'to tar file', level=2)
-		with open(pathname, encoding='utf-8', errors='replace') as f:
-			for line in f:
-				m = re.match(r'^\s*#\s*include\s*"(.*?)"', line)
-				if m:
-					process_possible_source_file(m.group(1), options)
-				m = re.match(r'^\s*#\s*include\s*<(.*?)>', line)
-				if m:
-					options.system_includes_used.add(m.group(1))
 	except OSError as e:
 		if options.debug:
 			print('process_possible_source_file', pathname, e)
