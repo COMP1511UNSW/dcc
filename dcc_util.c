@@ -69,8 +69,10 @@ static void __dcc_start(void) {
 	signal(SIGXFSZ, __dcc_signal_handler);
 	signal(SIGFPE, __dcc_signal_handler);
 	signal(SIGILL, __dcc_signal_handler);
+#if __N_SANITIZERS__ > 1
 	signal(SIGPIPE, __dcc_signal_handler);
 	signal(SIGUSR1, __dcc_signal_handler);
+#endif
 	clear_stack();
 }
 
@@ -185,8 +187,10 @@ static void set_signals_default(void) {
 	signal(SIGXFSZ, SIG_DFL);
 	signal(SIGFPE, SIG_DFL);
 	signal(SIGILL, SIG_DFL);
+#if __N_SANITIZERS__ > 1
 	signal(SIGPIPE, SIG_DFL);
 	signal(SIGUSR1, SIG_IGN);
+#endif
 }
 
 static void __dcc_signal_handler(int signum) {

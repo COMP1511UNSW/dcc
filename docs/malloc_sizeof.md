@@ -33,7 +33,6 @@ struct node {
 };
 
 int main(void) {
-
     struct node *n;
 
     n = malloc(sizeof (struct node));
