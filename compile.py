@@ -143,7 +143,7 @@ def execute_compiler(base_command, compiler_stdin, options, rename_functions=Tru
 
 		override_functions = []
 		if len(options.sanitizers) > 1:
-			override_functions  = ['clock', 'fdopen', 'fopen', 'freopen', 'system', 'time']
+			override_functions  = ['clock', 'fdopen', 'fopen', 'freopen', 'popen', 'system', 'time']
 
 		if options.ifdef_instead_of_wrap:
 			command +=  ['-D{}=__real_{}'.format(f, f) for f in wrapped_functions]

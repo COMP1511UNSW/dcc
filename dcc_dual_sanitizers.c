@@ -120,6 +120,7 @@ enum which_system_call {
 	sc_fdopen,
 	sc_fopen,
 	sc_freopen,
+	sc_popen,
 	sc_read,
 	sc_seek,
 	sc_system,
@@ -134,6 +135,7 @@ char *system_call_names[] = {
 	[sc_fopen] = "fopen",
 	[sc_fdopen] = "fdopen",
 	[sc_freopen] = "freopen",
+	[sc_popen] = "popen",
 	[sc_read] = "read",
 	[sc_seek] = "seek",
 	[sc_system] = "system",
@@ -469,6 +471,8 @@ int __wrap_system(const char *command) {
 #endif
 }
 
+
+
 static FILE *fopen_helper(FILE *f, const char *mode, enum which_system_call system_call) {
 #if __I_AM_SANITIZER1__
 	FILE *f1 = get_cookie(f, mode);
@@ -483,6 +487,19 @@ static FILE *fopen_helper(FILE *f, const char *mode, enum which_system_call syst
 	}
 #endif
 }
+
+#undef popen
+FILE *__wrap_popen(const char *command, const char *type) {
+	synchronize_system_call(sc_popen, 0);
+#if __I_AM_SANITIZER1__
+	extern FILE *__real_popen(const char *command, const char *type);
+	FILE *f = __real_popen(command, type);
+#else
+	FILE *f = NULL;
+#endif
+	return fopen_helper(f, type, sc_popen);
+}
+
 
 #undef fopen
 FILE *__wrap_fopen(const char *pathname, const char *mode) {
