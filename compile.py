@@ -144,6 +144,8 @@ def execute_compiler(base_command, compiler_stdin, options, rename_functions=Tru
 		override_functions = []
 		if len(options.sanitizers) > 1:
 			override_functions  = ['clock', 'fdopen', 'fopen', 'freopen', 'popen', 'system', 'time']
+		if options.valgrind_fix_posix_spawn:
+			override_functions  += ['posix_spawn']
 
 		if options.ifdef_instead_of_wrap:
 			command +=  ['-D{}=__real_{}'.format(f, f) for f in wrapped_functions]
@@ -227,6 +229,7 @@ def get_wrapper_tar_source(options):
 	wrapper_source = wrapper_source.replace('__SUPRESSIONS_FILE__', options.suppressions_file)
 	wrapper_source = wrapper_source.replace('__STACK_USE_AFTER_RETURN__', "1" if options.stack_use_after_return else "0")
 	wrapper_source = wrapper_source.replace('__CHECK_OUTPUT__', "1" if options.check_output else "0")
+	wrapper_source = wrapper_source.replace('__WRAP_POSIX_SPAWN__', "1" if options.valgrind_fix_posix_spawn else "0")
 	wrapper_source = wrapper_source.replace('__CLANG_VERSION_MAJOR__', str(options.clang_version_major))
 	wrapper_source = wrapper_source.replace('__CLANG_VERSION_MINOR__', str(options.clang_version_minor))
 	wrapper_source = wrapper_source.replace('__N_SANITIZERS__', str(len(options.sanitizers)))
@@ -263,6 +266,7 @@ class Options(object):
 
 		self.basename = os.path.basename(sys.argv[0])
 		self.check_output = sys.platform != "darwin"
+		self.valgrind_fix_posix_spawn = None
 
 		self.c_compiler = "clang"
 		self.clang_args = COMMON_COMPILER_ARGS + CLANG_ONLY_ARGS
@@ -364,6 +368,9 @@ def get_options():
 		else:
 			options.sanitizers = ["address", "valgrind"]
 
+	if options.valgrind_fix_posix_spawn is None and "valgrind" in  options.sanitizers:
+		options.valgrind_fix_posix_spawn = sys.platform == "linux"
+
 	if "memory" in options.sanitizers and platform.architecture()[0][0:2] == '32':
 		options.die("MemorySanitizer not available on 32-bit architectures")
 
@@ -438,6 +445,10 @@ def parse_arg(arg, remaining_args, options):
 		options.embed_source = True
 	elif arg == '--no-embed-source':
 		options.embed_source = False
+	elif arg == '--valgrind-fix-posix-spawn':
+		options.valgrind_fix_posix_spawn = True
+	elif arg == '--no-valgrind-fix-posix-spawn':
+		options.valgrind_fix_posix_spawn = False
 	elif arg == '--ifdef'  or arg == '--ifdef-main':
 		options.ifdef_instead_of_wrap = True
 	elif arg.startswith('--c-compiler='):
@@ -511,7 +522,7 @@ def process_possible_source_file(pathname, options):
 				m = re.match(r'^\s*#\s*include\s*<(.*?)>', line)
 				if m:
 					options.system_includes_used.add(m.group(1))
-	except OSError as e:
+	except OSError:
 		return
 	# don't try to handle paths with .. or with leading /
 	# should we convert argument to normalized relative path if possible

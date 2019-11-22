@@ -334,3 +334,39 @@ static int debug_printf(int level, const char *format, ...) {
     va_end(arg);
     return n;
 }
+
+#if __WRAP_POSIX_SPAWN__
+
+// posix_spawn with valgrind-3.14.0 returns 0 if path can not be executed
+// crude work-around so it returns 2 as it does when executed directly
+
+#include <spawn.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h> 
+
+int __real_posix_spawn(pid_t *pid, const char *path,
+                       const posix_spawn_file_actions_t *file_actions,
+                       const posix_spawnattr_t *attrp,
+                       char *const argv[], char *const envp[]) NO_SANITIZE;
+
+int __wrap_posix_spawn(pid_t *pid, const char *path,
+                       const posix_spawn_file_actions_t *file_actions,
+                       const posix_spawnattr_t *attrp,
+                       char *const argv[], char *const envp[]) {
+	if (path == NULL) {
+		putenvd("DCC_ASAN_ERROR=Null pointer passed to posix_spawn as argument 2");
+		_explain_error();
+	}
+    struct stat s;
+ 	if (stat(path, &s) == 0 &&
+        S_ISREG(s.st_mode) &&
+        faccessat(AT_FDCWD, path, X_OK, AT_EACCESS) == 0) {
+    		return __real_posix_spawn(pid, path, file_actions, attrp, argv, envp);
+    } else {
+    	return 2;
+    }
+
+}
+
+#endif
