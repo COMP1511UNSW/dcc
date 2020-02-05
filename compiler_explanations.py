@@ -585,8 +585,47 @@ int main(int argc, char *argv[]) {
 }
 """,
 	),
+	
+	Explanation(
+		label = 'nonnull',
+		
+		regex = r"argument (\d+) null where non-null expected",
+		
+		explanation = """You are passing {extract_argument_variable(highlighted_word, match.group(1), emphasize)} which always contains NULL as {emphasize('argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}'.
+{emphasize('Argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}' should never be NULL.
+
+""",
+		
+		reproduce = """
+#include <unistd.h>
+
+int main(void) {
+	char *pathname = NULL;
+	faccessat(0, pathname, 0, 0);
+}
+""",
+	),
 ]
 
+def extract_function_name(string):
+	return re.sub(r'\(.*', '', string)
+
+def extract_argument_variable(string, argument_number, emphasize):
+	string = re.sub(r'.*?\(', '', string)
+	string = re.sub(r'\)$', '', string)
+	string = string.strip()
+	variable_name = ''
+	if not re.match('\(.*,.*\)', string):
+		try:
+			n = int(argument_number)
+			variable_name = string.split(',')[n - 1].strip()
+		except (ValueError,IndexError):
+			pass
+	if re.match('^[_a-z]\w*$', variable_name):
+		return 'the variable ' + emphasize(variable_name)
+	else:
+		return 'a variable ' + emphasize(variable_name)
+		
 def extract_system_include_file(string):
 	m = re.search(r'<(.*?)>', str(string))
 	return m.group(1) if m else ''

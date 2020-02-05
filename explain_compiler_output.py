@@ -19,6 +19,8 @@ def explain_compiler_output(output, args):
 	
 	while lines and (not errors_explained or len(explanations_made) < args.max_explanations):
 		message, lines = get_next_message(lines)
+		if args.debug:
+			print('message', message, file=sys.stderr)
 		if not message:
 			print(lines.pop(0), file=sys.stderr)
 			continue
@@ -123,6 +125,9 @@ class Message():
 	def has_ansi_codes(self):
 		return self.text != self.text_without_ansi_codes or self.note != self.note_without_ansi_codes
 
+	def __str__(self):
+		return f"Message(text_without_ansi_codes='{self.text_without_ansi_codes}', self.highlighted_word='{self.highlighted_word}', self.underlined_word='{self.underlined_word}')"
+
 
 def get_next_message(lines):
 	if not lines:
@@ -165,7 +170,7 @@ def get_next_message(lines):
 			e.note_without_ansi_codes.append(colorless_next_line)
 			continue
 		
-		if re.match(r"^[ ~]*\^[ ~]*$", colorless_next_line):
+		if re.match(r"^[ ~\d|]*\^[ ~]*$", colorless_next_line):
 			previous_line = e.text_without_ansi_codes[-1]
 			m = re.match(r"^(.*)\^~+", colorless_next_line)
 			if m:
