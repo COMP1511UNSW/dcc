@@ -508,7 +508,13 @@ def parse_clang_arg(arg, remaining_args, options):
 		process_possible_source_file(arg, options)
 
 # FIXME this is crude and brittle
-def process_possible_source_file(pathname, options):
+def process_possible_source_file(pathname, options, parent_files=set()):
+	if pathname in parent_files:
+		if options.debug:
+			print('recursive include', pathname)
+		# could print an error here about a recursive include
+		return
+	parent_files.add(pathname)
 	extension = os.path.splitext(pathname)[1]
 	if extension.lower() in ['.a', '.o', '.so']:
 		options.object_files_being_linked = True
