@@ -1,7 +1,12 @@
 
 static void launch_valgrind(int argc, char *argv[], char *envp[]) {
 	debug_printf(2, "command=%s\n", "__MONITOR_VALGRIND__");
+#if __N_SANITIZERS__ > 1
+	extern FILE *__real_popen(const char *command, const char *type);
+	FILE *valgrind_error_pipe = __real_popen("__MONITOR_VALGRIND__", "w");
+#else
 	FILE *valgrind_error_pipe = popen("__MONITOR_VALGRIND__", "w");
+#endif
 	int valgrind_error_fd = 2;
 	if (valgrind_error_pipe) {
 		fwrite(tar_data, sizeof tar_data[0],  sizeof tar_data/sizeof tar_data[0], valgrind_error_pipe);
@@ -252,7 +257,12 @@ static void _explain_error(void) {
 	system("__PATH__");
 #else
 	debug_printf(2, "running %s\n", run_tar_file);
+#if __N_SANITIZERS__ > 1
+	extern FILE *__real_popen(const char *command, const char *type);
+	FILE *python_pipe = __real_popen(run_tar_file, "w");
+#else
 	FILE *python_pipe = popen(run_tar_file, "w");
+#endif
 	size_t n_items = sizeof tar_data/sizeof tar_data[0];
 	size_t items_written = fwrite(tar_data, sizeof tar_data[0], n_items, python_pipe);
 	if (items_written != n_items) {
@@ -354,10 +364,15 @@ int __wrap_posix_spawn(pid_t *pid, const char *path,
                        const posix_spawn_file_actions_t *file_actions,
                        const posix_spawnattr_t *attrp,
                        char *const argv[], char *const envp[]) {
+
+// if using ifdef instead of ld wrapping this if will process a compile-time warning
+#ifndef __real_posix_spawn
 	if (path == NULL) {
 		putenvd("DCC_ASAN_ERROR=Null pointer passed to posix_spawn as argument 2");
 		_explain_error();
 	}
+#endif
+
     struct stat s;
  	if (stat(path, &s) == 0 &&
         S_ISREG(s.st_mode) &&
