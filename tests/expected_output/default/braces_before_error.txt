@@ -1,0 +1,15 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in tests/run_time_errors/braces_before_error.c at line 18:
+
+  	a[42] = 42;
+-->	printf("%d\n", a[argc]);
+}
+
+Values when execution stopped:
+
+a =  <deleted-value>
+argc =  <deleted-value>
+a[42] =  <deleted-value>
+a[argc] =  <deleted-value>

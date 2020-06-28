@@ -1,7 +1,6 @@
 # exclude generated files from repo
 dcc
 dcc.1
-tests/extracted_compile_time_tests
 version.py
 src
 __init__.py
@@ -14,4 +13,5 @@ tmp*
 
 # don't accidentally add random test files to repo
 /*.c
+/*.sh
 !/dcc_*.c

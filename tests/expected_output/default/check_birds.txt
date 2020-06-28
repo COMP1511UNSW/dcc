@@ -8,30 +8,18 @@ Here is line 3 with non-printable characters replaced with backslash-escaped equ
 Have you accidentally printed the special EOF value getchar returns?
 For more information go to: https://comp1511unsw.github.io/dcc/eof_byte.html
 
-Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-EOF-byte.c at line 10:
+Execution stopped in main() in tests/check_output/birds/bird-EOF-byte.c at line 10:
 
-int main(void) {
-    printf("  ___\n");
-    printf(" ('v')\n");
---> printf("((_%c_))\n", EOF);
-    printf(" ^   +\n");
-    return 0;
-}
+
 bird-extra-newline.c
 
 Execution stopped because of unexpected extra output.
 The program produced all the expected output and then produced extra output.
 The extra line was an empty line (a '\n').
 
-Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-extra-newline.c at line 11:
+Execution stopped in main() in tests/check_output/birds/bird-extra-newline.c at line 11:
 
-int main(void) {
-    printf("  ___\n");
-    printf(" ('v')\n");
-    printf("((___))\n");
---> printf(" ^   ^\n\n");
-    return 0;
-}
+
 bird-line-missing-1-byte.c
 
 Execution stopped because of an incorrect output line.
@@ -42,15 +30,9 @@ The correct output line was:
 Your program printed this line:
 ((___)
 
-Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-line-missing-1-byte.c at line 10:
+Execution stopped in main() in tests/check_output/birds/bird-line-missing-1-byte.c at line 10:
 
-int main(void) {
-    printf("  ___\n");
-    printf(" ('v')\n");
---> printf("((___)\n");
-    printf(" ^   ^\n");
-    return 0;
-}
+
 bird-line-too-long.c
 
 Execution failed because program wrote a line containing over 65536 bytes.
@@ -58,16 +40,9 @@ Do you have an infinite loop?
 The start of the line was:
 _______________________________________________________________________________________________________________
 
-Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-line-too-long.c at line 8:
+Execution stopped in main() in tests/check_output/birds/bird-line-too-long.c at line 8:
 
-int main(void) {
---> for (int i = 0;i < 100000; i++) printf("____________________________________________________________");
-    return 0;
-}
 
-Values when execution stopped:
-
-i =  <deleted-value>
 bird-line-wrong.c
 
 Execution stopped because of an incorrect output line.
@@ -77,15 +52,9 @@ The correct output line was:
 Your program printed this line:
 ((_+_))
 
-Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-line-wrong.c at line 10:
+Execution stopped in main() in tests/check_output/birds/bird-line-wrong.c at line 10:
 
-int main(void) {
-    printf("  ___\n");
-    printf(" ('v')\n");
---> printf("((_+_))\n");
-    printf(" ^   ^\n");
-    return 0;
-}
+
 bird-missing-newline.c
 
 Execution failed because the last newline was missing.
@@ -116,13 +85,7 @@ Here are the characters on the line before the zero byte:
 
 For more information go to: https://comp1511unsw.github.io/dcc/zero_byte.html
 
-Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-zero-byte.c at line 10:
+Execution stopped in main() in tests/check_output/birds/bird-zero-byte.c at line 10:
 
-int main(void) {
-    printf("  ___\n");
-    printf(" ('v')\n");
---> printf("((_%c_))\n", 0);
-    printf(" ^   +\n");
-    return 0;
-}
+
 All Tests Correct

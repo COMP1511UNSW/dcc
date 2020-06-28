@@ -21,6 +21,7 @@ REMOVE_NON_DETERMINATE_VALUES='
 	s/-*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*/<deleted-large-integer-constant>/g
 	s?/tmp/[^ ]*\.o??g
 	s?^/.*:??
+	s?^ *[0-9]* *|??
 '
 
 export dcc="${1:-./dcc}"
@@ -116,7 +117,7 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 	
 		
 		expected="$default_expected_output"
-		test -r "$version_expected_output" && expected="$default_expected_output"
+		test -r "$version_expected_output" && expected="$version_expected_output"
 		
 		if diff -iBw "$expected" tmp.corrected_output >/dev/null
 		then
@@ -131,8 +132,8 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 		echo
 		diff -u  -iBw "$expected" tmp.corrected_output
 		echo
-		echo "Enter u to update expected output."
-		echo "Enter p to create plaform-specific  expected output."
+		echo "Enter u to update default expected output."
+		echo "Enter p to create platform-specific  expected output."
 		
 		echo -n "Action? "
 		read response
