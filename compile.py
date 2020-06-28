@@ -462,12 +462,12 @@ def parse_arg(arg, remaining_args, options):
 		sys.exit(0)
 	elif arg == '--help':
 		print("""
-  --fsanitize=<sanitizer1,sanitizer2>    run two sanitizers (default -fsanitize=address,valgrind)
+  -fsanitize=<sanitizer1,sanitizer2>    run two sanitizers (default -fsanitize=address,valgrind)
 						   The second sanitizer is a separate process.
 						   The synchronisation of the 2 processes should be effective for most
 						   use of the standard C library and hence should work for novice programmers.
 						   If synchronisation is lost the 2nd sanitizer terminates silently.
-  --fsanitize=<sanitizer>  check for runtime errors using using a single sanitizer which can be one of
+  -fsanitize=<sanitizer>   check for runtime errors using using a single sanitizer which can be one of
 						   address   - AddressSanitizer, invalid memory operations
 						   valgrind  - valgrind, primarily uninitialized variables
 						   memory    - MemorySanitizer, primarily uninitialized variables
