@@ -314,8 +314,8 @@ static void __dcc_compare_output_error(char *reason, int actual_column, int expe
 		putenvd(buffer[i]);
 
 	char line_buffer[2][128 + ACTUAL_LINE_MAX];
-	snprintf(line_buffer[0], sizeof buffer[0], "DCC_ACTUAL_LINE=%s", actual_line);
-	snprintf(line_buffer[1], sizeof buffer[1], "DCC_EXPECTED_LINE=%s", expected_line);
+	snprintf(line_buffer[0], sizeof line_buffer[0], "DCC_ACTUAL_LINE=%s", actual_line);
+	snprintf(line_buffer[1], sizeof line_buffer[1], "DCC_EXPECTED_LINE=%s", expected_line);
 	for (int i = 0; i < sizeof line_buffer/sizeof line_buffer[0]; i++)
 		putenvd(line_buffer[i]);
 	_explain_error();

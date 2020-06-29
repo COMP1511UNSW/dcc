@@ -330,7 +330,7 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 	struct cookie *cookie = v;
 	size_t n_bytes_read = read(cookie->fd, buf, size);
 #if __N_SANITIZERS__ > 1
-	synchronize_system_call_result(sc_read, n_bytes_read);
+	(void)synchronize_system_call_result(sc_read, n_bytes_read);
 	if (n_bytes_read > 0  && !synchronization_terminated) {
 		ssize_t n_bytes_written = write(to_sanitizer2_pipe[1], buf, n_bytes_read);
 		if (n_bytes_written != n_bytes_read) {
@@ -366,7 +366,7 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 
 	__dcc_check_output(cookie->fd, buf, size);
 
-	synchronize_system_call_result(sc_write, n_bytes_written);
+	(void)synchronize_system_call_result(sc_write, n_bytes_written);
 #else
 	size_t n_bytes_written = synchronize_system_call_result(sc_write);
 #endif
@@ -388,7 +388,7 @@ static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 		result = 0;
 	}
 
-	synchronize_system_call_result(sc_seek, result);
+	(void)synchronize_system_call_result(sc_seek, result);
 #else
 	int result = synchronize_system_call_result(sc_seek);
 #endif
@@ -407,7 +407,7 @@ static int __dcc_cookie_close(void *v) {
 	cookie->stream = NULL;
 	cookie->cookie_stream = NULL;
 	cookie->fd = 0;
-	synchronize_system_call_result(sc_close, result);
+	(void)synchronize_system_call_result(sc_close, result);
 #else
 	int result = synchronize_system_call_result(sc_close);
 #endif
@@ -476,7 +476,7 @@ int __wrap_system(const char *command) {
 static FILE *fopen_helper(FILE *f, const char *mode, enum which_system_call system_call) {
 #if __I_AM_SANITIZER1__
 	FILE *f1 = get_cookie(f, mode);
-	synchronize_system_call_result(system_call, !!f1);
+	(void)synchronize_system_call_result(system_call, !!f1);
 	return f1;
 #else
 	int r = synchronize_system_call_result(system_call);
@@ -530,7 +530,7 @@ FILE *__wrap_freopen(const char *pathname, const char *mode, FILE *stream) {
 	synchronize_system_call(sc_freopen, 0);
 #if __I_AM_SANITIZER1__
 	if (!pathname || !mode || !stream) {
-		synchronize_system_call_result(sc_freopen, 0);
+		(void)synchronize_system_call_result(sc_freopen, 0);
 		return NULL;
 	}
 	int i;
@@ -548,10 +548,10 @@ FILE *__wrap_freopen(const char *pathname, const char *mode, FILE *stream) {
 	if (f1) {
 		file_cookies[i].stream = f1;
 		file_cookies[i].fd = fileno(f1);
-		synchronize_system_call_result(sc_freopen, 1);
+		(void)synchronize_system_call_result(sc_freopen, 1);
 		return file_cookies[i].cookie_stream;
 	} else {
-		synchronize_system_call_result(sc_freopen, 0);
+		(void)synchronize_system_call_result(sc_freopen, 0);
 		return NULL;
 	}
 #else

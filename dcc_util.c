@@ -280,8 +280,8 @@ __attribute__((noinline))
 #endif
 #if __has_attribute(optnone)
 __attribute__((optnone))
-;
 #endif
+;
 
 
 // hack to initialize (most of) stack to 0xbe

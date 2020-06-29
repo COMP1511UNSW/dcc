@@ -42,7 +42,7 @@ def compile():
 	# if we have two sanitizers we need to do first compile a binary with appropriate
 	# options for sanitizers 2 and embed the binary as C data inside the binary for sanitizer 1
 	#
-	base_compile_command = [options.c_compiler] + options.user_supplied_compiler_args + ['-x', 'c', '-', ] +  options.clang_args
+	base_compile_command = [options.c_compiler] + options.user_supplied_compiler_args + ['-x', 'c', '-', ] +  options.c_compiler_args
 	compiler_stdout = ''
 	executable_source = ''
 	if len(options.sanitizers) == 2:
@@ -64,7 +64,7 @@ def compile():
 	wrapper_source, sanitizer_args = update_wrapper_source(options.sanitizers[0], 1, wrapper_source, tar_source, options)
 
 	if options.incremental_compilation:
-		incremental_compilation_args = sanitizer_args + options.clang_args + options.user_supplied_compiler_args
+		incremental_compilation_args = sanitizer_args + options.c_compiler_args + options.user_supplied_compiler_args
 		command = [options.c_compiler] + incremental_compilation_args
 		options.debug_print('incremental compilation, running: ', " ".join(command))
 		sys.exit(subprocess.call(command))
@@ -106,7 +106,7 @@ def update_wrapper_source(sanitizer, sanitizer_n, wrapper_source, tar_source,  o
 		if options.clang_version_float >= 3.6:
 			sanitizer_args += ['-fno-sanitize-recover=undefined,integer']
 
-	if options.shared_libasan and  sanitizer == "address":
+	if options.shared_libasan and  sanitizer == "address" and options.clang_version:
 		lib_dir = options.clang_lib_dir.replace('{clang_version}', options.clang_version)
 		if os.path.exists(lib_dir):
 			sanitizer_args += ['-shared-libasan', '-Wl,-rpath,' + lib_dir]
@@ -260,6 +260,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 
 class Options(object):
 	def __init__(self):
+		self.debug = int(os.environ.get('DCC_DEBUG', '0'))
 
 		# OSX has clang renamed as gcc - but it doesn't take gcc options
 		self.also_run_gcc = sys.platform != "darwin" and search_path('gcc')
@@ -268,8 +269,8 @@ class Options(object):
 		self.check_output = sys.platform != "darwin"
 		self.valgrind_fix_posix_spawn = None
 
+		self.c_compiler_args = COMMON_COMPILER_ARGS
 		self.c_compiler = "clang"
-		self.clang_args = COMMON_COMPILER_ARGS + CLANG_ONLY_ARGS
 
 		# needed for shared-libasan
 		self.clang_lib_dir="/usr/lib/clang/{clang_version}/lib/linux"
@@ -278,7 +279,14 @@ class Options(object):
 		self.clang_version_major = 0
 		self.clang_version_minor = 0
 		self.clang_version_float = 0.0
-
+		
+		# this needs to be generalized to select preferred clang version
+		# when multiple versions available
+		get_clang_version(self)
+		if self.clang_version_major != '11' and search_path('clang-11'):
+			self.c_compiler = "clang-11"
+			get_clang_version(self)
+		
 		# FIXME - check terminal actually supports ANSI
 		self.colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 
@@ -289,7 +297,6 @@ class Options(object):
 		# interfere with dual sanitizer synchronization
 		self.dual_sanitizer_safe_system_includes = set(['assert.h', 'complex.h', 'ctype.h', 'errno.h', 'fenv.h', 'float.h', 'inttypes.h', 'iso646.h', 'limits.h', 'locale.h', 'math.h', 'setjmp.h', 'stdalign.h', 'stdarg.h', 'stdatomic.h', 'stdbool.h', 'stddef.h', 'stdint.h', 'stdio.h', 'stdlib.h', 'stdnoreturn.h', 'string.h', 'tgmath.h', 'time.h', 'uchar.h', 'wchar.h', 'wctype.h', 'sanitizer/asan_interface.h', 'malloc.h', 'strings.h', 'sysexits.h'])
 
-		self.debug = int(os.environ.get('DCC_DEBUG', '0'))
 		self.embed_source = True
 		self.explanations = True
 
@@ -338,8 +345,9 @@ def get_options():
 	options = parse_args(sys.argv[1:])
 
 	if options.colorize_output:
-		options.clang_args += ['-fcolor-diagnostics']
-		options.clang_args += ['-fdiagnostics-color']
+		if 'clang' in options.c_compiler:
+			options.c_compiler_args += ['-fcolor-diagnostics']
+			options.c_compiler_args += ['-fdiagnostics-color']
 		options.gcc_args += ['-fdiagnostics-color=always']
 
 	options.unsafe_system_includes = list(options.system_includes_used - options.dual_sanitizer_safe_system_includes)
@@ -360,7 +368,7 @@ def get_options():
 			reason = "not supported on OSX"
 
 		if reason:
-			# if 2 sanitizer have been explicityl specified, give a warning
+			# if 2 sanitizer have been explicitly specified, give a warning
 			if len(options.sanitizers) > 1:
 				options.warn('warning: running 2 sanitizers will probably fail:', reason)
 			else:
@@ -374,8 +382,11 @@ def get_options():
 	if "memory" in options.sanitizers and platform.architecture()[0][0:2] == '32':
 		options.die("MemorySanitizer not available on 32-bit architectures")
 
-	get_clang_version(options)
-
+	if 'clang' in options.c_compiler:
+		get_clang_version(options)
+		options.c_compiler_args += CLANG_ONLY_ARGS
+	elif 'gcc' in options.c_compiler:
+		options.c_compiler_args += GCC_ONLY_ARGS
 	if "address" in options.sanitizers  and platform.architecture()[0][0:2] == '32':
 		libc_version = get_libc_version(options)
 
@@ -386,7 +397,7 @@ def get_options():
 	# shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
 	# and we can't override with verify_asan_link_order=0 for clang version < 5
 	# and with clang-6 on debian __asan_default_options not called with shared_libasan
-	if options.shared_libasan is None and options.clang_version_float >= 7.0:
+	if options.shared_libasan is None and options.clang_version_float >= 7.0 and 'clang' in options.c_compiler:
 		options.shared_libasan = True
 
 	if options.incremental_compilation and len(options.sanitizers) > 1:
@@ -453,6 +464,10 @@ def parse_arg(arg, remaining_args, options):
 		options.ifdef_instead_of_wrap = True
 	elif arg.startswith('--c-compiler='):
 		options.c_compiler = arg[arg.index('=') + 1:]
+		options.clang_version = ''
+		options.clang_version_major = 0
+		options.clang_version_minor = 0
+		options.clang_version_float = 0.0
 	elif arg == '-fcolor-diagnostics':
 		options.colorize_output = True
 	elif arg == '-fno-color-diagnostics':
@@ -643,15 +658,16 @@ def get_clang_version(options):
 			options.clang_version_minor = m.group(3)
 			options.clang_version_float = float(m.group(2) + "." + m.group(3))
 		else:
-			options.die("can not parse clang version '{clang_version_string}'")
+			if options.debug:
+				print("can not parse clang version '{clang_version_string}'")
 
 	except OSError as e:
 		if options.debug:
 			print(e)
 
 	if not options.clang_version:
-		options.die(f"can not get version information for '{options.c_compiler}'")
-		sys.exit(1)
+		if options.debug:
+			print(f"can not get version information for '{options.c_compiler}'")
 
 def get_libc_version(options):
 	try:
