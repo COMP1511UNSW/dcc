@@ -22,6 +22,7 @@ REMOVE_NON_DETERMINATE_VALUES='
 	s?/tmp/[^ ]*\.o??g
 	s?^/.*:??
 	s?^ *[0-9]* *|??
+	s?^ *~*\^~* *$??
 '
 
 export dcc="${1:-./dcc}"
@@ -119,7 +120,8 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 		expected="$default_expected_output"
 		test -r "$version_expected_output" && expected="$version_expected_output"
 		
-		if diff -iBw "$expected" tmp.corrected_output >/dev/null
+		sed -e "$REMOVE_NON_DETERMINATE_VALUES"  $actual_output_file >tmp.expected_output
+		if diff -iBw tmp.expected_output tmp.corrected_output >/dev/null
 		then
 			echo -n .
 			continue
@@ -130,7 +132,7 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 		echo "Test dcc $dcc_flags  failed - output different to expected"
 		echo Differences are:
 		echo
-		diff -u  -iBw "$expected" tmp.corrected_output
+		diff -u  -iBw  tmp.corrected_output
 		echo
 		echo "Enter u to update default expected output."
 		echo "Enter p to create platform-specific  expected output."

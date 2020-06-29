@@ -509,7 +509,7 @@ int main(int argc, char *argv[]) {
 	Explanation(
 		label = 'logical-or-always-true',
 		
-		regex = r"logical .?\bor\b.* is always true",
+		regex = r"logical .?\bor\b.* is always true|logical.*or.*of collectively exhaustive tests is always true",
 		
 		explanation = """Your '{emphasize('||')}' expression is always true, no matter what value variables have.
 Perhaps you meant to use '{emphasize('&&')}' ?
@@ -529,7 +529,7 @@ int main(int argc, char *argv[]) {
 	Explanation(
 		label = 'logical-and-always-false',
 		
-		regex = r"logical .?\band\b.* is always false",
+		regex = r"logical .?\band\b.* is always false|overlapping comparisons always evaluate to false",
 		
 		explanation = """Your '{emphasize('&&')}' expression is always false, no matter what value variables have.
 Perhaps you meant to use '{emphasize('||')}' ?
