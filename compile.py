@@ -419,6 +419,13 @@ def parse_args(commandline_args):
 
 	while commandline_args:
 		arg = commandline_args.pop(0)
+		if arg.startswith('@'):
+			try:
+				with open(arg[1:]) as argfile:
+					commandline_args = [ext_arg for line in argfile for ext_arg in line[:-1].split(' ')] + commandline_args
+				continue
+			except:
+				pass
 		parse_arg(arg, commandline_args, options)
 
 	return options
