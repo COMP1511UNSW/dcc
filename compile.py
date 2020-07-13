@@ -100,7 +100,8 @@ def update_wrapper_source(sanitizer, sanitizer_n, wrapper_source, tar_source,  o
 	else:
 		sanitizer_args = ['-fsanitize=address']
 
-	if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
+	#	if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
+	if sanitizer != "memory":
 		# FIXME if we enable  '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
 		# which would be preferable here we get uninitialized variable error message for undefined errors
 		wrapper_source = wrapper_source.replace('__UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__', '1')

@@ -10,6 +10,9 @@ REPO = 'COMP1511UNSW/dcc'
 URL_TEMPLATE = 'https://{}.github.com/repos/' + REPO + '/releases'
 
 def make_release(token, tag):
+#	print('token', token)
+#	print('tag', tag)
+#	print('url', URL_TEMPLATE.format('api'),)
 	_json = json.loads(urlopen(Request(
 		URL_TEMPLATE.format('api'),
 		json.dumps({
@@ -27,6 +30,10 @@ def make_release(token, tag):
 def upload_file(token, pathname, release_id):
 	with open(pathname, 'br') as myfile:
 		content = myfile.read()
+#	print('pathname', pathname)
+#	print('token', token)
+#	print('url', URL_TEMPLATE.format('uploads') + '/' + str(release_id) + '/assets?' \
+#		  + urlencode({'name': os.path.split(pathname)[1]}))
 	json.loads(urlopen(Request(
 		URL_TEMPLATE.format('uploads') + '/' + str(release_id) + '/assets?' \
 		  + urlencode({'name': os.path.split(pathname)[1]}),
