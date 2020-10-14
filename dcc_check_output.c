@@ -136,7 +136,7 @@ static unsigned char actual_line[ACTUAL_LINE_MAX + 1];
 // position to put next character in above array
 static int n_actual_line;
 // n bytes seen prior to those in above array
-static size_t n_actual_bytes_seen;
+static ssize_t n_actual_bytes_seen;
 static size_t n_actual_lines_seen;
 
 static unsigned char expected_line[ACTUAL_LINE_MAX + 2];
@@ -150,7 +150,7 @@ static void rstrip_line(unsigned char *line, int last_byte_index);
 static void __dcc_compare_output(unsigned char *actual, size_t size) {
 	int expected_bytes_in_line = get_next_expected_line();
 	debug_printf(2, " __dcc_compare_output() n_actual_lines_seen=%d\n", n_actual_lines_seen);
-	for (int i = 0; i < size; i++) {
+	for (size_t i = 0; i < size; i++) {
 		if (max_stdout_bytes && n_actual_line + n_actual_bytes_seen > max_stdout_bytes) {
 			n_actual_lines_seen++;
 			actual_line[n_actual_line] = '\0';
@@ -310,13 +310,13 @@ static void __dcc_compare_output_error(char *reason, int actual_column, int expe
 	snprintf(buffer[3], sizeof buffer[3], "DCC_N_ACTUAL_BYTES_SEEN=%zu", n_actual_bytes_seen);
 	snprintf(buffer[4], sizeof buffer[4], "DCC_ACTUAL_COLUMN=%d", actual_column);
 	snprintf(buffer[5], sizeof buffer[5], "DCC_EXPECTED_COLUMN=%d", expected_column);
-	for (int i = 0; i < sizeof buffer/sizeof buffer[0]; i++)
+	for (unsigned long int i = 0; i < sizeof buffer/sizeof buffer[0]; i++)
 		putenvd(buffer[i]);
 
 	char line_buffer[2][128 + ACTUAL_LINE_MAX];
 	snprintf(line_buffer[0], sizeof line_buffer[0], "DCC_ACTUAL_LINE=%s", actual_line);
 	snprintf(line_buffer[1], sizeof line_buffer[1], "DCC_EXPECTED_LINE=%s", expected_line);
-	for (int i = 0; i < sizeof line_buffer/sizeof line_buffer[0]; i++)
+	for (unsigned long int i = 0; i < sizeof line_buffer/sizeof line_buffer[0]; i++)
 		putenvd(line_buffer[i]);
 	_explain_error();
 }
@@ -358,4 +358,3 @@ static int getenv_boolean(const char *name, int default_value) {
 	return value ? !strchr("0fFnN", *value) : default_value;
 }
 #endif
-
