@@ -1,5 +1,6 @@
 
 static void launch_valgrind(int argc, char *argv[], char *envp[]) {
+	(void) envp;
 	debug_printf(2, "command=%s\n", "__MONITOR_VALGRIND__");
 #if __N_SANITIZERS__ > 1
 	extern FILE *__real_popen(const char *command, const char *type);
@@ -128,6 +129,7 @@ void __asan_on_error() {
 
 // intercept ASAN explanation
 void _Unwind_Backtrace(void *a, ...) {
+	(void) a;
 	debug_printf(2, "_Unwind_Backtrace\n");
 	_explain_error();
 }
@@ -170,7 +172,7 @@ void __ubsan_on_report(void) {
 	snprintf(buffer[3], sizeof buffer[3], "DCC_UBSAN_ERROR_LINE=%u", OutLine);
 	snprintf(buffer[4], sizeof buffer[4], "DCC_UBSAN_ERROR_COL=%u", OutCol);
 	snprintf(buffer[5], sizeof buffer[5], "DCC_UBSAN_ERROR_MEMORYADDR=%s", OutMemoryAddr);
-	for (int i = 0; i < sizeof buffer/sizeof buffer[0]; i++)
+	for (unsigned long int i = 0; i < sizeof buffer/sizeof buffer[0]; i++)
 		putenv(buffer[i]);
 #endif
 	_explain_error();
@@ -353,7 +355,7 @@ static int debug_printf(int level, const char *format, ...) {
 #include <spawn.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h> 
+#include <unistd.h>
 
 int __real_posix_spawn(pid_t *pid, const char *path,
                        const posix_spawn_file_actions_t *file_actions,
