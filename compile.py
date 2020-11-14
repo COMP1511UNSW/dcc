@@ -37,7 +37,7 @@ def compile():
 
 	#
 	# -x - must come after any filenames but before ld options
-	
+
 	#
 	# if we have two sanitizers we need to do first compile a binary with appropriate
 	# options for sanitizers 2 and embed the binary as C data inside the binary for sanitizer 1
@@ -47,6 +47,7 @@ def compile():
 	executable_source = ''
 	if len(options.sanitizers) == 2:
 		sanitizer2_wrapper_source, sanitizer2_sanitizer_args = update_wrapper_source(options.sanitizers[1], 2, wrapper_source, tar_source, options)
+		sanitizer2_wrapper_source = "#define _GNU_SOURCE\n#include <stdint.h>\n" + sanitizer2_wrapper_source
 		try:
 			# can't use tempfile.NamedTemporaryFile because may be multiple opens of file
 			executable = tempfile.mkstemp(prefix='dcc_sanitizer2')[1]
@@ -75,6 +76,8 @@ def compile():
 		wrapper_source = wrapper_source.replace('__EXECUTABLE_N_BYTES__', str(executable_n_bytes))
 		wrapper_source = executable_source + wrapper_source
 
+	# _GNU_SOURCE to get fopencookie
+	wrapper_source = "#define _GNU_SOURCE\n#include <stdint.h>\n" + wrapper_source
 	command = base_compile_command + sanitizer_args  + ['-o', options.object_pathname]
 	compiler_stdout = execute_compiler(command, wrapper_source, options, print_stdout=not compiler_stdout)
 
@@ -101,7 +104,7 @@ def update_wrapper_source(sanitizer, sanitizer_n, wrapper_source, tar_source,  o
 		sanitizer_args = ['-fsanitize=address']
 
 	#	if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
-	if sanitizer != "memory":
+	if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
 		# FIXME if we enable  '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
 		# which would be preferable here we get uninitialized variable error message for undefined errors
 		wrapper_source = wrapper_source.replace('__UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__', '1')
@@ -146,7 +149,7 @@ def execute_compiler(base_command, compiler_stdin, options, rename_functions=Tru
 
 		override_functions = []
 		if len(options.sanitizers) > 1:
-			override_functions  = ['clock', 'fdopen', 'fopen', 'freopen', 'popen', 'system', 'time']
+			override_functions  = ['clock', 'fdopen', 'fopen', 'freopen', 'popen', 'remove', 'rename', 'system', 'time']
 		if options.valgrind_fix_posix_spawn:
 			override_functions  += ['posix_spawn']
 
@@ -282,14 +285,14 @@ class Options(object):
 		self.clang_version_major = 0
 		self.clang_version_minor = 0
 		self.clang_version_float = 0.0
-		
+
 		# this needs to be generalized to select preferred clang version
 		# when multiple versions available
 		get_clang_version(self)
 		if self.clang_version_major != '11' and search_path('clang-11'):
 			self.c_compiler = "clang-11"
 			get_clang_version(self)
-		
+
 		# FIXME - check terminal actually supports ANSI
 		self.colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 
@@ -582,8 +585,8 @@ def process_possible_source_file(pathname, options, parent_files=set()):
 		return
 
 def source_for_sanitizer2_executable(executable):
-	source = "\nstatic unsigned char sanitizer2_executable[] = {";
-	source += ','.join(map(str, executable)) + ',\n'
+	source = "\nstatic uint64_t sanitizer2_executable[] = {";
+	source += bytes2hex64_initializers(executable)
 	source += "};\n";
 	n_bytes = len(executable)
 	return n_bytes, source
@@ -598,17 +601,25 @@ def source_for_embedded_tarfile(options):
 	n_bytes = options.tar_buffer.tell()
 	options.tar_buffer.seek(0)
 
-	source = "\nstatic unsigned char tar_data[] = {";
+	source = "\nstatic uint64_t tar_data[] = {";
 	while True:
 		bytes = options.tar_buffer.read(1024)
 		if not bytes:
 			break
-		source += ','.join(map(str, bytes)) + ',\n'
+		source += bytes2hex64_initializers(bytes) + ",\n"
 	source += "};\n";
 	return n_bytes, source
 
+def bytes2hex64_initializers(b):
+	chunk = 8
+	n_bytes = len(b)
+	if n_bytes % chunk:
+		b += bytes([0] * (chunk - n_bytes % chunk))
+	hex_int64 = [hex(int.from_bytes(b[i:i+chunk], sys.byteorder)) for i in range(0, len(b), chunk)]
+	return ",".join(hex_int64)
+
 # Do some brittle shrinking of Python source  before embedding in binary.
-# Very limited benefits as source is bzip2 compressed before embedded in binary
+# Very limited benefits as source is xz compressed before embedded in binary
 
 def minify(python_source_bytes):
 	python_source = python_source_bytes.decode('utf-8')
@@ -621,8 +632,12 @@ def minify(python_source_bytes):
 			while not is_doc_string_delimiter(line):
 				line = lines.pop(0)
 			line = lines.pop(0)
-		if not is_comment(line):
-			lines1.append(line)
+		if is_comment(line):
+			continue
+		# removing white-space is probably safe but with xz it get us almost nothing
+#		if line.startswith('\t') and '"' not in line and "'" not in line:
+#			line = re.sub(r' *([=,+\-*/%:]) *', r'\1', line)
+		lines1.append(line)
 	python_source = '\n'.join(lines1) + '\n'
 	return python_source.encode('utf-8')
 

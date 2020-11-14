@@ -102,7 +102,15 @@ int putchar(int c) {
 #ifndef puts
 // overriding puts in case this is also needed to ensure fopencookie hooks called
 int puts(const char *s) {
-	return fputs(s, stdout);
+	int ret1 = fputs(s, stdout);
+	if (ret1 == EOF) {
+		return EOF;
+	}
+	int ret2 = fputc('\n', stdout);
+	if (ret2 == EOF) {
+		return EOF;
+	}
+	return ret1 + 1;
 }
 #endif
 
@@ -122,6 +130,8 @@ enum which_system_call {
 	sc_freopen,
 	sc_popen,
 	sc_read,
+	sc_remove,
+	sc_rename,
 	sc_seek,
 	sc_system,
 	sc_time,
@@ -137,6 +147,8 @@ char *system_call_names[] = {
 	[sc_freopen] = "freopen",
 	[sc_popen] = "popen",
 	[sc_read] = "read",
+	[sc_remove] = "remove",
+	[sc_rename] = "rename",
 	[sc_seek] = "seek",
 	[sc_system] = "system",
 	[sc_time] = "time",
@@ -457,6 +469,34 @@ clock_t __wrap_clock(void) {
 	return synchronize_system_call_result(sc_clock);
 #endif
 }
+
+
+// pass results of a remove call sanitizer 1 -> sanitizer 2
+
+#undef remove
+int __wrap_remove(const char *pathname) {
+	synchronize_system_call(sc_remove, 0);
+#if __I_AM_SANITIZER1__
+	extern int __real_remove(const char *pathname);
+	return synchronize_system_call_result(sc_remove, __real_remove(pathname));
+#else
+	return synchronize_system_call_result(sc_remove);
+#endif
+}
+
+// pass results of a rename call sanitizer 1 -> sanitizer 2
+
+#undef rename
+int __wrap_rename(const char *oldpath, const char *newpath) {
+	synchronize_system_call(sc_rename, 0);
+#if __I_AM_SANITIZER1__
+	extern int __real_rename(const char *oldpath, const char *newpath);
+	return synchronize_system_call_result(sc_rename, __real_rename(oldpath, newpath));
+#else
+	return synchronize_system_call_result(sc_rename);
+#endif
+}
+
 
 // pass results of a call to system  sanitizer 1 -> sanitizer 2
 

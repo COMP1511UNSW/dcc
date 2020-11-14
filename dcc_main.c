@@ -17,9 +17,6 @@
 #define MEMORY				2
 #define VALGRIND			3
 
-// to get fopencookie
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
