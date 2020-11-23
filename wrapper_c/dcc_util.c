@@ -364,7 +364,6 @@ int __wrap_posix_spawn(pid_t *pid, const char *path,
 		putenvd("DCC_ASAN_ERROR=Null pointer passed to posix_spawn as argument 2");
 		_explain_error();
 	}
-#endif
 	// fake branch on parameter values to trigger unitialized variable error
 	// before clone, so we can get a stack backtrace
 	if (
@@ -375,6 +374,7 @@ int __wrap_posix_spawn(pid_t *pid, const char *path,
 		)
 		 {
 	}
+#endif
     struct stat s;
  	if (stat(path, &s) == 0 &&
         S_ISREG(s.st_mode) &&
@@ -402,7 +402,6 @@ int __wrap_posix_spawnp(pid_t *pid, const char *path,
 		putenvd("DCC_ASAN_ERROR=Null pointer passed to posix_spawn as argument 2");
 		_explain_error();
 	}
-#endif
 	// fake branch on parameter values to trigger unitialized variable error
 	// before clone, so we can get a stack backtrace
 	if (
@@ -413,6 +412,7 @@ int __wrap_posix_spawnp(pid_t *pid, const char *path,
 		)
 		 {
 	}
+#endif
     struct stat s;
  	if (stat(path, &s) == 0 &&
         S_ISREG(s.st_mode) &&
