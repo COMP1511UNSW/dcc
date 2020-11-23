@@ -23,7 +23,7 @@ git tag -l -n9 --sort=-version:refname --format 'dcc (%(refname:lstrip=-1)) unst
 
 cd $dir
 dpkg-buildpackage -b 
-cd $base_directory
-lintian dcc_${version}_all.deb
+#cd $base_directory
+#lintian dcc_${version}_all.deb
 exit 0
 

@@ -1,6 +1,6 @@
 import os, re, sys, signal
 from start_gdb import start_gdb
-from drive_gdb import explanation_url
+from util import explanation_url
 import colors
 
 # valgrind is being used - we have been invoked via the binary to watch for valgrind errors

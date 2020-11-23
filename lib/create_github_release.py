@@ -72,7 +72,8 @@ def main():
 	run(['git', 'push'])
 	run(['git', 'push', 'origin', tag])
 	run(['rm', '-f', 'dcc'])
-	run(['make', 'deb'])
+	run(['make', 'dcc', 'dcc.1'])
+	run(['packaging/debian/build.sh'])
 	release_id = make_release(token, tag)
 	for pathname in ['dcc', f'packaging/debian/dcc_{tag}_all.deb']:
 		upload_file(token, pathname, release_id)

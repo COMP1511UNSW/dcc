@@ -3,7 +3,7 @@ import codecs,io, os, pkgutil, platform, re, subprocess, sys, tarfile, tempfile
 from version import VERSION
 from explain_compiler_output import explain_compiler_output
 
-FILES_EMBEDDED_IN_BINARY = ["start_gdb.py", "drive_gdb.py", "watch_valgrind.py", "colors.py", "explain_output_difference.py"]
+FILES_EMBEDDED_IN_BINARY = ["start_gdb.py", "drive_gdb.py", "watch_valgrind.py", "colors.py", "explain_output_difference.py", "util.py"]
 
 # on some platforms -Wno-unused-result is needed to avoid warnings about scanf's return value being ignored -
 # novice programmers will often be told to ignore scanf's return value
@@ -128,9 +128,7 @@ def update_wrapper_source(sanitizer, sanitizer_n, wrapper_source, tar_source,  o
 	wrapper_source = wrapper_source.replace('__I_AM_SANITIZER2__', "1" if sanitizer_n == 2 else "0")
 	wrapper_source = wrapper_source.replace('__WHICH_SANITIZER__', "sanitizer2" if sanitizer_n == 2 else "sanitizer1")
 
-	if tar_source:
-		wrapper_source = wrapper_source.replace('__EMBED_SOURCE__', '1')
-		wrapper_source = tar_source + wrapper_source
+	wrapper_source = tar_source + wrapper_source
 	return wrapper_source, sanitizer_args
 
 
@@ -226,7 +224,7 @@ def execute_compiler(base_command, compiler_stdin, options, rename_functions=Tru
 	return stdout
 
 def get_wrapper_tar_source(options):
-	wrapper_source = ''.join(pkgutil.get_data('src', f).decode('utf8') for f in ['dcc_main.c', 'dcc_dual_sanitizers.c', 'dcc_util.c', 'dcc_check_output.c'])
+	wrapper_source = ''.join(pkgutil.get_data('embedded_src', f).decode('utf8') for f in ['dcc_main.c', 'dcc_dual_sanitizers.c', 'dcc_util.c', 'dcc_check_output.c'])
 
 	wrapper_source = wrapper_source.replace('__PATH__', options.dcc_path)
 	wrapper_source = wrapper_source.replace('__DCC_VERSION__', '"' + VERSION + '"')
@@ -244,9 +242,8 @@ def get_wrapper_tar_source(options):
 	if len(options.sanitizers) > 1:
 		wrapper_source = wrapper_source.replace('__SANITIZER_2__', options.sanitizers[1].upper())
 
-	if options.embed_source:
-		tar_n_bytes, tar_source = source_for_embedded_tarfile(options)
-		watcher = fr"python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
+	tar_n_bytes, tar_source = source_for_embedded_tarfile(options)
+	watcher = fr"python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
  buffer = io.BytesIO(sys.stdin.buffer.raw.read({tar_n_bytes}))\n\
  if len(buffer.getbuffer()) == {tar_n_bytes}:\n\
@@ -254,10 +251,6 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
   os.chdir(temp_dir)\n\
   exec(open('watch_valgrind.py').read())\n\
 \""
-	else:
-		# hopefully obsolete option to invoke Python in dcc rather than use Python embeded in binary
-		tar_n_bytes, tar_source = 0, ''
-		watcher = options.dcc_path +  "--watch-stdin-for-valgrind-errors"
 
 	wrapper_source = wrapper_source.replace('__MONITOR_VALGRIND__', watcher)
 
@@ -303,7 +296,6 @@ class Options(object):
 		# interfere with dual sanitizer synchronization
 		self.dual_sanitizer_safe_system_includes = set(['assert.h', 'complex.h', 'ctype.h', 'errno.h', 'fenv.h', 'float.h', 'inttypes.h', 'iso646.h', 'limits.h', 'locale.h', 'math.h', 'setjmp.h', 'stdalign.h', 'stdarg.h', 'stdatomic.h', 'stdbool.h', 'stddef.h', 'stdint.h', 'stdio.h', 'stdlib.h', 'stdnoreturn.h', 'string.h', 'tgmath.h', 'time.h', 'uchar.h', 'wchar.h', 'wctype.h', 'sanitizer/asan_interface.h', 'malloc.h', 'strings.h', 'sysexits.h'])
 
-		self.embed_source = True
 		self.explanations = True
 
 		# ld reportedly doesn't have wrap on OSX
@@ -465,10 +457,6 @@ def parse_arg(arg, remaining_args, options):
 		options.stack_use_after_return = True
 	elif arg == '--no-shared-libasan':
 		options.shared_libasan = False
-	elif arg == '--embed-source':
-		options.embed_source = True
-	elif arg == '--no-embed-source':
-		options.embed_source = False
 	elif arg == '--valgrind-fix-posix-spawn':
 		options.valgrind_fix_posix_spawn = True
 	elif arg == '--no-valgrind-fix-posix-spawn':
@@ -501,7 +489,6 @@ def parse_arg(arg, remaining_args, options):
 						   memory    - MemorySanitizer, primarily uninitialized variables
   --leak-check             check for memory leaks, requires --fsanitizer=valgrind to intercept errors
   --no-explanations        do not add explanations to compile-time error messages
-  --no-embed-source        do not embed program source in binary
   --no-shared-libasan      do not use libasan
   --ifdef                  use ifdef instead of ld's -wrap option
 
@@ -593,7 +580,7 @@ def source_for_sanitizer2_executable(executable):
 
 def source_for_embedded_tarfile(options):
 	for file in FILES_EMBEDDED_IN_BINARY:
-		contents = pkgutil.get_data('src', file)
+		contents = pkgutil.get_data('embedded_src', file)
 		if file.endswith('.py'):
 			contents = minify(contents)
 		add_tar_file(options.tar, file, contents)

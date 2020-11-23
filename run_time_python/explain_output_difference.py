@@ -1,4 +1,5 @@
 import os, re
+from util import explanation_url
 
 # Expected output has been supplied as an environment variable
 # and the program has been stoped because the output was incorrect
@@ -198,8 +199,3 @@ def getenv_int(name):
 		return int(os.environ.get(name, 0))
 	except ValueError:
 		return 0
-
-EXPLANATION_BASE_URL = "https://comp1511unsw.github.io/dcc/"
-
-def explanation_url(page):
-	return 	EXPLANATION_BASE_URL + page + ".html"

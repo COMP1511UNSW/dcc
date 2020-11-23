@@ -2,7 +2,7 @@
 
 import copy, re, sys
 import colors
-from drive_gdb import explanation_url
+from util import explanation_url
 
 def get_explanation(message, colorize_output):
 	for e in explanations:

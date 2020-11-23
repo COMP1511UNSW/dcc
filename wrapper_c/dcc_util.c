@@ -224,7 +224,6 @@ static void __dcc_signal_handler(int signum) {
 	_explain_error();// not reached
 }
 
-#if __EMBED_SOURCE__
 static char *run_tar_file = "python3 -B -E -c \"import io,os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
   buffer = io.BytesIO(sys.stdin.buffer.raw.read())\n\
@@ -235,7 +234,6 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
   os.chdir(temp_dir)\n\
   exec(open('start_gdb.py').read())\n\
 \"";
-#endif
 
 static void _explain_error(void) {
 #if __N_SANITIZERS__ > 1 && __I_AM_SANITIZER1__
@@ -252,10 +250,6 @@ static void _explain_error(void) {
 	prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);
 #endif
 
-#if !__EMBED_SOURCE__
-	debug_printf(2, "running %s\n", "__PATH__");
-	system("__PATH__");
-#else
 	debug_printf(2, "running %s\n", run_tar_file);
 #if __N_SANITIZERS__ > 1
 	extern FILE *__real_popen(const char *command, const char *type);
@@ -269,7 +263,6 @@ static void _explain_error(void) {
 		debug_printf(1, "fwrite bad return %d returned %d expected\n", (int)items_written, (int)n_items);
 	}
 	pclose(python_pipe);
-#endif
 	__dcc_error_exit();
 }
 

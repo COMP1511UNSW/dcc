@@ -31,7 +31,7 @@ c_compiler="${2:-clang}"
 mkdir -p extracted_compile_time_errors
 cd extracted_compile_time_errors || exit
 rm -f *.c
-python3 ../../compiler_explanations.py --create_test_files
+python3 ../../compile_time_python/compiler_explanations.py --create_test_files
 cd ../..
 
 clang_version=$($c_compiler -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)

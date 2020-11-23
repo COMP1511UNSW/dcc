@@ -1,17 +1,18 @@
 # exclude generated files from repo
 dcc
 dcc.1
-version.py
-src
-__init__.py
-__pycache__
+
+# ignore files/directories used created in development
+*.swp
 a.out
 *.o
 core
 *.orig
-tmp*
+_*
+*tmp*
+random*
+experiments*
 
 # don't accidentally add random test files to repo
 /*.c
 /*.sh
-!/dcc_*.c

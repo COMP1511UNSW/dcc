@@ -1,6 +1,7 @@
 import collections, os, platform, re, sys, signal, traceback
-from explain_output_difference import explain_output_difference, explanation_url
+from explain_output_difference import explain_output_difference
 import colors
+from util import explanation_url
 
 #
 # Code below is executed from gdb.

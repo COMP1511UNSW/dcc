@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
-
 import re, sys
 from help_cs50 import help_cs50
-from compiler_explanations import get_explanation
 import colors
+from util import explanation_url
+from compiler_explanations import get_explanation
 	
 ANSI_DEFAULT = "\033[0m"
 
