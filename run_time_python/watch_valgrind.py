@@ -1,5 +1,5 @@
 import os, re, sys, signal
-from start_gdb import start_gdb
+from start_gdb import start_gdb, kill_sanitizer2
 from util import explanation_url
 import colors
 
@@ -32,9 +32,10 @@ def watch_valgrind():
 
 Main is returning an uninitialized value or exit has been passed an uninitialized value.
 """
-			os.environ['DCC_VALGRIND_ERROR'] = error
 			print('\n' + error, file=sys.stderr)
-			start_gdb()
+			# too late to start gdb as the program is exiting
+			# we kill sanitizer2 as it is waiting for gdb
+			kill_sanitizer2()
 			sys.exit(1)
 		elif 'below stack pointer' in line:
 			error = f"""Runtime error: {color('access to function variables after function has returned', 'red')}
