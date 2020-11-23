@@ -291,7 +291,8 @@ class Location():
 
 	def long_description(self, color):
 		where =  'in ' + self.short_description(color)
-		source = self.surrounding_source(color, markMiddle=True)
+		source_lines = self.surrounding_source(color, markMiddle=True)
+		source = ''.join(source_lines).rstrip('\n') + '\n'
 		if source:
 			where +=  ':\n\n' + source
 		return where
@@ -327,7 +328,7 @@ class Location():
 		if len(lines) == 1 and not marked_line:
 			return ''
 
-		return ''.join(lines).rstrip('\n') + '\n'
+		return lines
 
 
 	def is_user_location(self):
@@ -431,8 +432,10 @@ def gdb_set_frame():
 	except:
 		if debug_level: traceback.print_exc(file=sys.stderr)
 	
-def relevant_variables(c_source, color, arrays=[]):
-	expressions = extract_expressions(c_source)
+def relevant_variables(c_source_lines, color, arrays=[]):
+	expressions = []
+	for line in c_source_lines:
+		expressions += extract_expressions(line)
 #	 arrays=[r'[a-z][a-zA-Z0-9_]*']
 #	 debug_print(2, 'relevant_variables', arrays, c_source)
 #	 for array in arrays:
@@ -443,7 +446,7 @@ def relevant_variables(c_source, color, arrays=[]):
 	done = set(['NULL', 'char', 'int', 'double', 'while', 'if', 'else', 'for', 'while', 'return', 'main'])
 
 	explanation = ''
-	debug_print(3, 'relevant_variables expressions=', c_source, expressions)
+	debug_print(3, 'relevant_variables expressions=', c_source_lines, expressions)
 	for expression in sorted(expressions, key=lambda e: (len(re.findall(r'\w+', e)), e)):
 		try:
 			expression = expression.strip()
@@ -559,9 +562,13 @@ def balance_bracket(str, depth=0):
 
 # FIXME - this is very crude
 def extract_expressions(c_source):
+	c_source = c_source.strip()
+	if not c_source:
+		return []
 	debug_print(3, 'extract_expressions c_source=',  c_source)
+
 	# match declaration
-	m = re.match(r'[a-z][a-zA-Z0-9_]*\s+[a-z][a-zA-Z0-9_]*\s*\[(.*)', c_source, re.DOTALL)
+	m = re.match(r'([a-z][a-zA-Z0-9_]*|FILE)\s+\**\s*[a-z][a-zA-Z0-9_]*\s*\[(.*)', c_source, re.DOTALL)
 	if m:
 		 return extract_expressions(m.group(1))
 		 
