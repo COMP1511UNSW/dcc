@@ -224,7 +224,7 @@ static void __dcc_signal_handler(int signum) {
 	_explain_error();// not reached
 }
 
-static char *run_tar_file = "python3 -B -E -c \"import io,os,sys,tarfile,tempfile\n\
+static char *run_tar_file = "PATH=$PATH:/bin:/usr/bin:/usr/local/bin python3 -B -E -c \"import io,os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
   buffer = io.BytesIO(sys.stdin.buffer.raw.read())\n\
   buffer_length = len(buffer.getbuffer())\n\
@@ -365,7 +365,16 @@ int __wrap_posix_spawn(pid_t *pid, const char *path,
 		_explain_error();
 	}
 #endif
-
+	// fake branch on parameter values to trigger unitialized variable error
+	// before clone, so we can get a stack backtrace
+	if (
+		(file_actions && *(unsigned char *)file_actions != *(unsigned char *)file_actions) ||
+		(attrp && *(unsigned char *)attrp != *(unsigned char *)attrp) ||
+		(argv && argv[0] != argv[0]) ||
+		(envp && envp[0] != envp[0])
+		)
+		 {
+	}
     struct stat s;
  	if (stat(path, &s) == 0 &&
         S_ISREG(s.st_mode) &&
@@ -376,5 +385,44 @@ int __wrap_posix_spawn(pid_t *pid, const char *path,
     }
 
 }
+
+int __real_posix_spawnp(pid_t *pid, const char *path,
+                       const posix_spawn_file_actions_t *file_actions,
+                       const posix_spawnattr_t *attrp,
+                       char *const argv[], char *const envp[]) NO_SANITIZE;
+
+int __wrap_posix_spawnp(pid_t *pid, const char *path,
+                       const posix_spawn_file_actions_t *file_actions,
+                       const posix_spawnattr_t *attrp,
+                       char *const argv[], char *const envp[]) {
+
+// if using ifdef instead of ld wrapping this if will process a compile-time warning
+#ifndef __real_posix_spawnp
+	if (path == NULL) {
+		putenvd("DCC_ASAN_ERROR=Null pointer passed to posix_spawn as argument 2");
+		_explain_error();
+	}
+#endif
+	// fake branch on parameter values to trigger unitialized variable error
+	// before clone, so we can get a stack backtrace
+	if (
+		(file_actions && *(unsigned char *)file_actions != *(unsigned char *)file_actions) ||
+		(attrp && *(unsigned char *)attrp != *(unsigned char *)attrp) ||
+		(argv && argv[0] != argv[0]) ||
+		(envp && envp[0] != envp[0])
+		)
+		 {
+	}
+    struct stat s;
+ 	if (stat(path, &s) == 0 &&
+        S_ISREG(s.st_mode) &&
+        faccessat(AT_FDCWD, path, X_OK, AT_EACCESS) == 0) {
+    		return __real_posix_spawnp(pid, path, file_actions, attrp, argv, envp);
+    } else {
+    	return 2;
+    }
+
+}
+
 
 #endif

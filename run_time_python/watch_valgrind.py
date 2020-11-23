@@ -1,5 +1,5 @@
 import os, re, sys, signal
-from start_gdb import start_gdb, kill_sanitizer2
+from start_gdb import start_gdb, kill_sanitizer2, kill_all
 from util import explanation_url
 import colors
 
@@ -37,6 +37,18 @@ Main is returning an uninitialized value or exit has been passed an uninitialize
 			# we kill sanitizer2 as it is waiting for gdb
 			kill_sanitizer2()
 			sys.exit(1)
+		elif 'clone.S' in line:
+			error = f"""Runtime error: {color('invalid parameters to process creation', 'red')}
+
+An error has occurred in process creation.
+This is likely an invalid argument to posix_spawn, posix_spawnp or clone.
+Check all arguments are initialized.
+
+"""
+			print('\n' + error, file=sys.stderr)
+			# too late to start gdb as the program is exiting
+			kill_all()
+			sys.exit(1)
 		elif 'below stack pointer' in line:
 			error = f"""Runtime error: {color('access to function variables after function has returned', 'red')}
 You have used a pointer to a local variable that no longer exists.
@@ -50,7 +62,7 @@ For more information see: {explanation_url("stack_use_after_return")}'
 			start_gdb()
 			break
 		elif 'Invalid write of size' in line:
-			error = f"""Runtime error: invalid assignment.
+			error = """Runtime error: invalid assignment.
 A huge local array can produce this error.
 """
 			os.environ['DCC_VALGRIND_ERROR'] = error

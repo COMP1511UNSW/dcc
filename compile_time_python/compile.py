@@ -149,7 +149,7 @@ def execute_compiler(base_command, compiler_stdin, options, rename_functions=Tru
 		if len(options.sanitizers) > 1:
 			override_functions  = ['clock', 'fdopen', 'fopen', 'freopen', 'popen', 'remove', 'rename', 'system', 'time']
 		if options.valgrind_fix_posix_spawn:
-			override_functions  += ['posix_spawn']
+			override_functions  += ['posix_spawn', 'posix_spawnp']
 
 		if options.ifdef_instead_of_wrap:
 			command +=  ['-D{}=__real_{}'.format(f, f) for f in wrapped_functions]
