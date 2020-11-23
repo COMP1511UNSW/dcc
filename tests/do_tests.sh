@@ -40,7 +40,8 @@ platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
 version_expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
 default_expected_output_dir="$tests_dir/expected_output/default"
 mkdir -p "$version_expected_output_dir" "$default_expected_output_dir"
-test_failed=0
+
+tests_failed=0
 
 for src_file in tests/extracted_compile_time_errors/*.c tests/compile_time_errors/*.c tests/run_time_errors/*.* tests/run_time_no_errors/*.* tests/check_output/*.sh
 do
@@ -77,10 +78,9 @@ do
 		*no_error*)
 			if test -s tmp.actual_stderr
 			then
-				echo
-				echo "Test dcc $dcc_flags $src_file failed - error messages"
+				echo "FAILED: dcc $dcc_flags $src_file # error messages"
 				cat tmp.actual_stderr
-				test_failed=1
+				tests_failed=$((tests_failed + 1))
 				continue
 			fi
 			actual_output_file=tmp.actual_stdout
@@ -88,9 +88,8 @@ do
 		*)
 			if test ! -s tmp.actual_stderr
 			then
-				echo
-				echo "Test dcc $dcc_flags $src_file failed - no error messages"
-				test_failed=1
+				echo "FAILED: dcc $dcc_flags $src_file # no error messages"
+				tests_failed=$((tests_failed + 1))
 				continue
 			fi
 			actual_output_file=tmp.actual_stderr
@@ -123,7 +122,8 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 		sed -e "$REMOVE_NON_DETERMINATE_VALUES"  $actual_output_file >tmp.expected_output
 		if diff -iBw tmp.expected_output tmp.corrected_output >/dev/null
 		then
-			echo -n .
+			echo Passed: $src_file
+#			echo -n .
 			continue
 		fi
 		
@@ -151,4 +151,4 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 		esac
 	done
 done
-echo All tests passed
+echo $tests_failed tests failed
