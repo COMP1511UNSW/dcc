@@ -8,5 +8,5 @@ int main(int argc, char **argv) {
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[-1] =  <deleted-value>
+argc = 1
+argv[-1] = 0x1 <error: Cannot access memory at address 0x1>

@@ -12,7 +12,7 @@ int f3(int *a) {
 
 Values when execution stopped:
 
-a =  <deleted-value>
+a = <uninitialized value>
 
 Function Call Traceback
 f3(a=<uninitialized value>) called at line 7 of tests/run_time_errors/call_stack_uninitialized.c

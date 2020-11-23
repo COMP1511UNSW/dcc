@@ -13,4 +13,4 @@ int main(void) {
 
 Values when execution stopped:
 
-a =  <deleted-value>
+a = NULL

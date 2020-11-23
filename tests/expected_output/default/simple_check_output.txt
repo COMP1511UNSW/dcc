@@ -30,15 +30,14 @@ Hello!
 Your program printed this line:
 Hello
 
-Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffe4c52b7b8) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[1] =  <deleted-value>
+argc = 2
 *** Test 4 - two-bytes-missing-fail
 *** Test Environment 
 expected output: Hello!
@@ -54,15 +53,14 @@ Hello!
 Your program printed this line:
 Hell
 
-Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffdbc1baab8) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[1] =  <deleted-value>
+argc = 2
 *** Test 5 - trailing-white-space-1
 *** Test Environment 
 expected output: Hello!
@@ -83,15 +81,14 @@ Hello!
 Your program printed this line:
 Hello!   
 
-Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7fff4c9bf458) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[1] =  <deleted-value>
+argc = 2
 *** Test 7 - extra-new-line-1-fail
 *** Test Environment 
 expected output: Hello!
@@ -104,15 +101,14 @@ Execution stopped because of unexpected extra output.
 The program produced all the expected output and then produced extra output.
 The extra line was an empty line (a '\n').
 
-Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffc431cf348) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[1] =  <deleted-value>
+argc = 2
 *** Test 8 - extra-new-line-2
 *** Test Environment DCC_IGNORE_EMPTY_LINES=1
 expected output: Hello!
@@ -145,15 +141,14 @@ Hello!
 Your program printed this line:
 hEllo!
 
-Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffdbfdcc338) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[1] =  <deleted-value>
+argc = 2
 *** Test 11 - ignore-case-2
 *** Test Environment DCC_IGNORE_CASE=1
 expected output: Hello!
@@ -174,15 +169,14 @@ Hello!
 Your program printed this line:
 H ello\t!
 
-Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7fff47a25288) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[1] =  <deleted-value>
+argc = 2
 *** Test 13 - ignore-white-space-2
 *** Test Environment DCC_IGNORE_WHITE_SPACE=1
 expected output: Hello!
@@ -210,15 +204,14 @@ Hello!
 Your program printed this line:
 Hen
 
-Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffc7dd53058) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[1] =  <deleted-value>
+argc = 2
 *** Test 16 - ignore-characters-3
 *** Test Environment DCC_IGNORE_CHARACTERS=lzno!
 expected output: Hello!
@@ -239,15 +232,14 @@ Hello!
 Your program printed this line:
 HiheHilloHi\t!
 
-Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffdb8efeaf8) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[1] =  <deleted-value>
+argc = 2
 *** Test 18 - compare-only-characters-2
 *** Test Environment DCC_COMPARE_ONLY_CHARACTERS=el
 expected output: Hello!
@@ -268,15 +260,14 @@ Hello!
 Your program printed this line:
 HiheHilloHi\t!
 
-Execution stopped in main(argc=2, argv=0x<deleted-hexadecimal-constant>) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7fffe7360ad8) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-argv[1] =  <deleted-value>
+argc = 2
 *** Test 20 - compare-only-characters-4
 *** Test Environment DCC_IGNORE_CASE=1 DCC_COMPARE_ONLY_CHARACTERS=hel
 expected output: Hello!

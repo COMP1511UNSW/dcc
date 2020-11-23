@@ -14,4 +14,4 @@ int main(void) {
 
 Values when execution stopped:
 
-a->next->next =  <deleted-value>
+a->next->next = <uninitialized value>

@@ -17,6 +17,6 @@ int main(int argc, char **argv) {
 
 Values when execution stopped:
 
-argc =  <deleted-value>
+argc = 1
 999 + argc = 1000
-a[999 + argc] =  <deleted-value>
+a[999 + argc] = 0

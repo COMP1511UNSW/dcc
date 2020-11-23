@@ -15,9 +15,9 @@ int main(void) {
 
 Values when execution stopped:
 
-a =  <deleted-value>
-i =  <deleted-value>
-sum =  <deleted-value>
-a[1000] =  <deleted-value>
-a[42] =  <deleted-value>
-a[i] =  <deleted-value>
+a = {<uninitialized value> <repeats 42 times>, 42, <uninitialized value> <repeats 957 times>}
+i = 1000
+sum = 0
+a[1000] = <uninitialized value>
+a[42] = 42
+a[i] = <uninitialized value>

@@ -1,0 +1,16 @@
+
+Execution terminated by signal 11
+Execution stopped in main() in tests/run_time_errors/fgetc_uninitialized.c at line 6:
+
+int main(int argc, char *argv[]) {
+	FILE *f[2];
+	f[0] = NULL;
+-->	fgetc(f[argc]);
+}
+
+Values when execution stopped:
+
+argc = 1
+f = {NULL, <uninitialized value>}
+f[0] = NULL
+f[argc] = <uninitialized value>

@@ -9,7 +9,7 @@ Execution stopped in main() in tests/run_time_errors/braces_before_error.c at li
 
 Values when execution stopped:
 
-a =  <deleted-value>
-argc =  <deleted-value>
-a[42] =  <deleted-value>
-a[argc] =  <deleted-value>
+a = {<uninitialized value> <repeats 42 times>, 42, <uninitialized value> <repeats 957 times>}
+argc = 1
+a[42] = 42
+a[argc] = <uninitialized value>

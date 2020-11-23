@@ -13,8 +13,8 @@ int main(int argc, char **argv) {
 
 Values when execution stopped:
 
-a =  <deleted-value>
-argc =  <deleted-value>
-a[42] =  <deleted-value>
-a[43] =  <deleted-value>
-a[argc] =  <deleted-value>
+a = {<uninitialized value> <repeats 42 times>, 42, <uninitialized value> <repeats 957 times>}
+argc = 1
+a[42] = 42
+a[43] = <uninitialized value>
+a[argc] = <uninitialized value>

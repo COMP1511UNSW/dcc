@@ -38,7 +38,7 @@ bird-line-too-long.c
 Execution failed because program wrote a line containing over 65536 bytes.
 Do you have an infinite loop?
 The start of the line was:
-_______________________________________________________________________________________________________________
+________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________ ...
 
 Execution stopped in main() in tests/check_output/birds/bird-line-too-long.c at line 8:
 

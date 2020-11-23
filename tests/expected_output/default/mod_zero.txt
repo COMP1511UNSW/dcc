@@ -11,4 +11,4 @@ int main(int argc, char **argv) {
 
 Values when execution stopped:
 
-argc =  <deleted-value>
+argc = 1

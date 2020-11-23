@@ -16,7 +16,7 @@ trap 'exit_status=$?;rm -fr tmp* a.out;exit $exit_status' EXIT INT TERM
 # so delete them before diff-ing errors
 # also remove absolute pathnames so expected output is not filesystem location dependent
 REMOVE_NON_DETERMINATE_VALUES='
-	s/^\([a-z].* = \).*/\1 <deleted-value>/g
+	s/^\([a-z].* = \)[0-9][0-9]*$/\1 <integer>/g
 	s/0x[0-9a-f]*/0x<deleted-hexadecimal-constant>/g
 	s/-*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*/<deleted-large-integer-constant>/g
 	s?/tmp/[^ ]*\.o??g
@@ -78,7 +78,7 @@ do
 		*no_error*)
 			if test -s tmp.actual_stderr
 			then
-				echo "FAILED: dcc $dcc_flags $src_file # error messages"
+				echo FAILED: dcc $dcc_flags $src_file "# error messages"
 				cat tmp.actual_stderr
 				tests_failed=$((tests_failed + 1))
 				continue
@@ -88,7 +88,7 @@ do
 		*)
 			if test ! -s tmp.actual_stderr
 			then
-				echo "FAILED: dcc $dcc_flags $src_file # no error messages"
+				echo FAILED: dcc $dcc_flags $src_file "# no error messages"
 				tests_failed=$((tests_failed + 1))
 				continue
 			fi
@@ -101,7 +101,7 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 		default_expected_output="$default_expected_output_dir/$expected_output_file"
 		version_expected_output="$version_expected_output_dir/$expected_output_file"
 		
-		sed -e "$REMOVE_NON_DETERMINATE_VALUES"  $actual_output_file >tmp.corrected_output
+		sed -e "$REMOVE_NON_DETERMINATE_VALUES" $actual_output_file >tmp.corrected_output
 		
 		if test ! -e "$default_expected_output"
 		then
@@ -109,7 +109,7 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 			echo "'$default_expected_output' does not exist, creating with these contents:"
 			echo
 			cat "$actual_output_file"
-			cp  tmp.corrected_output "$default_expected_output"
+			cp  "$actual_output_file" "$default_expected_output"
 			echo
 			echo "if above is not correct output for this test: rm '$default_expected_output' "
 			continue
@@ -119,34 +119,37 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 		expected="$default_expected_output"
 		test -r "$version_expected_output" && expected="$version_expected_output"
 		
-		sed -e "$REMOVE_NON_DETERMINATE_VALUES"  $actual_output_file >tmp.expected_output
+		sed -e "$REMOVE_NON_DETERMINATE_VALUES" $expected >tmp.expected_output
+		
 		if diff -iBw tmp.expected_output tmp.corrected_output >/dev/null
 		then
-			echo Passed: $src_file
+			echo Passed: dcc $dcc_flags $src_file
 #			echo -n .
 			continue
 		fi
 		
 		
 		echo
-		echo "Test dcc $dcc_flags  failed - output different to expected"
+		echo "FAILED: dcc $dcc_flags $src_file # error messages different to expected"
 		echo Differences are:
 		echo
-		diff -u  -iBw  tmp.corrected_output
+		diff -u  -iBw tmp.expected_output tmp.corrected_output
 		echo
 		echo "Enter u to update default expected output."
 		echo "Enter p to create platform-specific  expected output."
+		echo "Enter i to leave expected output unchanged."
+		echo "Enter q to exit."
 		
 		echo -n "Action? "
 		read response
 		case "$response" in
 		u)
-			cp  tmp.corrected_output "$default_expected_output"
+			cp  "$actual_output_file" "$default_expected_output"
 			;;
 		p)
-			cp  tmp.corrected_output "$version_expected_output"
+			cp  "$actual_output_file" "$version_expected_output"
 			;;
-		*)
+		q)
 			exit 1
 		esac
 	done

@@ -12,7 +12,7 @@ int main(void) {
 
 Values when execution stopped:
 
-a =  <deleted-value>
-file_actions = {__allocated = <uninitialized value>, __used = <uninitialized value>, __actions =  <deleted-value>
-p =  <deleted-value>
-a[0] =  <deleted-value>
+a = {0x43337c "/bin/true", NULL}
+file_actions = {__allocated = <uninitialized value>, __used = <uninitialized value>, __actions = <uninitialized value>, ...}
+p = <uninitialized value>
+a[0] = "/bin/true"

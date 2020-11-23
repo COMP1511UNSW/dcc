@@ -15,6 +15,6 @@ int main(void) {
 
 Values when execution stopped:
 
-s1 = {next = 0x<deleted-hexadecimal-constant>, data =  <deleted-value>
-s2 = {next = NULL, data =  <deleted-value>
-a->next->next =  <deleted-value>
+s1 = {next = 0x7ffe49b0cd80, data = <uninitialized value>}
+s2 = {next = NULL, data = 0}
+a->next->next = NULL

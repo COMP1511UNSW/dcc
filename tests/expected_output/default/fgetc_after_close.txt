@@ -3,8 +3,9 @@ Runtime error: invalid memory access.
 A common cause of this error is use of invalid FILE * pointer.
 
 
-Execution stopped in main() in tests/run_time_errors/use_after_return.c at line 23:
+Execution stopped in main() in tests/run_time_errors/fgetc_after_close.c at line 5:
 
 int main(void) {
--->	printf("%d\n", *f(50));
+	fclose(stdin);
+-->	fgetc(stdin);
 }

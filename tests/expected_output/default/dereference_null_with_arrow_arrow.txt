@@ -14,5 +14,5 @@ int main(void) {
 
 Values when execution stopped:
 
-s = {next = NULL, data =  <deleted-value>
-a->next =  <deleted-value>
+s = {next = NULL, data = 0}
+a->next = NULL

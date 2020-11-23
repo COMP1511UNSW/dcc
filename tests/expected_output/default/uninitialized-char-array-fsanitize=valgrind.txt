@@ -10,6 +10,6 @@ int main(int argc, char **argv) {
 
 Values when execution stopped:
 
-argc =  <deleted-value>
-input =  <deleted-value>
-input[0] =  <deleted-value>
+argc = 1
+input = {<10 uninitialized values>, <10 uninitialized values>}
+input[0] = <10 uninitialized values>

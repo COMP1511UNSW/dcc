@@ -20,8 +20,8 @@ int main(int argc, char **argv) {
 
 Values when execution stopped:
 
-a =  <deleted-value>
-argc =  <deleted-value>
-i =  <deleted-value>
-i+argc =  <deleted-value>
-a[i+argc] =  <deleted-value>
+a = {<uninitialized value>, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...}
+argc = 1
+i = 999
+i+argc = 1000
+a[i+argc] = <uninitialized value>
