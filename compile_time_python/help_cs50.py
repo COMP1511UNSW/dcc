@@ -20,7 +20,7 @@ def help_cs50(lines):
 	if modified_explanation:
 		return "\n ".join(modified_explanation)
 	return None
-	
+
 # following code from
 # https://github.com/cs50/help50-server/blob/master/helpers/clang.py
 

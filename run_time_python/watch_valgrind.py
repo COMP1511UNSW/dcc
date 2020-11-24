@@ -1,6 +1,6 @@
 # this is code is invoked  from  the function launch_valgrind in ../wrapper_c/dcc_util.c
 # valgrind's error message are directed to this code's stdin
-# 
+#
 # This code summarizes any error messages in a form suitable for a novice programmer
 # it the in most cases then calls start_gdb to run gdb to print more informatiomn
 # valgrind is run with --vgdb=yes
@@ -36,11 +36,11 @@ def read_line(color, debug_level):
 
 # check one line of valgrind output
 # return 0 if we should exit
- 
+
 def process_line(line, color, debug_level):
 	error = None
 	action = start_gdb
-	
+
 	if 'vgdb me' in line:
 		error = 'Runtime error: ' + color('uninitialized variable accessed.', 'red')
 
@@ -103,7 +103,7 @@ A common cause of this error is use of invalid FILE * pointer.
 		return 0
 	return 1
 
-				
+
 if __name__ == '__main__':
 	signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(1))
 	watch_valgrind()

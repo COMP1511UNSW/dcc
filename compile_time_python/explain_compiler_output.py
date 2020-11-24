@@ -3,7 +3,7 @@ from help_cs50 import help_cs50
 import colors
 from util import explanation_url
 from compiler_explanations import get_explanation
-	
+
 ANSI_DEFAULT = "\033[0m"
 
 def explain_compiler_output(output, args):
@@ -15,7 +15,7 @@ def explain_compiler_output(output, args):
 		color = colors.color
 	else:
 		color = lambda text, color_name: text
-	
+
 	while lines and (not errors_explained or len(explanations_made) < args.max_explanations):
 		message, lines = get_next_message(lines)
 		if args.debug:
@@ -23,7 +23,7 @@ def explain_compiler_output(output, args):
 		if not message:
 			print(lines.pop(0), file=sys.stderr)
 			continue
-			
+
 		if last_message and message.is_same_line(last_message) and (last_message.type == "error" or message.type == "warning"):
 			# skip if there are two errors for one line
 			# often the second message is unhelpful
@@ -41,16 +41,16 @@ def explain_compiler_output(output, args):
 		# dcc use -D on command-line for several purposes
 		# e.g -Dread=__real_read to avoid a user-defined read being called from dcc's own code
 		# so we tidy error mentioning such names to hide this
-		
+
 		text = "\n".join(message.text_without_ansi_codes)
-		
+
 		for prefix in ['__renamed_', '__real_', '__wrap_']:
 			if prefix in text:
 				message.text = [s.replace(prefix, '') for s in message.text]
 				message.text_without_ansi_codes = [s.replace(prefix, '') for s in message.text_without_ansi_codes]
 				# note may mention command line arguments
 				message.note = []
-				message.note_without_ansi_codes = []		
+				message.note_without_ansi_codes = []
 
 		last_message = message
 
@@ -63,19 +63,19 @@ def explain_compiler_output(output, args):
 		else:
 			# FIXME - replace all cs50 explanations
 			explanation_text = help_cs50(message.text_without_ansi_codes)
-			
+
 		if args.debug:
 			print('explanation_text:', explanation_text, file=sys.stderr)
 
 		message_lines = message.text
 		if not explanation or explanation.show_note:
 			message_lines += message.note
-			
+
 		text = '\n'.join(message_lines)
 		if message.has_ansi_codes():
 			text += ANSI_DEFAULT
 		print(text, file=sys.stderr)
-		
+
 		if not explanation_text:
 			continue # should we give up when we get a message for which we don't have an explanation?
 
@@ -90,7 +90,7 @@ def explain_compiler_output(output, args):
 
 		prefix = color("dcc explanation:", 'cyan')
 		print(prefix, explanation_text, file=sys.stderr)
-			
+
 		if  explanation and explanation.no_following_explanations:
 			if args.debug:
 				print('printing no further compiler messages because explanation.no_following_explanations set')
@@ -117,7 +117,7 @@ class Message():
 	note_without_ansi_codes = []
 	highlighted_word = ''
 	underlined_word = ''
-	
+
 	def is_same_line(self, message):
 		return message and (message.file, message.line_number) == (self.file, self.line_number)
 
@@ -160,15 +160,15 @@ def get_next_message(lines):
 				break
 
 		lines.pop(0)
-		
+
 		if colorless_next_line.endswith(' generated.'):
 			break
-			
+
 		if parsing_note:
 			e.note.append(next_line)
 			e.note_without_ansi_codes.append(colorless_next_line)
 			continue
-		
+
 		if re.match(r"^[ ~\d|]*\^[ ~]*$", colorless_next_line):
 			previous_line = e.text_without_ansi_codes[-1]
 			m = re.match(r"^(.*)\^~+", colorless_next_line)

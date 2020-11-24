@@ -51,7 +51,7 @@ def drive_gdb():
 		gdb_execute('call __dcc_error_exit()')
 #	kill_all()
 	gdb_execute('quit')
-	
+
 def gdb_attach():
 	pid = int(os.environ.get('DCC_PID'))
 	if 'DCC_VALGRIND_ERROR' in os.environ:
@@ -60,7 +60,7 @@ def gdb_attach():
 	else:
 		debug_print(2, 'attaching gdb to ', pid)
 		gdb.execute('attach %s' % pid)
-	
+
 def explain_error(output_stream, color):
 	debug_print(2, 'explain_error() in drive_gdb.py starting')
 	# file descriptor 3 is a dup of stderr (see below)
@@ -93,7 +93,7 @@ def explain_error(output_stream, color):
 			print(frame.function_call(color), 'called at line', color(caller.line_number, 'red'), 'of', color(caller.filename, 'red'), file=output_stream)
 		print(stack[-1].function_call(color), file=output_stream)
 
-	output_stream.flush()	
+	output_stream.flush()
 	gdb.flush(gdb.STDOUT)
 	gdb.flush(gdb.STDERR)
 
@@ -103,8 +103,8 @@ def explain_error(output_stream, color):
 #
 # There is plenty of room here to provide more specific explanation
 # which would be more helpful to novice programmers
- 
-def explain_ubsan_error(loc, output_stream, color):	
+
+def explain_ubsan_error(loc, output_stream, color):
 	#kind = os.environ.get('DCC_UBSAN_ERROR_KIND', '')
 	message = os.environ.get('DCC_UBSAN_ERROR_MESSAGE', '')
 	filename = os.environ.get('DCC_UBSAN_ERROR_FILENAME', '')
@@ -117,23 +117,23 @@ def explain_ubsan_error(loc, output_stream, color):
 	except ValueError:
 		column = 0
 	#memoryaddr = os.environ.get('DCC_UBSAN_ERROR_MEMORYADDR', '')
-	
+
 	if filename and line_number and (not loc or (loc.filename != filename or loc.line_number != line_number)):
 		loc = Location(filename, line_number)
 	if loc and column:
 		loc.column = column
-	
+
 	source = ''
 	if loc:
 		source = clean_c_source(loc.source_line())
-			
+
 	debug_print(3, 'source', source)
 	explanation = None
 	prefix = '\n' + color('dcc explanation:', 'cyan')
-	
+
 	if message:
 		message = message[0].lower() + message[1:]
-	
+
 	m = re.search('(load|store).*(0xbebebebe|null pointer)', message.lower())
 	if m:
 		access = "accessing" if m.group(1) == "load" else "assigning to"
@@ -145,10 +145,10 @@ def explain_ubsan_error(loc, output_stream, color):
 			what = "p[index]"
 		else:
 			what = "*p or p[index]"
-			
+
 		message = "%s a value via a %s pointer" % (access, problem)
 		explanation = "You are using a pointer which "
-		
+
 		if problem == "uninitialized":
 			explanation += "has not been initialized\n"
 			explanation += "  A common error is %s %s without first assigning a value to p.\n" % (access, what)
@@ -167,7 +167,7 @@ def explain_ubsan_error(loc, output_stream, color):
 				message = "accessing a field via a NULL pointer"
 				explanation = """You are using a pointer which is NULL
   A common error is  using p->field when p == NULL.\n"""
-		
+
 	if not explanation and 'division by zero' in message:
 		if '/' in source and '%' not in source:
 			what = "x / y"
@@ -176,35 +176,35 @@ def explain_ubsan_error(loc, output_stream, color):
 		else:
 			what = "x / y or x % y"
 		explanation = "A common error is to evaluate %s when y == 0 which is undefined.\n" % (what)
-	
-	# FIXME make this more specific				
+
+	# FIXME make this more specific
 	if not explanation and ('overflow' in message or 'underflow' in message):
 		explanation = """There are limits in the range of values that can be represented in all types.
   Your program has produced a value outside that range.\n"""
 
-	if not explanation and re.search(r'index .* out of bounds .*\[0\]', message):		
+	if not explanation and re.search(r'index .* out of bounds .*\[0\]', message):
 		explanation = "You have created a array of size 0 which is illegal.\n"
-		
+
 	if not explanation:
-		m = re.search(r'index (-?\d+) out of bounds .*\[(\d+)\]', message)		
+		m = re.search(r'index (-?\d+) out of bounds .*\[(\d+)\]', message)
 		if m:
 			explanation =  """You are using an illegal array index: %s
   Valid indices for an array of size %s are %s..%s
 """ % (color(m.group(1), "red"), color(m.group(2), "red"), color("0", "red"), color(str(int(m.group(2)) - 1), "red"))
-					
+
 	if not explanation:
-		m = re.search(r'index (-?\d+) out of bounds', message)		
+		m = re.search(r'index (-?\d+) out of bounds', message)
 		if m:
 			explanation = "You are using an illegal array index: %s\n" % (color(m.group(1), "red"))
-					
-					
+
+
 	if not explanation and 'out of bounds' in message:
 		explanation =  "You are using an illegal array index."
-		
+
 	if explanation and 'out of bounds' in message:
 		explanation += """  Make sure the size of your array is correct.
   Make sure your array indices are correct.\n"""
-					
+
 	if not message:
 		message = "undefined operation"
 
@@ -215,8 +215,8 @@ def explain_ubsan_error(loc, output_stream, color):
 	print(': runtime error -', color(message, 'red'), file=output_stream)
 	if explanation:
 		print(prefix, explanation, file=output_stream)
-	
-def explain_asan_error(loc, output_stream, color):	
+
+def explain_asan_error(loc, output_stream, color):
 	if loc:
 		print("%s:%d" % (loc.filename, loc.line_number), end=' ', file=output_stream)
 	report = os.environ.get('DCC_ASAN_ERROR')
@@ -251,7 +251,7 @@ def explain_asan_error(loc, output_stream, color):
 		print(prefix, "attempt to free memory that has already been freed.\n", file=output_stream)
 	elif "null" in report.lower():
 		print(prefix, "attempt to access value using a pointer which is NULL.\n", file=output_stream)
-		
+
 def explain_signal(signal_number):
 	if signal_number == signal.SIGINT:
 		return "Execution was interrupted"
@@ -296,7 +296,7 @@ class Location():
 		if source:
 			where +=  ':\n\n' + source
 		return where
-		
+
 	def source_line(self):
 		return fileline(self.filename, self.line_number)
 
@@ -313,9 +313,9 @@ class Location():
 			if markMiddle and offset == 0 and line :
 				marked_line = line
 				line = color(re.sub(r'^ {0,3}', '-->', line), 'red')
-				
+
 			lines.append(clean_c_source(line) if clean else line)
-			
+
 			if re.match(r'^\S', line) and offset > 0:
 				break
 
@@ -332,12 +332,12 @@ class Location():
 
 
 	def is_user_location(self):
-		if not re.match(r'^[a-zA-Z]', self.function): return False 
-		if re.match(r'^/(usr|build)/', self.filename): return False 
-		if re.match(r'^\?', self.filename): return False 
+		if not re.match(r'^[a-zA-Z]', self.function): return False
+		if re.match(r'^/(usr|build)/', self.filename): return False
+		if re.match(r'^\?', self.filename): return False
 		return True
-	  
-	
+
+
 def fileline(filename, line_number):
 	line_number = int(line_number)
 	try:
@@ -382,7 +382,7 @@ def gdb_execute(command):
 		str = ''
 	debug_print(3, 'gdb.execute:', '->', str)
 	return str
-	
+
 def parse_gdb_stack_frame(line):
 	# note don't match function names starting with _ these are not user functions
 	line = re.sub('__real_main', 'main', line)
@@ -397,15 +397,15 @@ def parse_gdb_stack_frame(line):
 		if (
 			filename.startswith("/usr/") or
 			filename.startswith("../sysdeps/") or
-			filename.endswith("libioP.h") or 
+			filename.endswith("libioP.h") or
 			filename.endswith("iofclose.c") or
-			filename.startswith("<") 
-		   ): 
+			filename.startswith("<")
+		   ):
 			m = None
 	if m:
 		return Location(m.group('filename'), m.group('line_number'), function=m.group('function'), params=m.group('params'), frame_number=m.group('frame_number'))
 	return None
-	
+
 def gdb_set_frame():
 	try:
 		stack = gdb_execute('where')
@@ -431,7 +431,7 @@ def gdb_set_frame():
 		return frames
 	except:
 		if debug_level: traceback.print_exc(file=sys.stderr)
-	
+
 def relevant_variables(c_source_lines, color, arrays=[]):
 	expressions = []
 	for line in c_source_lines:
@@ -468,7 +468,7 @@ def evaluate_expression(expression, color):
 		return None	  # don't print(numbers)
 	if re.search(r'[a-zA-Z0-9_]\s*\(', expression):
 		return None	 # don't evaluate function calls
-		
+
 	expression_type = gdb_execute('whatis %s' % expression)
 	expression_type = re.sub(r'\s*type\s*=\s*', '',	 expression_type).strip()
 	debug_print(3, 'expression_type=', expression_type)
@@ -489,17 +489,17 @@ def evaluate_expression(expression, color):
 
 	if len(expression_value) > 160:
 		return None
-	
+
 	# don't print hexadeximal addresses
 	if re.search(r'^\(.*\s+0x[0-9a-f]{4,}\s*$', expression_value):
 		return None
-	return expression_value	 
+	return expression_value
 
 # transform value into something a novice programmer more likely to understand
 
 def clarify_expression_value(expression_value, expression_type, color):
 	debug_print(3, 'clarify_value expression_value=', expression_value)
-	
+
 	if expression_type == 'char':
 		m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
 		if m:
@@ -513,15 +513,15 @@ def clarify_expression_value(expression_value, expression_type, color):
 			else:
 				 expression_value = "%s = '%s'" % m.groups()
 	return clarify_values(expression_value, color)
-	
+
 # transform value into something a novice programmer more likely to understand
 def clarify_values(values, color):
 	# novices will understand 0x0 better as NULL if it is a pointer
 	values = re.sub(r'\b0x0\b', 'NULL', values)
-	
+
 	# strip type cast from strings
 	values = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', values)
-	
+
 	# strip type cast from NULL pointers
 	values = re.sub(r'^\([^()]+\s+\*\)\s*NULL\b', 'NULL', values)
 
@@ -531,19 +531,19 @@ def clarify_values(values, color):
 	values = re.sub(r"'\000'", r"'\\0'", values)
 
 	warning_text = color("<uninitialized value>", 'red')
-	
+
 	for value in ['-1094795586', '-1.8325506472120096e-06', '-0.372548997', '-66 (not valid ASCII)', '0xbebebebe', '0xbebebebebebebebe']:
 		values = re.sub(r'(^|\D)' + re.escape(value) + r'($|\W)', r'\1' + warning_text + r'\2', values)
 
 	values = re.sub(r"'\\276' <repeats (\d+) times>", color("<\\1 uninitialized values>", 'red'), values)
-	
+
 	# convert "\276\276\276" ->  <3 uninitialized values>
 	values = re.sub(r'"((\\276)+)"',  lambda m: color("<{} uninitialized values>".format(len(m.group(1))//4), 'red'), values)
-	
+
 	# make display of arrays more concise
 	if values and values[0] == '{' and len(values) > 128:
 		values = re.sub(r'\{(.{100}.*?),.*\}', r'{\1, ...}', values)
-		
+
 	return values
 
 
@@ -571,14 +571,14 @@ def extract_expressions(c_source):
 	m = re.match(r'([a-z][a-zA-Z0-9_]*|FILE)\s+\**\s*[a-z][a-zA-Z0-9_]*\s*\[(.*)', c_source, re.DOTALL)
 	if m:
 		 return extract_expressions(m.group(1))
-		 
+
 	m = re.match(r'([a-z][a-zA-Z0-9_]*)\s*\[(.*)', c_source, re.DOTALL)
 	if m:
 		expressions = []
 		index = balance_bracket(m.group(2))
 		if index:
 			expressions = [m.group(1), index, m.group(1) + '[' + index + ']']
-		return expressions + extract_expressions(m.group(2)) 
+		return expressions + extract_expressions(m.group(2))
 
 	m = re.match(r'[a-z][a-zA-Z0-9_]*(?:\s*->\s*[a-z][a-zA-Z0-9_]*)+(.*)', c_source, re.DOTALL)
 	if m:
@@ -590,20 +590,20 @@ def extract_expressions(c_source):
 				expressions.append(m.group(0))
 			else:
 				break
-					
+
 		debug_print(3, 'extract_expressions expressions=',  list(expressions))
-		return expressions + extract_expressions(remainder) 
+		return expressions + extract_expressions(remainder)
 
 	m = re.match(r'([a-zA-Z][a-zA-Z0-9_]*)(.*)', c_source, re.DOTALL)
 	if m:
 		return [m.group(1)] + extract_expressions(m.group(2))
-	
+
 	m = re.match(r'^[^a-zA-Z]+(.*)', c_source, re.DOTALL)
 	if m:
 		return extract_expressions(m.group(1))
 
 	return []
-	
+
 
 def explain_location(loc, color):
 	if not isinstance(loc, Location):
@@ -615,7 +615,7 @@ def debug_print(level, *args, **kwargs):
 	if debug_level >= level:
 		kwargs['file'] = sys.stderr
 		print(*args, **kwargs)
- 
-	
+
+
 if __name__ == '__main__':
 	drive_gdb()

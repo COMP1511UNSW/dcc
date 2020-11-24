@@ -44,7 +44,7 @@ def upload_file(token, pathname, release_id):
 			'Content-Type': 'application/zip',
 		},
 	)).read().decode())
-	
+
 def run(command):
 	print(' '.join(command))
 	subprocess.check_call(command)
@@ -56,7 +56,7 @@ def update_readme(tag):
 	contents = re.sub(r'dcc_[\w\.]+_all.deb', f'dcc_{tag}_all.deb', contents)
 	with open('README.md', 'w') as f:
 		f.write(contents)
-	
+
 def main():
 	if len(sys.argv) != 3:
 		print("Usage:", sys.argv[0], '<release-tag> <release-description>', file=sys.stderr)
@@ -77,6 +77,6 @@ def main():
 	release_id = make_release(token, tag)
 	for pathname in ['dcc', f'packaging/debian/dcc_{tag}_all.deb']:
 		upload_file(token, pathname, release_id)
-		
+
 if __name__ == '__main__':
 	main()

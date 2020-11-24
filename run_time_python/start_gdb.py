@@ -15,15 +15,15 @@ def start_gdb(gdb_driver_file='drive_gdb.py'):
 	if pid and sanitizer2_pid and sanitizer1_pid:
 		if pid == sanitizer1_pid:
 			kill_sanitizer2()
-	
-			
+
+
 	if debug_level > 1:
 		print(' '.join('{}={}'.format(k,os.environ.get(k, '')) for k in "DCC_PID DCC_SANITIZER1_PID DCC_SANITIZER2_PID DCC_BINARY".split()))
 
 	for key in os.environ:
 		if key.startswith('PYTHON'):
 			del os.environ[key]
-			
+
 	# gdb seems to need this for imports to work
 	os.environ['PYTHONPATH'] = '.'
 	os.environ['DCC_RUN_INSIDE_GDB'] = 'true'
@@ -75,13 +75,13 @@ def kill_env(environment_variable_name, which_signal=None):
 			kill(int(os.environ[environment_variable_name]), which_signal=which_signal)
 		except ValueError:
 			pass
-		
+
 def kill(pid, which_signal=None):
 #	print('killing', pid)
 	try:
 		if which_signal is None:
 			#in some circumstance SIGPIPE can avoid killed message
-			os.kill(pid, signal.SIGPIPE) 
+			os.kill(pid, signal.SIGPIPE)
 			os.kill(pid, signal.SIGKILL)
 		else:
 			os.kill(pid, which_signal)
@@ -98,7 +98,7 @@ def unlink_sanitizer2_executable():
 def handler(signum, frame):
 	kill_all()
 
-	
+
 # valgrind is being used - we have been invoked via the binary to watch for valgrind errors
 # which have been directed to our stdin
 def watch_stdin_for_valgrind_errors():
@@ -132,7 +132,7 @@ def watch_stdin_for_valgrind_errors():
 			else:
 				print('Error: memory allocated not de-allocated.', file=sys.stderr)
 			sys.exit(0)
-	
+
 if __name__ == '__main__':
 	if sys.argv[1:] == ['--watch-stdin-for-valgrind-errors']:
 		watch_stdin_for_valgrind_errors()

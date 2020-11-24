@@ -48,13 +48,13 @@ def compile():
 	base_compile_command = [options.c_compiler] + options.user_supplied_compiler_args + ['-x', 'c', '-', ] +  options.c_compiler_args
 	compiler_stdout = ''
 	executable_source = ''
-	
+
 	if options.debug > 1:
 		try:
 			os.unlink(DEBUG_COMPILE_FILE)
 		except OSError:
 			pass
-		
+
 	if len(options.sanitizers) == 2:
 		sanitizer2_wrapper_source, sanitizer2_sanitizer_args = update_wrapper_source(options.sanitizers[1], 2, wrapper_source, tar_source, options)
 		sanitizer2_wrapper_source = "#define _GNU_SOURCE\n#include <stdint.h>\n" + sanitizer2_wrapper_source
