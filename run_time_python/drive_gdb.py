@@ -352,6 +352,7 @@ def fileline(filename, line_number):
 		return source[filename][line_number - 1].rstrip() + "\n"
 	except IOError:
 		debug_print(2, "fileline error can not open: %s" % (filename))
+		pass
 	except IndexError:
 		pass
 	return ""

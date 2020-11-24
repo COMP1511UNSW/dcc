@@ -321,6 +321,7 @@ static void putenvd(char *s) {
 	debug_printf(2, "putenv '%s'\n", s);
 }
 
+#ifndef debug_printf
 static int debug_printf(int level, const char *format, ...) {
 	if (level > debug_level) {
 		return 0;
@@ -337,6 +338,7 @@ static int debug_printf(int level, const char *format, ...) {
     va_end(arg);
     return n;
 }
+#endif
 
 #if __WRAP_POSIX_SPAWN__
 

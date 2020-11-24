@@ -48,13 +48,13 @@ def compile():
 	base_compile_command = [options.c_compiler] + options.user_supplied_compiler_args + ['-x', 'c', '-', ] +  options.c_compiler_args
 	compiler_stdout = ''
 	executable_source = ''
-
+	
 	if options.debug > 1:
 		try:
 			os.unlink(DEBUG_COMPILE_FILE)
 		except OSError:
 			pass
-
+		
 	if len(options.sanitizers) == 2:
 		sanitizer2_wrapper_source, sanitizer2_sanitizer_args = update_wrapper_source(options.sanitizers[1], 2, wrapper_source, tar_source, options)
 		sanitizer2_wrapper_source = "#define _GNU_SOURCE\n#include <stdint.h>\n" + sanitizer2_wrapper_source
@@ -255,7 +255,7 @@ def get_wrapper_tar_source(options):
 	wrapper_source = wrapper_source.replace('__CLANG_VERSION_MAJOR__', str(options.clang_version_major))
 	wrapper_source = wrapper_source.replace('__CLANG_VERSION_MINOR__', str(options.clang_version_minor))
 	wrapper_source = wrapper_source.replace('__N_SANITIZERS__', str(len(options.sanitizers)))
-	wrapper_source = wrapper_source.replace('__SANITIZER_1__', options.sanitizers[0].upper())
+	wrapper_source = wrapper_source.replace('__DEBUG__', "1" if options.debug else "0")
 
 	if len(options.sanitizers) > 1:
 		wrapper_source = wrapper_source.replace('__SANITIZER_2__', options.sanitizers[1].upper())
@@ -606,7 +606,7 @@ def source_for_embedded_tarfile(options):
 	for file in FILES_EMBEDDED_IN_BINARY:
 		contents = pkgutil.get_data('embedded_src', file)
 		if file.endswith('.py'):
-			contents = minify(contents)
+			contents = minify(contents,options)
 		add_tar_file(options.tar, file, contents)
 	options.tar.close()
 	n_bytes = options.tar_buffer.tell()
@@ -633,7 +633,7 @@ def bytes2hex64_initializers(b):
 
 # Do some brittle shrinking of Python source  before embedding in binary.
 # Very limited benefits as source is xz compressed before embedded in binary
-def minify(python_source_bytes):
+def minify(python_source_bytes, options):
 	python_source = python_source_bytes.decode('utf-8')
 	lines = python_source.splitlines()
 	lines1 = []
@@ -646,6 +646,8 @@ def minify(python_source_bytes):
 			line = lines.pop(0)
 		if is_comment(line):
 			continue
+		if not options.debug:
+			line = re.sub(r'^(\s*)debug_print.*', r'\1pass', line)
 		# removing white-space is probably safe but with xz it get us nothing
 		# if line.startswith('\t') and '"' not in line and "'" not in line:
 		#	line = re.sub(r' *([=,+\-*/%:]) *', r'\1', line)
@@ -659,7 +661,6 @@ def is_doc_string_delimiter(line):
 
 def is_comment(line):
 	return re.match(r'^\s*#', line)
-
 
 def add_tar_file(tar, pathname, bytes):
 	file_buffer = io.BytesIO(bytes)

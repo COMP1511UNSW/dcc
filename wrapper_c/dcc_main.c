@@ -2,6 +2,10 @@
 // C code to intercept runtime errors and run this program
 //
 
+#if !__DEBUG__
+#define debug_printf(...)
+#endif
+
 #undef _exit
 #undef close
 #undef execvp
@@ -59,7 +63,9 @@ static void launch_valgrind(int argc, char *argv[], char *envp[]) NO_SANITIZE;
 static void setenvd_int(char *n, int v) NO_SANITIZE;
 static void setenvd(char *n, char *v) NO_SANITIZE;
 static void putenvd(char *s) NO_SANITIZE;
+#ifndef debug_printf
 static int debug_printf(int level, const char *format, ...) NO_SANITIZE;
+#endif
 static void _explain_error(void) NO_SANITIZE;
 static void clear_stack(void) NO_SANITIZE;
 static void quick_clear_stack(void) NO_SANITIZE;
