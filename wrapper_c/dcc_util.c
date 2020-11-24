@@ -105,9 +105,9 @@ void __dcc_error_exit(void) {
 // is __asan_on_error  address sanitizer only??
 //
 // intercept ASAN explanation
-void __asan_on_error() NO_SANITIZE;
+void __asan_on_error(void) NO_SANITIZE;
 
-void __asan_on_error() {
+void __asan_on_error(void) {
 	debug_printf(2, "__asan_on_error\n");
 
 	char *report = "";
@@ -133,7 +133,7 @@ void _Unwind_Backtrace(void *a, ...) {
 }
 
 #if __SANITIZER__ == ADDRESS
-char *__asan_default_options() {
+char *__asan_default_options(void) {
 
 	// NOTE setting detect_stack_use_after_return here stops
 	// clear_stack pre-initializing stack frames to 0xbe
@@ -143,7 +143,7 @@ char *__asan_default_options() {
 #endif
 
 #if __SANITIZER__ == MEMORY
-char *__msan_default_options() {
+char *__msan_default_options(void) {
 	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__";
 }
 #endif
@@ -170,7 +170,7 @@ void __ubsan_on_report(void) {
 	snprintf(buffer[3], sizeof buffer[3], "DCC_UBSAN_ERROR_LINE=%u", OutLine);
 	snprintf(buffer[4], sizeof buffer[4], "DCC_UBSAN_ERROR_COL=%u", OutCol);
 	snprintf(buffer[5], sizeof buffer[5], "DCC_UBSAN_ERROR_MEMORYADDR=%s", OutMemoryAddr);
-	for (int i = 0; i < sizeof buffer/sizeof buffer[0]; i++)
+	for (int i = 0; i < (int)(sizeof buffer / sizeof buffer[0]); i++)
 		putenv(buffer[i]);
 #endif
 	_explain_error();
@@ -178,7 +178,7 @@ void __ubsan_on_report(void) {
 }
 
 #if __UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__
-char *__ubsan_default_options() {
+char *__ubsan_default_options(void) {
 	return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__";
 }
 #endif
@@ -355,7 +355,14 @@ int __real_posix_spawn(pid_t *pid, const char *path,
                        const posix_spawnattr_t *attrp,
                        char *const argv[], char *const envp[]) NO_SANITIZE;
 
-int __wrap_posix_spawn(pid_t *pid, const char *path,
+
+int __real_posix_spawnp(pid_t *pid, const char *path,
+                       const posix_spawn_file_actions_t *file_actions,
+                       const posix_spawnattr_t *attrp,
+                       char *const argv[], char *const envp[]) NO_SANITIZE;
+
+
+static int _dcc_posix_spawn_helper(int is_posix_spawn, pid_t *pid, const char *path,
                        const posix_spawn_file_actions_t *file_actions,
                        const posix_spawnattr_t *attrp,
                        char *const argv[], char *const envp[]) {
@@ -370,61 +377,42 @@ int __wrap_posix_spawn(pid_t *pid, const char *path,
 	// before clone, so we can get a stack backtrace
 	if (
 		(file_actions && *(unsigned char *)file_actions != *(unsigned char *)file_actions) ||
-		(attrp && *(unsigned char *)attrp != *(unsigned char *)attrp) ||
+		(attrp && *(const unsigned char *)attrp != *(const unsigned char *)attrp) ||
 		(argv && argv[0] != argv[0]) ||
 		(envp && envp[0] != envp[0])
 		)
 		 {
 	}
 #endif
+
     struct stat s;
  	if (stat(path, &s) == 0 &&
         S_ISREG(s.st_mode) &&
         faccessat(AT_FDCWD, path, X_OK, AT_EACCESS) == 0) {
-    		return __real_posix_spawn(pid, path, file_actions, attrp, argv, envp);
+			if (is_posix_spawn) {
+				return __real_posix_spawn(pid, path, file_actions, attrp, argv, envp);
+			} else {
+				return __real_posix_spawnp(pid, path, file_actions, attrp, argv, envp);
+			}
     } else {
     	return 2;
     }
 
 }
+	
 
-int __real_posix_spawnp(pid_t *pid, const char *path,
+int __wrap_posix_spawn(pid_t *pid, const char *path,
                        const posix_spawn_file_actions_t *file_actions,
                        const posix_spawnattr_t *attrp,
-                       char *const argv[], char *const envp[]) NO_SANITIZE;
+                       char *const argv[], char *const envp[]) {
+    return _dcc_posix_spawn_helper(1, pid, path, file_actions, attrp, argv, envp);
+}
 
 int __wrap_posix_spawnp(pid_t *pid, const char *path,
                        const posix_spawn_file_actions_t *file_actions,
                        const posix_spawnattr_t *attrp,
                        char *const argv[], char *const envp[]) {
-
-// if using ifdef instead of ld wrapping this if will process a compile-time warning
-#ifndef __real_posix_spawnp
-	if (path == NULL) {
-		putenvd("DCC_ASAN_ERROR=Null pointer passed to posix_spawn as argument 2");
-		_explain_error();
-	}
-	// fake branch on parameter values to trigger unitialized variable error
-	// before clone, so we can get a stack backtrace
-	if (
-		(file_actions && *(unsigned char *)file_actions != *(unsigned char *)file_actions) ||
-		(attrp && *(unsigned char *)attrp != *(unsigned char *)attrp) ||
-		(argv && argv[0] != argv[0]) ||
-		(envp && envp[0] != envp[0])
-		)
-		 {
-	}
-#endif
-    struct stat s;
- 	if (stat(path, &s) == 0 &&
-        S_ISREG(s.st_mode) &&
-        faccessat(AT_FDCWD, path, X_OK, AT_EACCESS) == 0) {
-    		return __real_posix_spawnp(pid, path, file_actions, attrp, argv, envp);
-    } else {
-    	return 2;
-    }
-
+    return _dcc_posix_spawn_helper(0, pid, path, file_actions, attrp, argv, envp);
 }
-
 
 #endif

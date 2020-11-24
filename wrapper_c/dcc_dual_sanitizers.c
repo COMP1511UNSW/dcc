@@ -138,7 +138,8 @@ enum which_system_call {
 	sc_write,
 };
 
-char *system_call_names[] = {
+#ifndef debug_printf
+static char *system_call_names[] = {
 	[sc_abort] = "abort",
 	[sc_clock] = "clock",
 	[sc_close] = "close",
@@ -154,9 +155,10 @@ char *system_call_names[] = {
 	[sc_time] = "time",
 	[sc_write] = "write",
 };
+#endif
 
 
-static void unlink_sanitizer2_executable() NO_SANITIZE;
+static void unlink_sanitizer2_executable(void) NO_SANITIZE;
 
 struct system_call {
 	enum which_system_call which;
@@ -274,7 +276,7 @@ static void synchronize_system_call(enum which_system_call which, int64_t n) {
 	memset(&s, 0, sizeof s); // clear padding bytes
 	s.which = which;
 	s.n = n;
-	int n_bytes_written = write(from_sanitizer2_pipe[1], &s, sizeof s);
+	ssize_t n_bytes_written = write(from_sanitizer2_pipe[1], &s, sizeof s);
 	if (n_bytes_written != sizeof (struct system_call)) {
 		debug_printf(1, "system_called_reached error: write returned %d != %d\n", n_bytes_written, (int)sizeof sizeof (struct system_call));
 		synchronization_failed();
@@ -301,7 +303,7 @@ static int64_t synchronize_system_call_result(enum which_system_call which
 	memset(&s, 0, sizeof s); // clear padding bytes
 	s.which = which;
 	s.n = return_value;
-	int n_bytes_written = write(to_sanitizer2_pipe[1], &s, sizeof s);
+	ssize_t n_bytes_written = write(to_sanitizer2_pipe[1], &s, sizeof s);
 	if (n_bytes_written != sizeof (struct system_call)) {
 		debug_printf(1, "synchronize_system_call_result(%s) error: write returned %d != %d\n", system_call_names[which], n_bytes_written, (int)sizeof sizeof (struct system_call));
 		synchronization_failed();
@@ -312,7 +314,7 @@ static int64_t synchronize_system_call_result(enum which_system_call which
 	) {
 	debug_printf(3, "synchronize_system_call_result(%s)\n", system_call_names[which]);
 	struct system_call s = {0};
-	int n_bytes_read = read(to_sanitizer2_pipe[0], &s, sizeof s);
+	ssize_t n_bytes_read = read(to_sanitizer2_pipe[0], &s, sizeof s);
 	if (n_bytes_read != sizeof s) {
 		debug_printf(1, "synchronize_system_call_result error: read returned %d != %d\n", n_bytes_read, (int)sizeof s);
 		synchronization_failed();
@@ -340,7 +342,7 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 	synchronize_system_call(sc_read, size);
 #if __I_AM_SANITIZER1__
 	struct cookie *cookie = v;
-	size_t n_bytes_read = read(cookie->fd, buf, size);
+	ssize_t n_bytes_read = read(cookie->fd, buf, size);
 #if __N_SANITIZERS__ > 1
 	(void)synchronize_system_call_result(sc_read, n_bytes_read);
 	if (n_bytes_read > 0  && !synchronization_terminated) {
@@ -421,7 +423,7 @@ static int __dcc_cookie_close(void *v) {
 	cookie->fd = 0;
 	(void)synchronize_system_call_result(sc_close, result);
 #else
-	int result = synchronize_system_call_result(sc_close);
+	int result = (int)synchronize_system_call_result(sc_close);
 #endif
 	quick_clear_stack();
 	return result;
@@ -519,7 +521,7 @@ static FILE *fopen_helper(FILE *f, const char *mode, enum which_system_call syst
 	(void)synchronize_system_call_result(system_call, !!f1);
 	return f1;
 #else
-	int r = synchronize_system_call_result(system_call);
+	int64_t r = synchronize_system_call_result(system_call);
 	if (r) {
 		return open_cookie(NULL, mode);
 	} else {
@@ -595,7 +597,7 @@ FILE *__wrap_freopen(const char *pathname, const char *mode, FILE *stream) {
 		return NULL;
 	}
 #else
-	int r = synchronize_system_call_result(sc_freopen);
+	int64_t r = synchronize_system_call_result(sc_freopen);
 	if (r) {
 		return open_cookie(NULL, mode);
 	} else {
@@ -604,7 +606,7 @@ FILE *__wrap_freopen(const char *pathname, const char *mode, FILE *stream) {
 #endif
 }
 
-static void unlink_sanitizer2_executable() {
+static void unlink_sanitizer2_executable(void) {
 	static int unlink_done;
 	if (!unlink_done) {
 		char *pathname = getenv("DCC_UNLINK");

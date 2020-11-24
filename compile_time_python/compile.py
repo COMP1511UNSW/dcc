@@ -12,7 +12,7 @@ FILES_EMBEDDED_IN_BINARY = ["start_gdb.py", "drive_gdb.py", "watch_valgrind.py",
 COMMON_WARNING_ARGS = "-Wall -Wno-unused -Wunused-variable -Wunused-value -Wno-unused-result -Wshadow".split()
 COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-std=gnu11 -g -lm".split()
 
-CLANG_ONLY_ARGS = "-Wunused-comparison -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
+CLANG_ONLY_ARGS = "-Wunused-comparison -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments -Wno-unused-parameter".split()
 
 DEBUG_COMPILE_FILE = "tmp_dcc.sh"
 
@@ -531,6 +531,8 @@ def parse_arg(arg, remaining_args, options):
 # but modify dcc behaviour
 
 def parse_clang_arg(arg, remaining_args, options):
+	if arg == '-Weverything': # -Weverything generate a pile of spurious warning from dcc wrapper code
+		arg = '-Wextra'
 	options.user_supplied_compiler_args.append(arg)
 	if arg == '-c':
 		options.incremental_compilation = True

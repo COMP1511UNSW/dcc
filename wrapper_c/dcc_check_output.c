@@ -37,7 +37,7 @@ static int ignore_case;
 static int ignore_empty_lines;
 static int ignore_trailing_white_space;
 static int ignore_characters[N_ASCII];
-static int max_stdout_bytes;
+static unsigned int max_stdout_bytes;
 
 static int getenv_boolean(const char *name, int default_value);
 
@@ -150,8 +150,8 @@ static void rstrip_line(unsigned char *line, int last_byte_index);
 static void __dcc_compare_output(unsigned char *actual, size_t size) {
 	int expected_bytes_in_line = get_next_expected_line();
 	debug_printf(2, " __dcc_compare_output() n_actual_lines_seen=%d\n", n_actual_lines_seen);
-	for (int i = 0; i < size; i++) {
-		if (max_stdout_bytes && n_actual_line + n_actual_bytes_seen > max_stdout_bytes) {
+	for (size_t i = 0; i < size; i++) {
+		if (max_stdout_bytes && (n_actual_line + n_actual_bytes_seen) > max_stdout_bytes) {
 			n_actual_lines_seen++;
 			actual_line[n_actual_line] = '\0';
 			__dcc_compare_output_error("too much output", n_actual_line, -1);
@@ -310,13 +310,13 @@ static void __dcc_compare_output_error(char *reason, int actual_column, int expe
 	snprintf(buffer[3], sizeof buffer[3], "DCC_N_ACTUAL_BYTES_SEEN=%zu", n_actual_bytes_seen);
 	snprintf(buffer[4], sizeof buffer[4], "DCC_ACTUAL_COLUMN=%d", actual_column);
 	snprintf(buffer[5], sizeof buffer[5], "DCC_EXPECTED_COLUMN=%d", expected_column);
-	for (int i = 0; i < sizeof buffer/sizeof buffer[0]; i++)
+	for (int i = 0; i < (int)(sizeof buffer / sizeof buffer[0]); i++)
 		putenvd(buffer[i]);
 
 	char line_buffer[2][128 + ACTUAL_LINE_MAX];
 	snprintf(line_buffer[0], sizeof line_buffer[0], "DCC_ACTUAL_LINE=%s", actual_line);
 	snprintf(line_buffer[1], sizeof line_buffer[1], "DCC_EXPECTED_LINE=%s", expected_line);
-	for (int i = 0; i < sizeof line_buffer/sizeof line_buffer[0]; i++)
+	for (int i = 0; i < (int)(sizeof line_buffer / sizeof line_buffer[0]); i++)
 		putenvd(line_buffer[i]);
 	_explain_error();
 }
