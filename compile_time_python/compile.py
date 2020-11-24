@@ -14,6 +14,8 @@ COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-std=gnu11 -g -lm".split()
 
 CLANG_ONLY_ARGS = "-Wunused-comparison -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments".split()
 
+DEBUG_COMPILE_FILE = "tmp_dcc.sh"
+
 # gcc flags some novice programmer mistakes than clang doesn't so
 # we run it has an extra checking pass with several extra warnings enabled
 # -Wduplicated-branches was only added with gcc-8 so it will break older versions of gcc
@@ -25,6 +27,7 @@ CLANG_ONLY_ARGS = "-Wunused-comparison -fno-omit-frame-pointer -fno-common -funw
 # -O is needed with gcc to get warnings for some things
 
 GCC_ONLY_ARGS = "-Wunused-but-set-variable -Wduplicated-cond -Wduplicated-branches -Wlogical-op -O  -o /dev/null".split()
+
 
 #
 # Compile the user's program adding some C code
@@ -45,6 +48,13 @@ def compile():
 	base_compile_command = [options.c_compiler] + options.user_supplied_compiler_args + ['-x', 'c', '-', ] +  options.c_compiler_args
 	compiler_stdout = ''
 	executable_source = ''
+	
+	if options.debug > 1:
+		try:
+			os.unlink(DEBUG_COMPILE_FILE)
+		except OSError:
+			pass
+		
 	if len(options.sanitizers) == 2:
 		sanitizer2_wrapper_source, sanitizer2_sanitizer_args = update_wrapper_source(options.sanitizers[1], 2, wrapper_source, tar_source, options)
 		sanitizer2_wrapper_source = "#define _GNU_SOURCE\n#include <stdint.h>\n" + sanitizer2_wrapper_source
@@ -161,14 +171,22 @@ def execute_compiler(base_command, compiler_stdin, options, rename_functions=Tru
 		else:
 			command += ['-Wl' + ''.join(',-wrap,' + f for f in wrapped_functions + override_functions)]
 
-	options.debug_print(" ".join(command))
+	if options.debug > 2:
+		options.debug_print(" ".join(command))
 
-	if options.debug > 1 and compiler_stdin:
-		options.debug_print("Leaving dcc code in", debug_wrapper_file, "compile with this command:")
-		options.debug_print(" ".join(command).replace('-x c -', debug_wrapper_file))
+	if options.debug > 1:
 		try:
-			with open(debug_wrapper_file,"w") as f:
-				f.write(compiler_stdin)
+			contents = " ".join(command).replace('-x c -', debug_wrapper_file)
+			if not os.path.exists(DEBUG_COMPILE_FILE):
+				options.debug_print(f"Leaving dcc compile_command in {DEBUG_COMPILE_FILE}")
+				contents = "#!/bin/sh\n" + contents
+			with open(DEBUG_COMPILE_FILE, "a") as f:
+				print(contents,file=f)
+			os.chmod(DEBUG_COMPILE_FILE, 0o755)
+			if compiler_stdin:
+				options.debug_print("Leaving dcc code in", debug_wrapper_file)
+				with open(debug_wrapper_file,"w") as f:
+					f.write(compiler_stdin)
 		except OSError as e:
 			print(e)
 	input = codecs.encode(compiler_stdin, 'utf8')
@@ -339,6 +357,7 @@ class Options(object):
 			kwargs['file'] = sys.stderr
 			print(*args, **kwargs)
 
+
 def get_options():
 	options = parse_args(sys.argv[1:])
 
@@ -426,6 +445,7 @@ def parse_args(commandline_args):
 
 	return options
 
+
 # check for options which are for dcc and should not be passed to clang
 
 def parse_arg(arg, remaining_args, options):
@@ -506,6 +526,7 @@ def parse_arg(arg, remaining_args, options):
 	else:
 		parse_clang_arg(arg, remaining_args, options)
 
+
 # check for options which are passed intact to clang
 # but modify dcc behaviour
 
@@ -521,6 +542,7 @@ def parse_clang_arg(arg, remaining_args, options):
 		options.threads_used = True
 	else:
 		process_possible_source_file(arg, options)
+
 
 # FIXME this is crude and brittle
 def process_possible_source_file(pathname, options, parent_files=set()):
@@ -571,12 +593,14 @@ def process_possible_source_file(pathname, options, parent_files=set()):
 			print('process_possible_source_file', pathname, e)
 		return
 
+
 def source_for_sanitizer2_executable(executable):
 	source = "\nstatic uint64_t sanitizer2_executable[] = {";
 	source += bytes2hex64_initializers(executable)
 	source += "};\n";
 	n_bytes = len(executable)
 	return n_bytes, source
+
 
 def source_for_embedded_tarfile(options):
 	for file in FILES_EMBEDDED_IN_BINARY:
@@ -597,6 +621,7 @@ def source_for_embedded_tarfile(options):
 	source += "};\n";
 	return n_bytes, source
 
+
 def bytes2hex64_initializers(b):
 	chunk = 8
 	n_bytes = len(b)
@@ -605,9 +630,9 @@ def bytes2hex64_initializers(b):
 	hex_int64 = [hex(int.from_bytes(b[i:i+chunk], sys.byteorder)) for i in range(0, len(b), chunk)]
 	return ",".join(hex_int64)
 
+
 # Do some brittle shrinking of Python source  before embedding in binary.
 # Very limited benefits as source is xz compressed before embedded in binary
-
 def minify(python_source_bytes):
 	python_source = python_source_bytes.decode('utf-8')
 	lines = python_source.splitlines()
@@ -621,18 +646,20 @@ def minify(python_source_bytes):
 			line = lines.pop(0)
 		if is_comment(line):
 			continue
-		# removing white-space is probably safe but with xz it get us almost nothing
-#		if line.startswith('\t') and '"' not in line and "'" not in line:
-#			line = re.sub(r' *([=,+\-*/%:]) *', r'\1', line)
+		# removing white-space is probably safe but with xz it get us nothing
+		# if line.startswith('\t') and '"' not in line and "'" not in line:
+		#	line = re.sub(r' *([=,+\-*/%:]) *', r'\1', line)
 		lines1.append(line)
 	python_source = '\n'.join(lines1) + '\n'
 	return python_source.encode('utf-8')
 
+
 def is_doc_string_delimiter(line):
-	return line == '    """'
+	return re.match(r'^(\t|    )"""\s*$', line)
 
 def is_comment(line):
-	return re.match(r'^\s*#.*$', line)
+	return re.match(r'^\s*#', line)
+
 
 def add_tar_file(tar, pathname, bytes):
 	file_buffer = io.BytesIO(bytes)
@@ -640,19 +667,13 @@ def add_tar_file(tar, pathname, bytes):
 	file_info.size = len(bytes)
 	tar.addfile(file_info, file_buffer)
 
+
 def search_path(program):
 	for path in os.environ["PATH"].split(os.pathsep):
 		full_path = os.path.join(path, program)
 		if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
 			return full_path
 
-def get_my_path():
-	dcc_path = os.path.realpath(sys.argv[0])
-	# replace automount path with /home - otherwise breaks sometimes with ssh jobs
-	dcc_path = re.sub(r'/tmp_amd/\w+/\w+ort/\w+/\d+/', '/home/', dcc_path)
-	dcc_path = re.sub(r'^/tmp_amd/\w+/\w+ort/\d+/', '/home/', dcc_path)
-	dcc_path = re.sub(r'^/(import|export)/\w+/\d+/', '/home/', dcc_path)
-	return dcc_path
 
 def get_clang_version(options):
 	if options.clang_version:
@@ -680,6 +701,7 @@ def get_clang_version(options):
 	if not options.clang_version:
 		if options.debug:
 			print(f"can not get version information for '{options.c_compiler}'")
+
 
 def get_libc_version(options):
 	try:
