@@ -373,15 +373,15 @@ static int _dcc_posix_spawn_helper(int is_posix_spawn, pid_t *pid, const char *p
 		putenvd("DCC_ASAN_ERROR=Null pointer passed to posix_spawn as argument 2");
 		_explain_error();
 	}
+
 	// fake branch on parameter values to trigger unitialized variable error
-	// before clone, so we can get a stack backtrace
+	// before clone, while  a stack backtrace via gdb will still work
 	if (
-		(file_actions && *(unsigned char *)file_actions != *(unsigned char *)file_actions) ||
-		(attrp && *(const unsigned char *)attrp != *(const unsigned char *)attrp) ||
-		(argv && argv[0] != argv[0]) ||
-		(envp && envp[0] != envp[0])
-		)
-		 {
+		file_actions && *(const unsigned char *)file_actions &&
+		attrp && *(const unsigned char *)attrp &&
+		argv && argv[0] &&
+		envp && envp[0]
+		) {
 	}
 #endif
 
