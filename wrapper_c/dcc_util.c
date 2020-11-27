@@ -342,9 +342,6 @@ static int debug_printf(int level, const char *format, ...) {
 
 #if __WRAP_POSIX_SPAWN__
 
-// posix_spawn with valgrind-3.14.0 returns 0 if path can not be executed
-// crude work-around so it returns 2 as it does when executed directly
-
 #include <spawn.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -384,20 +381,22 @@ static int _dcc_posix_spawn_helper(int is_posix_spawn, pid_t *pid, const char *p
 		) {
 	}
 #endif
+	if (is_posix_spawn) {
+		// posix_spawn with valgrind-3.14.0 returns 0 if path can not be executed
+		// crude work-around so it returns 2 as it does when executed directly
 
-    struct stat s;
- 	if (stat(path, &s) == 0 &&
-        S_ISREG(s.st_mode) &&
-        faccessat(AT_FDCWD, path, X_OK, AT_EACCESS) == 0) {
-			if (is_posix_spawn) {
+	    struct stat s;
+	 	if (stat(path, &s) == 0 &&
+	        S_ISREG(s.st_mode) &&
+	        faccessat(AT_FDCWD, path, X_OK, AT_EACCESS) == 0) {
 				return __real_posix_spawn(pid, path, file_actions, attrp, argv, envp);
-			} else {
-				return __real_posix_spawnp(pid, path, file_actions, attrp, argv, envp);
-			}
+	    } else {
+	    	return 2;
+	    }
+	    
     } else {
-    	return 2;
-    }
-
+		return __real_posix_spawnp(pid, path, file_actions, attrp, argv, envp);
+	}
 }
 	
 
