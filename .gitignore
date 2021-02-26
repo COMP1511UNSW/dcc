@@ -1,14 +1,14 @@
 # exclude generated files from repo
 dcc
 dcc.1
-
+__pycache__
+_build
 # ignore files/directories used created in development
 *.swp
 a.out
 *.o
 core
 *.orig
-_*
 *tmp*
 random*
 experiments*
