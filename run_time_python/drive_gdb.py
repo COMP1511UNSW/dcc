@@ -12,12 +12,18 @@ from util import explanation_url
 
 hash_define = collections.defaultdict(dict)
 source = {}
+debug_level = 0
+debug_stream = sys.stderr
 
 def drive_gdb():
-	global debug_level
-	windows_subsystem_for_linux = "microsoft" in platform.uname()[3].lower()
-	debug_level = int(os.environ.get('DCC_DEBUG', '0'))
 	output_stream = os.fdopen(3, "w", encoding='utf-8', errors='replace')
+	global debug_level
+	global debug_stream
+	debug_level = int(os.environ.get('DCC_DEBUG', '0'))
+	if debug_level:
+		debug_stream = output_stream
+		dprint(2, "drive_gdb()")
+	windows_subsystem_for_linux = "microsoft" in platform.uname()[3].lower()
 	colorize_output = output_stream.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
 	if colorize_output:
 		color = colors.color
@@ -55,14 +61,15 @@ def drive_gdb():
 def gdb_attach():
 	pid = int(os.environ.get('DCC_PID'))
 	if 'DCC_VALGRIND_ERROR' in os.environ:
-		debug_print(2, 'attaching gdb to valgrind', pid)
+		dprint(2, 'attaching gdb to valgrind', pid)
 		gdb.execute('target remote | vgdb --pid=%d' % pid)
 	else:
-		debug_print(2, 'attaching gdb to ', pid)
+		dprint(2, 'attaching gdb to ', pid)
 		gdb.execute('attach %s' % pid)
+	dprint(3, "gdb_attach() returning")
 
 def explain_error(output_stream, color):
-	debug_print(2, 'explain_error() in drive_gdb.py starting')
+	dprint(2, 'explain_error() in drive_gdb.py starting')
 	# file descriptor 3 is a dup of stderr (see below)
 	# stdout & stderr have been diverted to /dev/null
 	print(file=output_stream)
@@ -127,16 +134,16 @@ def explain_ubsan_error(loc, output_stream, color):
 	if loc:
 		source = clean_c_source(loc.source_line())
 
-	debug_print(3, 'source', source)
+	dprint(3, 'source', source)
 	explanation = None
 	prefix = '\n' + color('dcc explanation:', 'cyan')
 
 	if message:
 		message = message[0].lower() + message[1:]
 
-	m = re.search('(load|store).*(0xbebebebe|null pointer)', message.lower())
+	m = re.search('(load|store|applying).*(0xbebebebe|null pointer)', message.lower())
 	if m:
-		access = "accessing" if m.group(1) == "load" else "assigning to"
+		access = "accessing" if m.group(1) in ["load","applying"] else "assigning to"
 		problem = "uninitialized" if m.group(2).startswith('0xbe') else "NULL"
 
 		if '*' in source and '[' not in source:
@@ -351,7 +358,7 @@ def fileline(filename, line_number):
 					hash_define[filename][m.group(1)] = (line.rstrip(), m.group(2))
 		return source[filename][line_number - 1].rstrip() + "\n"
 	except IOError:
-		debug_print(2, "fileline error can not open: %s" % (filename))
+		dprint(2, "fileline error can not open: %s" % (filename))
 		pass
 	except IndexError:
 		pass
@@ -368,20 +375,20 @@ def clean_c_source(c_source, leave_white_space=False):
 	return c_source.strip() + "\n"
 
 def gdb_evaluate(expression):
-	debug_print(3, 'gdb_evaluate:', expression,)
+	dprint(3, 'gdb_evaluate:', expression,)
 	value = gdb_execute('print %s' % expression)
 	value = re.sub('^[^=]*=\s*', '', value).strip()
-	debug_print(3, '->', value,)
+	dprint(3, '->', value,)
 	return value.strip()
 
 def gdb_execute(command):
-	debug_print(3, 'gdb.execute:', command)
+	dprint(3, 'gdb.execute:', command)
 	try:
 		str = gdb.execute(command, to_string=True)
 	except gdb.error as e:
-		debug_print(3, 'gdb.execute', e)
+		dprint(3, 'gdb.execute', e)
 		str = ''
-	debug_print(3, 'gdb.execute:', '->', str)
+	dprint(3, 'gdb.execute:', '->', str)
 	return str
 
 def parse_gdb_stack_frame(line):
@@ -392,7 +399,7 @@ def parse_gdb_stack_frame(line):
 		r'(?P<function>[a-zA-Z][^\s\(]*).*\((?P<params>.*)\)\s+at\s+'
 		r'(?P<filename>[^\s:]+):(?P<line_number>\d+)\s*$',
 			line)
-	debug_print(3, 'parse_gdb_stack_frame', m != None, line)
+	dprint(3, 'parse_gdb_stack_frame', m != None, line)
 	if m:
 		filename = m.group('filename')
 		if (
@@ -400,7 +407,8 @@ def parse_gdb_stack_frame(line):
 			filename.startswith("../sysdeps/") or
 			filename.endswith("libioP.h") or
 			filename.endswith("iofclose.c") or
-			filename.startswith("<")
+			filename.startswith("<") or
+			filename.startswith("m_syswrap/syscall")
 		   ):
 			m = None
 	if m:
@@ -410,7 +418,7 @@ def parse_gdb_stack_frame(line):
 def gdb_set_frame():
 	try:
 		stack = gdb_execute('where')
-		debug_print(3, "\nStack:\n",stack, "\n")
+		dprint(3, "\nStack:\n",stack, "\n")
 		stack_lines = stack.splitlines()
 		reversed_stack_lines = reversed(stack_lines)
 		frames = []
@@ -428,7 +436,7 @@ def gdb_set_frame():
 		if frames:
 			gdb_execute('frame ' + str(frames[0].frame_number))
 		else:
-			debug_print(3, 'gdb_set_frame no frame number')
+			dprint(3, 'gdb_set_frame no frame number')
 		return frames
 	except:
 		if debug_level: traceback.print_exc(file=sys.stderr)
@@ -438,16 +446,21 @@ def relevant_variables(c_source_lines, color, arrays=[]):
 	for line in c_source_lines:
 		expressions += extract_expressions(line)
 #	 arrays=[r'[a-z][a-zA-Z0-9_]*']
-#	 debug_print(2, 'relevant_variables', arrays, c_source)
+#	 dprint(2, 'relevant_variables', arrays, c_source)
 #	 for array in arrays:
 #		 indices = extract_indices(array, c_source)
 #		 expressions += indices
 
-	# avoid trying to evaluate types/keywords for efficiency
-	done = set(['NULL', 'char', 'int', 'double', 'while', 'if', 'else', 'for', 'while', 'return', 'main'])
+	# avoid trying to evaluate types/keywords for efficiency/clarity
+	done = set([
+				'NULL',
+				'char', 'int', 'double',
+				'while', 'if', 'else', 'for', 'while', 'return',
+				'main', 'stdin', 'stdout', 'stderr'
+				])
 
 	explanation = ''
-	debug_print(3, 'relevant_variables expressions=', c_source_lines, expressions)
+	dprint(3, 'relevant_variables expressions=', c_source_lines, expressions)
 	for expression in sorted(expressions, key=lambda e: (len(re.findall(r'\w+', e)), e)):
 		try:
 			expression = expression.strip()
@@ -457,14 +470,14 @@ def relevant_variables(c_source_lines, color, arrays=[]):
 				if expression_value is not None:
 					explanation +=	"%s = %s\n" % (expression, expression_value)
 		except RuntimeError as e:
-			debug_print(2, 'print_variables_expressions: RuntimeError', e)
+			dprint(2, 'print_variables_expressions: RuntimeError', e)
 	if explanation:
 		prefix = color('\nValues when execution stopped:', 'cyan')
 		explanation = prefix + '\n\n' + explanation
 	return explanation
 
 def evaluate_expression(expression, color):
-	debug_print(3, 'evaluate_expression:', expression)
+	dprint(3, 'evaluate_expression:', expression)
 	if re.match(r'^-?\s*[\d\.]+$', expression):
 		return None	  # don't print(numbers)
 	if re.search(r'[a-zA-Z0-9_]\s*\(', expression):
@@ -472,7 +485,7 @@ def evaluate_expression(expression, color):
 
 	expression_type = gdb_execute('whatis %s' % expression)
 	expression_type = re.sub(r'\s*type\s*=\s*', '',	 expression_type).strip()
-	debug_print(3, 'expression_type=', expression_type)
+	dprint(3, 'expression_type=', expression_type)
 	if re.search(r'\<|\)$', expression_type):
 		return None
 
@@ -481,6 +494,7 @@ def evaluate_expression(expression, color):
 	if (
 		expression_value == '' or
 		'_IO_FILE' in expression_value or
+		'<_IO_' in expression_value or
 		'here_cg_arc_record' in	expression_value or
 		expression_value == '<optimized out>'
 		):
@@ -499,7 +513,7 @@ def evaluate_expression(expression, color):
 # transform value into something a novice programmer more likely to understand
 
 def clarify_expression_value(expression_value, expression_type, color):
-	debug_print(3, 'clarify_value expression_value=', expression_value)
+	dprint(3, 'clarify_value expression_value=', expression_value)
 
 	if expression_type == 'char':
 		m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
@@ -549,7 +563,7 @@ def clarify_values(values, color):
 
 
 def balance_bracket(str, depth=0):
-#	 debug_print(2, 'balance_bracket(%s, %s)' % (str, depth))
+#	 dprint(2, 'balance_bracket(%s, %s)' % (str, depth))
 	if not str:
 		return ""
 	elif str[0] == ']' or str[0] == ')':
@@ -566,7 +580,7 @@ def extract_expressions(c_source):
 	c_source = c_source.strip()
 	if not c_source:
 		return []
-	debug_print(3, 'extract_expressions c_source=',  c_source)
+	dprint(3, 'extract_expressions c_source=',  c_source)
 
 	# match declaration
 	m = re.match(r'([a-z][a-zA-Z0-9_]*|FILE)\s+\**\s*[a-z][a-zA-Z0-9_]*\s*\[(.*)', c_source, re.DOTALL)
@@ -592,7 +606,7 @@ def extract_expressions(c_source):
 			else:
 				break
 
-		debug_print(3, 'extract_expressions expressions=',  list(expressions))
+		dprint(3, 'extract_expressions expressions=',  list(expressions))
 		return expressions + extract_expressions(remainder)
 
 	m = re.match(r'([a-zA-Z][a-zA-Z0-9_]*)(.*)', c_source, re.DOTALL)
@@ -612,9 +626,10 @@ def explain_location(loc, color):
 	else:
 		return 'Execution stopped ' + loc.long_description(color)
 
-def debug_print(level, *args, **kwargs):
+def dprint(level, *args, **kwargs):
+	global debug_stream
 	if debug_level >= level:
-		kwargs['file'] = sys.stderr
+		kwargs['file'] = debug_stream
 		print(*args, **kwargs)
 
 

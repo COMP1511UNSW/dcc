@@ -18,6 +18,7 @@ def start_gdb(gdb_driver_file='drive_gdb.py'):
 
 
 	if debug_level > 1:
+		print('start_gdb: ', end='')
 		print(' '.join('{}={}'.format(k,os.environ.get(k, '')) for k in "DCC_PID DCC_SANITIZER1_PID DCC_SANITIZER2_PID DCC_BINARY".split()))
 
 	for key in os.environ:

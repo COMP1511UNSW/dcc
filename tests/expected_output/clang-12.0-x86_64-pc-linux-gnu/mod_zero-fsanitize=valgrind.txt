@@ -1,0 +1,8 @@
+
+tests/run_time_errors/mod_zero.c:7:20: runtime error - division by zero
+
+dcc explanation: A common error is to evaluate x % y when y == 0 which is undefined.
+
+Execution stopped in do_syscall_for_client(syscall_mask=0x1002eb5d68, tst=0x1002008410, syscallno=61) in m_syswrap/syswrap-main.c at line 337:
+
+

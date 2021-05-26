@@ -258,10 +258,11 @@ int main(void) {
 		long_explanation = True,
 
 		reproduce = """
-int main(void) {
+int *f(void) {
 	int i;
-	return (int)&i;
+	return &i;
 }
+int main(void){}
 """,
 	),
 
@@ -509,7 +510,7 @@ int main(int argc, char *argv[]) {
 	Explanation(
 		label = 'logical-or-always-true',
 
-		regex = r"logical .?\bor\b.* is always true|logical.*or.*of collectively exhaustive tests is always true",
+		regex = r"logical .?\bor\b.* is always true|logical.*or.*of collectively exhaustive tests is always true|overlapping comparisons always evaluate to true",
 
 		explanation = """Your '{emphasize('||')}' expression is always true, no matter what value variables have.
 Perhaps you meant to use '{emphasize('&&')}' ?

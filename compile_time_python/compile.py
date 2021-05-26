@@ -473,7 +473,8 @@ def parse_arg(arg, remaining_args, options):
 		options.explanations = False
 	elif arg == '--shared-libasan' or arg == '-shared-libasan':
 		options.shared_libasan = True
-	elif arg == '--use-after-return':
+	# support both spelling for backwars compatibility
+	elif arg == '--use-after-return' or arg == '--use_after_return'  :
 		options.stack_use_after_return = True
 	elif arg == '--no-shared-libasan':
 		options.shared_libasan = False
