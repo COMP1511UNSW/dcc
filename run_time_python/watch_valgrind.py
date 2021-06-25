@@ -41,7 +41,12 @@ def process_line(line, color, debug_level):
 	error = None
 	action = start_gdb
 
-	if 'vgdb me' in line:
+	if 'fatal signal' in line:
+		# avoid a signal e.g. SIGNALXCPU during valgrind startup 
+		# being interpreted as a runtime error
+		error = ''
+		action = kill_sanitizer2
+	elif 'vgdb me' in line:
 		error = 'Runtime error: ' + color('uninitialized variable accessed.', 'red')
 
 	elif 'exit_group(status)' in line:
@@ -95,10 +100,11 @@ A common cause of this error is use of invalid FILE * pointer.
 			error = 'Error: memory allocated not de-allocated.'
 		action = kill_sanitizer2
 
-	if error:
-		os.environ['DCC_VALGRIND_ERROR'] = error
-		print('\n' + error, file=sys.stderr)
-		sys.stderr.flush()
+	if error is not None:
+		if error:
+			os.environ['DCC_VALGRIND_ERROR'] = error
+			print('\n' + error, file=sys.stderr)
+			sys.stderr.flush()
 		action()
 		return 0
 	return 1
