@@ -140,8 +140,8 @@ valgrind also usually detect this type of error, e.g.:
 * Installation on Linux and Windows Subsystem for Linux
 	
 	```bash
-	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.3/dcc_2.7.3_all.deb -o /tmp/dcc_2.7.3_all.deb
-	sudo apt install /tmp/dcc_2.7.3_all.deb
+	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.4/dcc_2.7.4_all.deb -o /tmp/dcc_2.7.4_all.deb
+	sudo apt install /tmp/dcc_2.7.4_all.deb
     # on WSL (not Linux) this might be necessary to run programs
 	sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope;echo 1 >/proc/sys/vm/overcommit_memory"
 	```
@@ -152,7 +152,7 @@ valgrind also usually detect this type of error, e.g.:
 	Install gdb - see https://sourceware.org/gdb/wiki/PermissionsDarwin
 
     ```bash
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.3/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.4/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
     ```
 	
