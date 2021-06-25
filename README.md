@@ -101,7 +101,7 @@ Environment variables are considered true if their value is a non-empty string s
 
 # Local Variable Use After Function Return Detection
 
-    $ dcc --use_after_return bad_function.c
+    $ dcc --use-after-return bad_function.c
     $ ./a.out
 	bad_function.c:22 runtime error - stack use after return
 	
