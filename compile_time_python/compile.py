@@ -345,6 +345,9 @@ class Options(object):
 
 	def die(self, *args, **kwargs):
 		self.warn(*args, **kwargs)
+		# if the tar is not closed an execption is raised on exit by python 3.9
+		if self.tar:
+			self.tar.close()
 		sys.exit(1)
 
 	def warn(self, *args, **kwargs):
