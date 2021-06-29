@@ -1,0 +1,15 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in tests/run_time_errors/uninitialized-char-array.c at line 7:
+
+int main(int argc, char **argv) { 
+	char input[2][10];
+-->	printf("%s", input[0]);
+}
+
+Values when execution stopped:
+
+argc = 1
+input = {<10 uninitialized values>, <10 uninitialized values>}
+input[0] = <10 uninitialized values>

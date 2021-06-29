@@ -1,0 +1,277 @@
+*** Test 1 - default-1
+*** Test Environment 
+expected output: Hello!
+
+actual output  : Hello!
+
+*** Test 2 - no-output-1-fail
+*** Test Environment 
+expected output: Hello!
+
+actual output  : 
+
+Execution failed because program produced no output.
+1 lines of output were expected
+The first expected line was:
+Hello!
+
+*** Test 3 - one-byte-missing-fail
+*** Test Environment 
+expected output: Hello!
+
+actual output  : Hello
+
+
+Execution stopped because of an incorrect output line.
+Byte 6 of line 1 of program output was incorrect.
+A '!' was missing from the end of the output line.
+The correct output line was:
+Hello!
+Your program printed this line:
+Hello
+
+Execution stopped in main(argc=2, argv=0x7ffeebd744f8) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc = 2
+*** Test 4 - two-bytes-missing-fail
+*** Test Environment 
+expected output: Hello!
+
+actual output  : Hell
+
+
+Execution stopped because of an incorrect output line.
+Byte 5 of line 1 of program output was incorrect.
+The characters you printed were correct, but more characters were expected.
+The correct output line was:
+Hello!
+Your program printed this line:
+Hell
+
+Execution stopped in main(argc=2, argv=0x7ffe09dcabb8) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc = 2
+*** Test 5 - trailing-white-space-1
+*** Test Environment 
+expected output: Hello!
+
+actual output  : Hello!   
+
+*** Test 6 - trailing-white-space-2-fail
+*** Test Environment DCC_IGNORE_TRAILING_WHITE_SPACE=0
+expected output: Hello!
+
+actual output  : Hello!   
+
+
+Execution stopped because of an incorrect output line.
+Byte 7 of line 1 of program output was incorrect.
+The correct output line was:
+Hello!
+Your program printed this line:
+Hello!   
+
+Execution stopped in main(argc=2, argv=0x7ffff4028498) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc = 2
+*** Test 7 - extra-new-line-1-fail
+*** Test Environment 
+expected output: Hello!
+
+actual output  : Hello!
+
+
+
+Execution stopped because of unexpected extra output.
+The program produced all the expected output and then produced extra output.
+The extra line was an empty line (a '\n').
+
+Execution stopped in main(argc=2, argv=0x7ffece36a2b8) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc = 2
+*** Test 8 - extra-new-line-2
+*** Test Environment DCC_IGNORE_EMPTY_LINES=1
+expected output: Hello!
+
+actual output  : Hello!
+
+
+*** Test 9 - missing-new-line-1-fail
+*** Test Environment 
+expected output: Hello!
+
+actual output  : Hello!
+
+Execution failed because the last newline was missing.
+Your program produced all the expected output, except the last newline ('\n') was missing.
+
+For more information go to https://comp1511unsw.github.io/dcc/missing_newline.html
+
+*** Test 10 - ignore-case-1-fail
+*** Test Environment 
+expected output: Hello!
+
+actual output  : hEllo!
+
+
+Execution stopped because of an incorrect output line.
+Byte 1 of line 1 of program output was incorrect.
+The correct output line was:
+Hello!
+Your program printed this line:
+hEllo!
+
+Execution stopped in main(argc=2, argv=0x7ffd35dd4ff8) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc = 2
+*** Test 11 - ignore-case-2
+*** Test Environment DCC_IGNORE_CASE=1
+expected output: Hello!
+
+actual output  : hEllo!
+
+*** Test 12 - ignore-white-space-1-fail
+*** Test Environment 
+expected output: Hello!
+
+actual output  : H ello	!
+
+
+Execution stopped because of an incorrect output line.
+Byte 2 of line 1 of program output was incorrect.
+The correct output line was:
+Hello!
+Your program printed this line:
+H ello\t!
+
+Execution stopped in main(argc=2, argv=0x7ffe9d4ba878) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc = 2
+*** Test 13 - ignore-white-space-2
+*** Test Environment DCC_IGNORE_WHITE_SPACE=1
+expected output: Hello!
+
+actual output  : H ello	!
+
+*** Test 14 - ignore-characters-1
+*** Test Environment DCC_IGNORE_CHARACTERS=+
+expected output: Hello!
+
+actual output  : +++Hello!+++
+
+*** Test 15 - ignore-characters-2-fail
+*** Test Environment DCC_IGNORE_CHARACTERS=lzn
+expected output: Hello!
+
+actual output  : Hen
+
+
+Execution stopped because of an incorrect output line.
+Byte 4 of line 1 of program output was incorrect.
+The characters you printed were correct, but more characters were expected.
+The correct output line was:
+Hello!
+Your program printed this line:
+Hen
+
+Execution stopped in main(argc=2, argv=0x7ffe135d1e88) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc = 2
+*** Test 16 - ignore-characters-3
+*** Test Environment DCC_IGNORE_CHARACTERS=lzno!
+expected output: Hello!
+
+actual output  : Hen
+
+*** Test 17 - compare-only-characters-1-fail
+*** Test Environment DCC_COMPARE_ONLY_CHARACTERS=Hel
+expected output: Hello!
+
+actual output  : HiheHilloHi	!
+
+
+Execution stopped because of an incorrect output line.
+Byte 5 of line 1 of program output was incorrect.
+The correct output line was:
+Hello!
+Your program printed this line:
+HiheHilloHi\t!
+
+Execution stopped in main(argc=2, argv=0x7ffd37c6b9e8) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc = 2
+*** Test 18 - compare-only-characters-2
+*** Test Environment DCC_COMPARE_ONLY_CHARACTERS=el
+expected output: Hello!
+
+actual output  : HiheHilloHi	!
+
+*** Test 19 - compare-only-characters-3-fail
+*** Test Environment DCC_COMPARE_ONLY_CHARACTERS=hel
+expected output: Hello!
+
+actual output  : HiheHilloHi	!
+
+
+Execution stopped because of an incorrect output line.
+Byte 3 of line 1 of program output was incorrect.
+The correct output line was:
+Hello!
+Your program printed this line:
+HiheHilloHi\t!
+
+Execution stopped in main(argc=2, argv=0x7ffc49584978) in tmp.c at line 2:
+
+#include <stdio.h>
+-->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
+
+Values when execution stopped:
+
+argc = 2
+*** Test 20 - compare-only-characters-4
+*** Test Environment DCC_IGNORE_CASE=1 DCC_COMPARE_ONLY_CHARACTERS=hel
+expected output: Hello!
+
+actual output  : Hell
+
+All Tests Correct

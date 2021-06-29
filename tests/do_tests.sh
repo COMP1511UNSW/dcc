@@ -37,10 +37,6 @@ cd ../..
 clang_version=$($c_compiler -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
 platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
 
-version_expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
-default_expected_output_dir="$tests_dir/expected_output/default"
-mkdir -p "$version_expected_output_dir" "$default_expected_output_dir"
-
 tests_failed=0
 
 for src_file in tests/extracted_compile_time_errors/*.c tests/compile_time_errors/*.c tests/run_time_errors/*.* tests/run_time_no_errors/*.* tests/check_output/*.sh
@@ -56,16 +52,16 @@ do
 		case "$src_file" in
 		*.c)
 			dcc_flags=
-			suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/ /_/g;s/["$]//g;s/src_file//'`
+			suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/ /_/g;s/["$]//g;s/src_file//;s?/?_?g'`
 			eval $compile_options
-			expected_output_file="`basename $src_file .c`$suffix.txt"
+			expected_output_basename="`basename $src_file .c`$suffix"
 			#echo "$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file"
 			"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
 			test ! -s tmp.actual_stderr && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
 			;;
 
 		*.sh)
-			expected_output_file="`basename $src_file .sh`.txt"
+			expected_output_basename="`basename $src_file .sh`"
 			$src_file </dev/null   2>tmp.actual_stderr >/dev/null
 			;;
 			
@@ -94,60 +90,66 @@ do
 			fi
 			actual_output_file=tmp.actual_stderr
 		esac
+		sed -e "$REMOVE_NON_DETERMINATE_VALUES" $actual_output_file >tmp.corrected_output
 		
-version_expected_output_dir="$tests_dir/expected_output/clang-$clang_version-$platform"
+		expected_output_dir="$tests_dir/expected_output/$expected_output_basename"
+		mkdir -p "$expected_output_dir"
+		expected_output_last_version=$(ls $expected_output_dir/*.txt 2>/dev/null|sed 1q)
+		
 default_expected_output_dir="$tests_dir/expected_output/default"
 
 		default_expected_output="$default_expected_output_dir/$expected_output_file"
 		version_expected_output="$version_expected_output_dir/$expected_output_file"
 		
-		sed -e "$REMOVE_NON_DETERMINATE_VALUES" $actual_output_file >tmp.corrected_output
 		
-		if test ! -e "$default_expected_output"
+		if test -z "$expected_output_last_version"
 		then
+			new_expected_output_file="$expected_output_dir/000000-clang-$clang_version-$platform.txt"
 			echo
-			echo "'$default_expected_output' does not exist, creating with these contents:"
+			echo "'$new_expected_output_file' does not exist, creating with these contents:"
 			echo
 			cat "$actual_output_file"
-			cp  "$actual_output_file" "$default_expected_output"
+			cp  "$actual_output_file" "$new_expected_output_file"
 			echo
-			echo "if above is not correct output for this test: rm '$default_expected_output' "
+			echo "if above is not correct output for this test: rm '$new_expected_output_file' "
 			continue
 		fi 
 	
+		# check if the output if we have matches any correct version
+		passed=
+		for expected_output_version in $expected_output_dir/*.txt
+		do
+			sed -e "$REMOVE_NON_DETERMINATE_VALUES" $expected_output_version >tmp.expected_output
+			if diff -iBw tmp.expected_output tmp.corrected_output >/dev/null
+			then
+				echo Passed: dcc $dcc_flags $src_file
+#				echo -n .
+				passed=1
+				break
+			fi
+		done
+		test -n "$passed" && continue
 		
-		expected="$default_expected_output"
-		test -r "$version_expected_output" && expected="$version_expected_output"
-		
-		sed -e "$REMOVE_NON_DETERMINATE_VALUES" $expected >tmp.expected_output
-		
-		if diff -iBw tmp.expected_output tmp.corrected_output >/dev/null
-		then
-			echo Passed: dcc $dcc_flags $src_file
-#			echo -n .
-			continue
-		fi
-		
-		
+		sed -e "$REMOVE_NON_DETERMINATE_VALUES" $expected_output_last_version >tmp.expected_output
+
 		echo
 		echo "FAILED: dcc $dcc_flags $src_file # error messages different to expected"
 		echo Differences are:
 		echo
 		diff -u  -iBw tmp.expected_output tmp.corrected_output
 		echo
-		echo "Enter u to update default expected output."
-		echo "Enter p to create platform-specific  expected output."
-		echo "Enter i to leave expected output unchanged."
+		echo "Enter y to add this output to accepted versions."
+		echo "Enter n to leave expected output versions unchanged."
 		echo "Enter q to exit."
 		
 		echo -n "Action? "
 		read response
 		case "$response" in
-		u)
-			cp  "$actual_output_file" "$default_expected_output"
-			;;
-		p)
-			cp  "$actual_output_file" "$version_expected_output"
+		y*)
+			last_version_number=$(basename $expected_output_last_version|cut -d- -f1)
+			version_number=$(printf "%06d" $(($last_version_number + 1)))
+			new_expected_output_file="$expected_output_dir/$version_number-clang-$clang_version-$platform.txt"
+			cp -p "$actual_output_file" "$new_expected_output_file"
 			;;
 		q)
 			exit 1

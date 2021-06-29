@@ -1,0 +1,6 @@
+tests/compile_time_errors/array_string_index.c:3:3: error: array subscript is not an integer
+        a["0"] = 0;
+         ^~~~
+dcc explanation: Looks like you're trying to access an element of the array `a` on line 3 of `tests/compile_time_errors/array_string_index.c`, but your index (`"0"`) is not of type `int`.
+ Right now, your index is of type `string` instead.
+ Make sure your index (the value between square brackets) is an `int`.

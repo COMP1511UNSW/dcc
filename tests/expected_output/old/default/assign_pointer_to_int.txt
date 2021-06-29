@@ -1,0 +1,5 @@
+tests/extracted_compile_time_errors/assign_pointer_to_int.c:4:4: warning: incompatible pointer to integer conversion assigning to 'int' from 'int *'; remove & [-Wint-conversion]
+        a = &a;
+          ^ ~~
+dcc explanation: you are attempting to assign &a which is not an int to an int variable.
+
