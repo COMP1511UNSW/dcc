@@ -119,8 +119,11 @@ def update_wrapper_source(sanitizer, sanitizer_n, wrapper_source, tar_source,  o
 		# which would be preferable here we get uninitialized variable error message for undefined errors
 		wrapper_source = wrapper_source.replace('__UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__', '1')
 		sanitizer_args += ['-fsanitize=undefined']
-		if options.clang_version_float >= 3.6:
-			sanitizer_args += ['-fno-sanitize-recover=undefined,integer']
+
+# These options stop error explanations if  __ubsan_on_report can not be intercepted (on Ubuntu)
+# They appear to have  no significant benefit on other platforms 
+#		if options.clang_version_float >= 3.6:
+#			sanitizer_args += ['-fno-sanitize-recover=undefined,integer']
 
 	if options.shared_libasan and  sanitizer == "address" and options.clang_version:
 		lib_dir = options.clang_lib_dir.replace('{clang_version}', options.clang_version)
@@ -287,7 +290,7 @@ class Options(object):
 		self.valgrind_fix_posix_spawn = None
 
 		self.c_compiler_args = COMMON_COMPILER_ARGS
-		self.c_compiler = "clang"
+		self.c_compiler = ""
 
 		# needed for shared-libasan
 		self.clang_lib_dir="/usr/lib/clang/{clang_version}/lib/linux"
@@ -296,13 +299,6 @@ class Options(object):
 		self.clang_version_major = 0
 		self.clang_version_minor = 0
 		self.clang_version_float = 0.0
-
-		# this needs to be generalized to select preferred clang version
-		# when multiple versions available
-		get_clang_version(self)
-		if self.clang_version_major != '11' and search_path('clang-11'):
-			self.c_compiler = "clang-11"
-			get_clang_version(self)
 
 		# FIXME - check terminal actually supports ANSI
 		self.colorize_output = sys.stderr.isatty() or os.environ.get('DCC_COLORIZE_OUTPUT', False)
@@ -363,6 +359,18 @@ class Options(object):
 
 def get_options():
 	options = parse_args(sys.argv[1:])
+
+	if not options.c_compiler:
+		options.c_compiler = 'clang'
+		get_clang_version(options)
+		# this needs to be generalized to select preferred clang version
+		# when multiple versions available
+		try:
+			if int(options.clang_version_major) < 11 and search_path('clang-11'):
+				options.clang_version = ''
+				options.c_compiler = "clang-11"
+		except ValueError:
+			pass
 
 	if options.colorize_output:
 		if 'clang' in options.c_compiler:
@@ -489,10 +497,8 @@ def parse_arg(arg, remaining_args, options):
 		options.ifdef_instead_of_wrap = True
 	elif arg.startswith('--c-compiler='):
 		options.c_compiler = arg[arg.index('=') + 1:]
-		options.clang_version = ''
-		options.clang_version_major = 0
-		options.clang_version_minor = 0
-		options.clang_version_float = 0.0
+		if not search_path(options.c_compiler):
+			options.die(f'{options.c_compiler} not found') 
 	elif arg == '-fcolor-diagnostics':
 		options.colorize_output = True
 	elif arg == '-fno-color-diagnostics':

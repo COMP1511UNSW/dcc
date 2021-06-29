@@ -148,6 +148,9 @@ char *__msan_default_options(void) {
 }
 #endif
 
+// intercept undefined sanitizer reports
+// ubsan builds on Ubuntu don't seem to expose this function
+
 void __ubsan_on_report(void) {
 	debug_printf(2, "__ubsan_on_report\n");
 

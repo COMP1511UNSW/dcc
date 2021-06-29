@@ -146,6 +146,9 @@ valgrind also usually detect this type of error, e.g.:
 	sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope;echo 1 >/proc/sys/vm/overcommit_memory"
 	```
 
+	Ubuntu UndefinedSanitizer builds appears not to allow __ubsan_on_report to be intercepted
+	which degrades some error reporting
+	
 * Installation on  OSX
 
 	Install python3 - see https://docs.python-guide.org/starting/install3/osx/
