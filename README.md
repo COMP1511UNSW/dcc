@@ -137,19 +137,55 @@ valgrind also usually detect this type of error, e.g.:
 
 # Installation
 
-* Installation on Linux and Windows Subsystem for Linux
+* Deb-based Systems including Debian, Ubuntu, Mint and Windows Subsystem for Linux
 	
 	```bash
 	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.5/dcc_2.7.5_all.deb -o /tmp/dcc_2.7.5_all.deb
 	sudo apt install /tmp/dcc_2.7.5_all.deb
-    # on WSL (not Linux) this might be necessary to run programs
+	```
+	
+	or
+	
+	```bash
+	sudo apt install  clang gcc gdb valgrind python3 curl
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.5/dcc -o /usr/local/bin/dcc
+	sudo chmod o+rx  /usr/local/bin/dcc
+	```
+	
+	```bash
+    # on  Windows Subsystem for Linux (only) this might be necessary to run programs
 	sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope;echo 1 >/proc/sys/vm/overcommit_memory"
 	```
 
-	Ubuntu UndefinedSanitizer builds appears not to allow __ubsan_on_report to be intercepted
+	The Ubuntu & Mint UndefinedSanitizer builds appear not to allow `__ubsan_on_report` to be intercepted
 	which degrades some error reporting
+
+* ARCH Linux
+
+	```bash
+	sudo pacman -S clang gcc gdb valgrind python3 curl
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.5/dcc -o /usr/local/bin/dcc
+	sudo chmod o+rx  /usr/local/bin/dcc
+	```
 	
-* Installation on  OSX
+* RPM-based Systems including CentOS, Fedora 
+
+	```bash
+	sudo yum install clang gcc gdb valgrind python3 curl
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.5/dcc -o /usr/local/bin/dcc
+	sudo chmod o+rx  /usr/local/bin/dcc
+	```
+	
+	On OpenSUSE:
+	
+	```bash
+	sudo zypper install clang gcc gdb valgrind python3 curl
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.5/dcc -o /usr/local/bin/dcc
+	sudo chmod o+rx  /usr/local/bin/dcc
+	```
+	
+	
+* OSX
 
 	Install python3 - see https://docs.python-guide.org/starting/install3/osx/
 	Install gdb - see https://sourceware.org/gdb/wiki/PermissionsDarwin
