@@ -23,6 +23,7 @@ REMOVE_NON_DETERMINATE_VALUES='
 	s?^/.*:??
 	s?^ *[0-9]* *|??
 	s?^ *~*\^~* *$??
+	s?clang-[0-9]*?clang?
 '
 
 export dcc="${1:-./dcc}"
