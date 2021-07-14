@@ -42,6 +42,7 @@
 static int debug_level = 0;
 static FILE *debug_stream = NULL;
 
+
 #if __has_attribute(no_sanitize)
 #ifdef __clang__
 #define NO_SANITIZE __attribute__((no_sanitize("address", "memory", "undefined")))
@@ -59,7 +60,7 @@ static void __dcc_start(void) __attribute__((constructor)) NO_SANITIZE;
 void __dcc_error_exit(void) NO_SANITIZE;
 static void __dcc_signal_handler(int signum) NO_SANITIZE;
 static void set_signals_default(void) NO_SANITIZE;
-static void launch_valgrind(int argc, char *argv[], char *envp[]) NO_SANITIZE;
+static void launch_valgrind(int argc, char *argv[]) NO_SANITIZE;
 static void setenvd_int(char *n, int v) NO_SANITIZE;
 static void setenvd(char *n, char *v) NO_SANITIZE;
 static void putenvd(char *s) NO_SANITIZE;
@@ -69,7 +70,7 @@ static int debug_printf(int level, const char *format, ...) NO_SANITIZE;
 static void _explain_error(void) NO_SANITIZE;
 static void clear_stack(void) NO_SANITIZE;
 static void quick_clear_stack(void) NO_SANITIZE;
-static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]);
+static int __dcc_run_sanitizer1(int argc, char *argv[]);
 
 
 #undef main
@@ -91,7 +92,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		setenvd("DCC_BINARY", mypath);
 		free(mypath);
 	}
-	return __dcc_run_sanitizer1(argc, argv, envp);
+	return __dcc_run_sanitizer1(argc, argv);
 }
 #else
 
@@ -107,7 +108,8 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	argv[0] = getenv("DCC_ARGV0");
 	init_cookies();
 	clear_stack();
-	exit(__real_main(argc, argv, envp));
+	extern char **environ;
+	exit(__real_main(argc, argv, environ));
 	return 1; // not reached
 }
 
@@ -115,10 +117,11 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 
 static pid_t sanitizer2_pid;
 
-static void __dcc_main_sanitizer1(int argc, char *argv[], char *envp[]) NO_SANITIZE;
-static void __dcc_main_sanitizer2(int argc, char *argv[], char *envp[], char *sanitizer2_executable_pathname) NO_SANITIZE;
+static void __dcc_main_sanitizer1(int argc, char *argv[]) NO_SANITIZE;
+static void __dcc_main_sanitizer2(int argc, char *argv[], char *sanitizer2_executable_pathname) NO_SANITIZE;
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
+	extern char **environ;
 	char *mypath = realpath(argv[0], NULL);
 	if (mypath) {
 		setenvd("DCC_BINARY", mypath);
@@ -127,11 +130,11 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	debug_stream = stderr;
 	if (pipe(to_sanitizer2_pipe) != 0) {
 		debug_printf(1, "pipe failed");
-		return __real_main(argc, argv, envp);
+		return __real_main(argc, argv, environ);
 	}
 	if (pipe(from_sanitizer2_pipe) != 0) {
 		debug_printf(1, "pipe failed");
-		return __real_main(argc, argv, envp);
+		return __real_main(argc, argv, environ);
 	}
 
 	char sanitizer2_executable_pathname[] = "/tmp/dcc-XXXXXX";
@@ -152,31 +155,31 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	sanitizer2_pid = fork();
 	if (sanitizer2_pid < 0) {
 		debug_printf(1, "fork failed");
-		return __real_main(argc, argv, envp);
+		return __real_main(argc, argv, environ);
 	} else if (sanitizer2_pid == 0) {
 		pid_t pid = getpid();
 		setenvd_int("DCC_PID", pid);
 		setenvd_int("DCC_SANITIZER2_PID", pid);
 		sanitizer2_pid = pid;
-		__dcc_main_sanitizer2(argc, argv, envp, sanitizer2_executable_pathname);
+		__dcc_main_sanitizer2(argc, argv, sanitizer2_executable_pathname);
 	} else {
 		setenvd_int("DCC_SANITIZER2_PID", sanitizer2_pid);
-		__dcc_main_sanitizer1(argc, argv, envp);
+		__dcc_main_sanitizer1(argc, argv);
 	}
 	return 1; // not reached
 }
 
 
-static void __dcc_main_sanitizer1(int argc, char *argv[], char *envp[]) {
+static void __dcc_main_sanitizer1(int argc, char *argv[]) {
 	debug_printf(2, "main sanitizer1\n");
 	close(to_sanitizer2_pipe[0]);
 	close(from_sanitizer2_pipe[1]);
 
-	exit(__dcc_run_sanitizer1(argc, argv, envp));
+	exit(__dcc_run_sanitizer1(argc, argv));
 }
 
 
-static void __dcc_main_sanitizer2(int argc, char *argv[], char *envp[], char *sanitizer2_executable_pathname) {
+static void __dcc_main_sanitizer2(int argc, char *argv[], char *sanitizer2_executable_pathname) {
 	debug_printf(2, "main sanitizer2\n");
 	close(to_sanitizer2_pipe[1]);
 	close(from_sanitizer2_pipe[0]);
@@ -190,7 +193,7 @@ static void __dcc_main_sanitizer2(int argc, char *argv[], char *envp[], char *sa
 	debug_printf(1, "execvp %s failed", sanitizer2_executable_pathname);
 #else
 	argv[0] = sanitizer2_executable_pathname;
-	launch_valgrind(argc, argv, envp);
+	launch_valgrind(argc, argv);
 #endif
 	exit(1);
 }
@@ -199,11 +202,12 @@ static void __dcc_main_sanitizer2(int argc, char *argv[], char *envp[], char *sa
 
 
 
-static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]) {
+static int __dcc_run_sanitizer1(int argc, char *argv[]) {
+	extern char **environ;
 #if __SANITIZER__ != VALGRIND
 	init_cookies();
 	clear_stack();
-	int r = __real_main(argc, argv, envp);
+	int r = __real_main(argc, argv, environ);
 
 	// in some circumstances leaks are not detected without this call
 #if __LEAK_CHECK_1_0__ && __SANITIZER__ == ADDRESS
@@ -224,13 +228,13 @@ static int __dcc_run_sanitizer1(int argc, char *argv[], char *envp[]) {
 		init_cookies();
 		debug_printf(2, "running __real_main\n");
 		clear_stack();
-		int r = __real_main(argc, argv, envp);
+		int r = __real_main(argc, argv, environ);
 		debug_printf(2, "__real_main returning %d\n", r);
 		return r;
 	}
-	launch_valgrind(argc, argv, envp);
+	launch_valgrind(argc, argv);
 	// if exec fails run program directly
-	int r = __real_main(argc, argv, envp);
+	int r = __real_main(argc, argv, environ);
 	debug_printf(2, "__real_main returning %d\n", r);
 	return r;
 #endif

@@ -1,5 +1,5 @@
 
-static void launch_valgrind(int argc, char *argv[], char *envp[]) {
+static void launch_valgrind(int argc, char *argv[]) {
 	debug_printf(2, "command=%s\n", "__MONITOR_VALGRIND__");
 #if __N_SANITIZERS__ > 1
 	extern FILE *__real_popen(const char *command, const char *type);
