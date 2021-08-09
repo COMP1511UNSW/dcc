@@ -22,6 +22,6 @@ int array2[ARRAY_SIZE];
 
 
 for (int i = 0; i < 10; i++) {
-	array2[ARRAY_SIZE] = array1[ARRAY_SIZE];
+	array2[i] = array1[i];
 }
 ```
