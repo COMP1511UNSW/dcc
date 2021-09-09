@@ -87,6 +87,10 @@ A huge local array can produce this error.
 A common cause of this error is use of invalid FILE * pointer.
 """
 
+	elif 'Stack overflow' in line:
+		error = f"""Runtime error: {color('stack overflow.', 'red')}
+A common cause of this error is infinite recursion.
+"""
 	elif 'loss record' in line:
 		line = sys.stdin.readline()
 		if 'malloc' in line:
