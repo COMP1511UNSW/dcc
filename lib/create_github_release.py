@@ -30,10 +30,10 @@ def make_release(token, tag):
 def upload_file(token, pathname, release_id):
 	with open(pathname, 'br') as myfile:
 		content = myfile.read()
-#	print('pathname', pathname)
-#	print('token', token)
-#	print('url', URL_TEMPLATE.format('uploads') + '/' + str(release_id) + '/assets?' \
-#		  + urlencode({'name': os.path.split(pathname)[1]}))
+	print('pathname', pathname)
+	print('token', token)
+	print('url', URL_TEMPLATE.format('uploads') + '/' + str(release_id) + '/assets?' \
+		  + urlencode({'name': os.path.split(pathname)[1]}))
 	json.loads(urlopen(Request(
 		URL_TEMPLATE.format('uploads') + '/' + str(release_id) + '/assets?' \
 		  + urlencode({'name': os.path.split(pathname)[1]}),
@@ -67,7 +67,7 @@ def main():
 	with open(os.path.join(os.environ.get('HOME', ''), '.github_token')) as f:
 		token = f.read().strip()
 	update_readme(tag)
-	run(['git', 'commit', 'README.md', '-m', 'release ' + tag])
+	run(['git', 'commit', 'README.md', '--allow-empty', '-m', 'release ' + tag])
 	run(['git', 'tag', '-a', tag, '-m', description])
 	run(['git', 'push'])
 	run(['git', 'push', 'origin', tag])

@@ -43,4 +43,4 @@ packaging/debian/dcc_${VERSION}_all.deb: dcc dcc.1
 	echo Description:  a C compiler which explain errors to novice programmers >>debian/DEBIAN/control
 	packaging/debian/build.sh
 
-.PHONY: deb
+.PHONY: deb tests tests_all_clang_versions

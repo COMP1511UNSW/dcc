@@ -1,17 +1,20 @@
 # exclude generated files from repo
+# and files/directories used created in development
 dcc
 dcc.1
 __pycache__
 _build
-# ignore files/directories used created in development
 *.swp
 a.out
 *.o
 core
+*.deb
+*.rpm
 *.orig
 *tmp*
 random*
 experiments*
+debian
 
 # don't accidentally add random test files to repo
 /*.c
