@@ -592,7 +592,7 @@ int main(int argc, char *argv[]) {
 
 		regex = r"argument (\d+) null where non-null expected",
 
-		explanation = """You are passing {extract_argument_variable(highlighted_word, match.group(1), emphasize)} which always contains NULL as {emphasize('argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}'.
+		explanation = """You are passing {extract_argument_variable(highlighted_word, match.group(1), emphasize)} as {emphasize('argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}'.
 {emphasize('Argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}' should never be NULL.
 
 """,
@@ -612,20 +612,21 @@ def extract_function_name(string):
 	return re.sub(r'\(.*', '', string)
 
 def extract_argument_variable(string, argument_number, emphasize):
+	if not re.search(r'\(.*\)', string):
+		return 'a NULL value'
 	string = re.sub(r'.*?\(', '', string)
-	string = re.sub(r'\)$', '', string)
+	string = re.sub(r'\).*?$', '', string)
 	string = string.strip()
 	variable_name = ''
-	if not re.match('\(.*,.*\)', string):
+	if not re.search(r'\(.*,.*\)', string):
 		try:
 			n = int(argument_number)
 			variable_name = string.split(',')[n - 1].strip()
 		except (ValueError,IndexError):
 			pass
 	if re.match('^[_a-z]\w*$', variable_name):
-		return 'the variable ' + emphasize(variable_name)
-	else:
-		return 'a variable ' + emphasize(variable_name)
+		return f'the variable {emphasize(variable_name)} which always contains NULL'
+	return 'a NULL value'
 
 def extract_system_include_file(string):
 	m = re.search(r'<(.*?)>', str(string))
