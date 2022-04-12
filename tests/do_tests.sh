@@ -14,7 +14,14 @@ trap 'exit_status=$?;rm -fr tmp* a.out;exit $exit_status' EXIT INT TERM
 # some values reported in errors are not determinate (e.g. variable addresses)
 # and will vary between execution and definitely between platforms
 # so delete them before diff-ing errors
-# also remove absolute pathnames so expected output is not filesystem location dependent
+#
+# also remove absolute pathnames
+# so expected output is not filesystem location dependent
+#
+# and remove line/column numbers from error messages
+# so minor changes to tests do not affect expected output
+
+
 REMOVE_NON_DETERMINATE_VALUES='
 	s/^\([a-z].* = \)[0-9][0-9]*$/\1 <integer>/g
 	s/0x[0-9a-f]*/0x<deleted-hexadecimal-constant>/g
@@ -24,6 +31,9 @@ REMOVE_NON_DETERMINATE_VALUES='
 	s?^ *[0-9]* *|??
 	s?^ *~*\^~* *$??
 	s?clang-[0-9]*?clang?
+	s?^\([^: ]*\):[0-9]*:[0-9]*:?\1?
+	s? called at line [0-9]* of ? called at line ?
+	s? at line [0-9]*:? at line:?
 '
 
 export dcc="${1:-./dcc}"
@@ -137,7 +147,7 @@ default_expected_output_dir="$tests_dir/expected_output/default"
 		echo "FAILED: dcc $dcc_flags $src_file # error messages different to expected"
 		echo Differences are:
 		echo
-		diff -u  -iBw tmp.expected_output tmp.corrected_output
+		diff --color -u  -iBw tmp.expected_output tmp.corrected_output
 		echo
 		echo "Enter y to add this output to accepted versions."
 		echo "Enter n to leave expected output versions unchanged."
