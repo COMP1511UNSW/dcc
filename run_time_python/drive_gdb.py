@@ -408,9 +408,11 @@ def parse_gdb_stack_frame(line):
 			filename.endswith("libioP.h") or
 			filename.endswith("iofclose.c") or
 			filename.startswith("<") or
-			filename.startswith("m_syswrap/syscall")
+			filename.startswith("m_scheduler/scheduler") or
+			filename.startswith("m_syswrap/sys")
 		   ):
 			m = None
+		dprint(3, f"parse_gdb_stack_frame filename='{filename}' m={m}")
 	if m:
 		return Location(m.group('filename'), m.group('line_number'), function=m.group('function'), params=m.group('params'), frame_number=m.group('frame_number'))
 	return None
