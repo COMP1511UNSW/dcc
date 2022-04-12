@@ -4,7 +4,10 @@ struct list_node {
     struct list_node *next;
     int data;
 };
-int main(void) { 
-    struct list_node *a = malloc(sizeof *a);
+int main(int argc, char **argv) { 
+    struct list_node *a = malloc(2 * sizeof *a);
+    if (argc != 1) {
+        a->next = NULL;
+    }
     a->next->data = 42;
 }

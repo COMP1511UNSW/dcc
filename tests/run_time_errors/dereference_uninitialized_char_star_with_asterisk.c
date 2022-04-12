@@ -1,5 +1,6 @@
 #include <stdlib.h>
-int main(void) { 
-    char **a = malloc(sizeof *a);
+int main(int argc, char **argv) { 
+    char **a = malloc(2 * sizeof *a);
+    a[argc] = NULL;
     return **a;
 }

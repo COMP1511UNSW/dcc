@@ -1,0 +1,8 @@
+tests/extracted_compile_time_errors/uninitialized-local-variable.c: In function ‘main’:
+tests/extracted_compile_time_errors/uninitialized-local-variable.c:4:17: warning: ‘a’ is used uninitialized [-Wuninitialized]
+    4 |         return a[0];
+      |                ~^~~
+tests/extracted_compile_time_errors/uninitialized-local-variable.c:3:13: note: ‘a’ declared here
+    3 |         int a[1];
+      |             ^[0m
+

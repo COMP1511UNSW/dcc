@@ -11,6 +11,8 @@ int f1(int *a) {
 	return f2(a);
 }
 
-int main(void) {
-    return f1(*(int **)malloc(sizeof (int *)));
+int main(int argc, char **argv) {
+    int **i = malloc(2 * sizeof (int *));
+    i[argc] = NULL;
+    return f1(i[0]);
 }
