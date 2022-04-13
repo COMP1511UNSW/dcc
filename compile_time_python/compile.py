@@ -321,8 +321,8 @@ def execute_compiler(
         command = [
             c
             for c in command
-            if c not
-            in ["-fsanitize=undefined", "-fno-sanitize-recover=undefined,integer"]
+            if c
+            not in ["-fsanitize=undefined", "-fno-sanitize-recover=undefined,integer"]
         ]
         options.debug_print("undefined reference to `__mulodi4'")
         options.debug_print("recompiling", " ".join(command))
