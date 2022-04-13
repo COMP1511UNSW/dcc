@@ -1,7 +1,6 @@
 import re, sys
 from help_cs50 import help_cs50
 import colors
-from util import explanation_url
 from compiler_explanations import get_explanation
 
 ANSI_DEFAULT = "\033[0m"
@@ -153,7 +152,10 @@ class Message:
         )
 
     def __str__(self):
-        return f"Message(text_without_ansi_codes='{self.text_without_ansi_codes}', self.highlighted_word='{self.highlighted_word}', self.underlined_word='{self.underlined_word}')"
+        t = self.text_without_ansi_codes
+        h = self.highlighted_word
+        u = self.underlined_word
+        return f"Message(text_without_ansi_codes='{t}', highlighted_word='{h}', underlined_word='{u}')"
 
 
 def get_next_message(lines):

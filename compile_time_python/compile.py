@@ -16,10 +16,26 @@ FILES_EMBEDDED_IN_BINARY = [
 # novice programmers will often be told to ignore scanf's return value
 # when writing their first programs
 
-COMMON_WARNING_ARGS = "-Wall -Wno-unused -Wunused-variable -Wunused-value -Wno-unused-result -Wshadow".split()
+COMMON_WARNING_ARGS = """
+    -Wall
+    -Wno-unused
+    -Wunused-variable
+    -Wunused-value
+    -Wno-unused-result
+    -Wshadow
+    """.split()
+
 COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-std=gnu11 -g -lm".split()
 
-CLANG_ONLY_ARGS = "-Wunused-comparison -fno-omit-frame-pointer -fno-common -funwind-tables -fno-optimize-sibling-calls -Qunused-arguments -Wno-unused-parameter".split()
+CLANG_ONLY_ARGS = """
+    -Wunused-comparison
+    -fno-omit-frame-pointer
+    -fno-common
+    -funwind-tables
+    -fno-optimize-sibling-calls
+    -Qunused-arguments
+    -Wno-unused-parameter
+    """.split()
 
 DEBUG_COMPILE_FILE = "tmp_dcc.sh"
 
@@ -39,7 +55,7 @@ GCC_ONLY_ARGS = "-Wunused-but-set-variable -Wduplicated-cond -Wduplicated-branch
 #
 # Compile the user's program adding some C code
 #
-def compile():
+def compile_user_program():
     os.environ["PATH"] = (
         os.path.dirname(os.path.realpath(sys.argv[0]))
         + ":/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:"
@@ -234,7 +250,7 @@ def execute_compiler(
                     "unlink",
                     "write",
                 ]
-            command += ["-D{}=__renamed_{}".format(f, f) for f in rename_function_names]
+            command += [f"-D{f}=__renamed_{f}" for f in rename_function_names]
 
         wrapped_functions = ["main"]
 
@@ -255,8 +271,8 @@ def execute_compiler(
             override_functions += ["posix_spawn", "posix_spawnp"]
 
         if options.ifdef_instead_of_wrap:
-            command += ["-D{}=__real_{}".format(f, f) for f in wrapped_functions]
-            command += ["-D{}=__wrap_{}".format(f, f) for f in override_functions]
+            command += [f"-D{f}=__real_{f}" for f in wrapped_functions]
+            command += [f"-D{f}=__wrap_{f}" for f in override_functions]
             for f in wrapped_functions:
                 compiler_stdin = compiler_stdin.replace("__wrap_" + f, f)
             for f in override_functions:
@@ -278,18 +294,22 @@ def execute_compiler(
                     f"Leaving dcc compile_command in {DEBUG_COMPILE_FILE}"
                 )
                 contents = "#!/bin/sh\n" + contents
-            with open(DEBUG_COMPILE_FILE, "a") as f:
+            with open(DEBUG_COMPILE_FILE, "a", encoding="utf-8") as f:
                 print(contents, file=f)
             os.chmod(DEBUG_COMPILE_FILE, 0o755)
             if compiler_stdin:
                 options.debug_print("Leaving dcc code in", debug_wrapper_file)
-                with open(debug_wrapper_file, "w") as f:
+                with open(debug_wrapper_file, "w", encoding="utf-8") as f:
                     f.write(compiler_stdin)
         except OSError as e:
             print(e)
-    input = codecs.encode(compiler_stdin, "utf8")
+    stdin = codecs.encode(compiler_stdin, "utf8")
     process = subprocess.run(
-        command, input=input, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        command,
+        input=stdin,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
     )
     stdout = codecs.decode(process.stdout, "utf8", errors="replace")
 
@@ -327,7 +347,11 @@ def execute_compiler(
         options.debug_print("undefined reference to `__mulodi4'")
         options.debug_print("recompiling", " ".join(command))
         process = subprocess.run(
-            command, input=input, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            command,
+            input=input,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
         )
         stdout = codecs.decode(process.stdout, "utf8", errors="replace")
 
@@ -378,7 +402,7 @@ def get_wrapper_tar_source(options):
     wrapper_source = wrapper_source.replace("__DCC_VERSION__", '"' + VERSION + '"')
     wrapper_source = wrapper_source.replace("__HOSTNAME__", '"' + platform.node() + '"')
     wrapper_source = wrapper_source.replace(
-        "__CLANG_VERSION__", '"%s"' % options.clang_version
+        "__CLANG_VERSION__", f'"{options.clang_version}"'
     )
     wrapper_source = wrapper_source.replace(
         "__SUPRESSIONS_FILE__", options.suppressions_file
@@ -423,7 +447,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
     return wrapper_source, tar_source
 
 
-class Options(object):
+class Options:
     def __init__(self):
         self.debug = int(os.environ.get("DCC_DEBUG", "0"))
 
@@ -514,6 +538,7 @@ class Options(object):
         self.system_includes_used = set()
 
         self.tar_buffer = io.BytesIO()
+        # pylint: disable=consider-using-with
         self.tar = tarfile.open(fileobj=self.tar_buffer, mode="w|xz")
 
         self.threads_used = False
@@ -646,14 +671,10 @@ def parse_args(commandline_args):
     while commandline_args:
         arg = commandline_args.pop(0)
         if arg.startswith("@"):
-            try:
-                with open(arg[1:]) as argfile:
-                    commandline_args = [
-                        ext_arg for line in argfile for ext_arg in line[:-1].split(" ")
-                    ] + commandline_args
-                continue
-            except:
-                pass
+            with open(arg[1:], encoding="utf-8") as argfile:
+                commandline_args = [
+                    ext_arg for line in argfile for ext_arg in line[:-1].split(" ")
+                ] + commandline_args
         parse_arg(arg, commandline_args, options)
 
     return options
@@ -741,14 +762,14 @@ def parse_arg(arg, remaining_args, options):
         if (op.endswith(".c") or op.endswith(".h")) and os.path.exists(op):
             options.die(f"will not overwrite {op} with machine code")
     else:
-        parse_clang_arg(arg, remaining_args, options)
+        parse_clang_arg(arg, options)
 
 
 # check for options which are passed intact to clang
 # but modify dcc behaviour
 
 
-def parse_clang_arg(arg, remaining_args, options):
+def parse_clang_arg(arg, options):
     if (
         arg == "-Weverything"
     ):  # -Weverything generate a pile of spurious warning from dcc wrapper code
@@ -763,17 +784,17 @@ def parse_clang_arg(arg, remaining_args, options):
     elif arg == "-pthreads":
         options.threads_used = True
     else:
-        process_possible_source_file(arg, options)
+        process_possible_source_file(arg, options, set())
 
 
 # FIXME this is crude and brittle
-def process_possible_source_file(pathname, options, parent_files=set()):
-    if pathname in parent_files:
+def process_possible_source_file(pathname, options, processed_files):
+    if pathname in processed_files:
         if options.debug:
             print("recursive include", pathname)
         # could print an error here about a recursive include
         return
-    parent_files.add(pathname)
+    processed_files.add(pathname)
     extension = os.path.splitext(pathname)[1]
     if extension.lower() in [".a", ".o", ".so"]:
         options.object_files_being_linked = True
@@ -783,7 +804,7 @@ def process_possible_source_file(pathname, options, parent_files=set()):
             for line in f:
                 m = re.match(r'^\s*#\s*include\s*"(.*?)"', line)
                 if m:
-                    process_possible_source_file(m.group(1), options)
+                    process_possible_source_file(m.group(1), options, processed_files)
                 m = re.match(r"^\s*#\s*include\s*<(.*?)>", line)
                 if m:
                     options.system_includes_used.add(m.group(1))
@@ -845,10 +866,10 @@ def source_for_embedded_tarfile(options):
 
     source = "\nstatic uint64_t tar_data[] = {"
     while True:
-        bytes = options.tar_buffer.read(1024)
-        if not bytes:
+        bytes_read = options.tar_buffer.read(1024)
+        if not bytes_read:
             break
-        source += bytes2hex64_initializers(bytes) + ",\n"
+        source += bytes2hex64_initializers(bytes_read) + ",\n"
     source += "};\n"
     return n_bytes, source
 
@@ -898,10 +919,10 @@ def is_comment(line):
     return re.match(r"^\s*#", line)
 
 
-def add_tar_file(tar, pathname, bytes):
-    file_buffer = io.BytesIO(bytes)
+def add_tar_file(tar, pathname, contents):
+    file_buffer = io.BytesIO(contents)
     file_info = tarfile.TarInfo(pathname)
-    file_info.size = len(bytes)
+    file_info.size = len(contents)
     tar.addfile(file_info, file_buffer)
 
 
@@ -910,6 +931,7 @@ def search_path(program):
         full_path = os.path.join(path, program)
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             return full_path
+    return None
 
 
 def test_clang_version_exists(compiler, options):

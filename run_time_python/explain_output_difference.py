@@ -5,14 +5,14 @@ from util import explanation_url
 # and the program has been stoped because the output was incorrect
 
 
-def explain_output_difference(loc, output_stream, color):
+def explain_output_difference(output_stream, color):
     # autotest may try to print all errors in red, so disable this
     print(color("", "black"), end="", file=output_stream)
-    explain_output_difference1(loc, output_stream, color)
+    explain_output_difference1(output_stream, color)
     print(file=output_stream)
 
 
-def explain_output_difference1(loc, output_stream, color):
+def explain_output_difference1(output_stream, color):
 
     # values supplied for expected output for this execution
     expected_stdout = os.environb.get(b"DCC_EXPECTED_STDOUT", "")
@@ -241,21 +241,15 @@ def check_bad_characters(line, line_number, danger, expected):
     if offending_value == 0:
         description = "zero byte ('" + danger("\\0") + "')"
     elif offending_value > 127:
-        description = "non-ascii byte " + danger("\\x%02x" % (offending_value))
+        description = "non-ascii byte " + danger(f"\\x{offending_value:02x}")
     else:
-        description = "non-printable character " + danger("\\x%02x" % (offending_value))
+        description = "non-printable character " + danger(f"\\x{offending_value:02x}")
     column = len(prefix)
-    explanation = "a " + danger("non-ASCII byte") + " was printed.\n"
-    explanation += "Byte %d of line %d of program output was a %s\n" % (
-        column + 1,
-        line_number,
-        description,
-    )
 
-    explanation += (
-        "Here is line %d with non-printable characters replaced with backslash-escaped equivalents:\n"
-        % (line_number)
-    )
+    explanation = "a " + danger("non-ASCII byte") + " was printed.\n"
+    explanation += f"Byte {column + 1} of line {line_number} of program output was a {description}\n"
+    explanation += f"Here is line {line_number} with non-printable characters replaced with backslash-escaped equivalents:\n"
+
     line = repr(line)[2:-1] + "\n"
     line = re.sub(r"(\\x[0-9a-f][0-9a-f])", danger(r"\1"), line)
     explanation += line

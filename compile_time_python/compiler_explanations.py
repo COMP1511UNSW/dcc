@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import copy, re, sys
+import copy, math, re, sys
 import colors
 from util import explanation_url
 
@@ -104,7 +104,7 @@ class Explanation:
         parameters["match"] = match
         parameters["color"] = color
         parameters["emphasize"] = lambda text: color(text, style="bold")
-        parameters["danger"] = lambda text: color(text, color="red", style="bold")
+        parameters["danger"] = lambda text: color(text, "red", style="bold")
         parameters["info"] = lambda text: color(text, "cyan", style="bold")
         return eval(
             'f"' + self.explanation.replace("\n", "\\n") + '"', globals(), parameters
@@ -520,7 +520,7 @@ def extract_argument_variable(string, argument_number, emphasize):
             variable_name = string.split(",")[n - 1].strip()
         except (ValueError, IndexError):
             pass
-    if re.match("^[_a-z]\w*$", variable_name):
+    if re.match(r"^[_a-z]\w*$", variable_name):
         return f"the variable {emphasize(variable_name)} which always contains NULL"
     return "a NULL value"
 
@@ -528,9 +528,6 @@ def extract_argument_variable(string, argument_number, emphasize):
 def extract_system_include_file(string):
     m = re.search(r"<(.*?)>", str(string))
     return m.group(1) if m else ""
-
-
-import math
 
 
 def truncate_number(num):
@@ -544,5 +541,5 @@ if __name__ == "__main__":
     if sys.argv[1:] and sys.argv[1] == "--create_test_files":
         for explanation in explanations:
             if explanation.label and explanation.reproduce:
-                with open(explanation.label + ".c", "w") as f:
+                with open(explanation.label + ".c", "w", encoding="utf-8") as f:
                     f.write(explanation.reproduce)

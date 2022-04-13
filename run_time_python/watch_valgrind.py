@@ -36,7 +36,7 @@ def read_line(color, debug_level):
     if line:
         if debug_level > 1:
             print("valgrind: ", line, file=sys.stderr, end="")
-        return process_line(line, color, debug_level)
+        return process_line(line, color)
     return 0
 
 
@@ -44,7 +44,7 @@ def read_line(color, debug_level):
 # return 0 if we should exit
 
 
-def process_line(line, color, debug_level):
+def process_line(line, color):
     error = None
     action = start_gdb
 
@@ -103,12 +103,12 @@ A common cause of this error is infinite recursion.
         if "malloc" in line:
             line = sys.stdin.readline()
             m = re.search(r"(\S+)\s*\((.+):(\d+)", line)
+            error = "Error: free not called for memory allocated with malloc"
             if m:
-                error = "Error: free not called for memory allocated with malloc in function {} in {} at line {}.".format(
-                    m.group(1), m.group(2), m.group(3)
+                error += (
+                    f" in function {m.group(1)} in {m.group(2)} at line {m.group(3)}"
                 )
-            else:
-                error = "Error: free not called for memory allocated with malloc."
+            error += "."
         else:
             error = "Error: memory allocated not de-allocated."
         action = kill_sanitizer2

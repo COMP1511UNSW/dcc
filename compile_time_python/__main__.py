@@ -1,4 +1,4 @@
-from compile import compile
+from compile import compile_user_program
 
 if __name__ == "__main__":
-    compile()
+    compile_user_program()

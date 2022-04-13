@@ -52,7 +52,7 @@ def drive_gdb():
         elif debug_level:
             traceback.print_exc(file=output_stream)
         sys.exit(1)
-    except:
+    except Exception:
         if debug_level:
             traceback.print_exc(file=output_stream)
         sys.exit(1)
@@ -69,10 +69,10 @@ def gdb_attach():
     pid = int(os.environ.get("DCC_PID"))
     if "DCC_VALGRIND_ERROR" in os.environ:
         dprint(2, "attaching gdb to valgrind", pid)
-        gdb.execute("target remote | vgdb --pid=%d" % pid)
+        gdb.execute(f"target remote | vgdb --pid={pid}")
     else:
         dprint(2, "attaching gdb to ", pid)
-        gdb.execute("attach %s" % pid)
+        gdb.execute(f"attach {pid}")
     dprint(3, "gdb_attach() returning")
 
 
@@ -92,12 +92,10 @@ def explain_error(output_stream, color):
     elif "DCC_UBSAN_ERROR_KIND" in os.environ:
         explain_ubsan_error(loc, output_stream, color)
     elif "DCC_OUTPUT_ERROR" in os.environ:
-        explain_output_difference(loc, output_stream, color)
+        explain_output_difference(output_stream, color)
     elif os.environ.get("DCC_SANITIZER", "") == "MEMORY":
         if loc:
-            print(
-                "%s:%d" % (loc.filename, loc.line_number), end=" ", file=output_stream
-            )
+            print(f"{loc.filename}:{loc.line_number}", end=" ", file=output_stream)
         print(
             "runtime error",
             color("uninitialized variable used", "red"),
@@ -184,21 +182,15 @@ def explain_ubsan_error(loc, output_stream, color):
         else:
             what = "*p or p[index]"
 
-        message = "%s a value via a %s pointer" % (access, problem)
+        message = f"{access} a value via a {problem} pointer"
         explanation = "You are using a pointer which "
 
         if problem == "uninitialized":
             explanation += "has not been initialized\n"
-            explanation += (
-                "  A common error is %s %s without first assigning a value to p.\n"
-                % (access, what)
-            )
+            explanation += f"  A common error is {access} {what} without first assigning a value to p.\n"
         else:
             explanation += "is NULL\n"
-            explanation += "  A common error is %s %s when p == NULL.\n" % (
-                access,
-                what,
-            )
+            explanation += f"  A common error is {access} {what} when p == NULL.\n"
 
     if not explanation:
         m = re.search("member access.*(0xbebebebe|null pointer)", message.lower())
@@ -220,8 +212,7 @@ def explain_ubsan_error(loc, output_stream, color):
         else:
             what = "x / y or x % y"
         explanation = (
-            "A common error is to evaluate %s when y == 0 which is undefined.\n"
-            % (what)
+            f"A common error is to evaluate {what} when y == 0 which is undefined.\n"
         )
 
     # FIXME make this more specific
@@ -235,21 +226,20 @@ def explain_ubsan_error(loc, output_stream, color):
     if not explanation:
         m = re.search(r"index (-?\d+) out of bounds .*\[(\d+)\]", message)
         if m:
-            explanation = """You are using an illegal array index: %s
-  Valid indices for an array of size %s are %s..%s
-""" % (
-                color(m.group(1), "red"),
-                color(m.group(2), "red"),
-                color("0", "red"),
-                color(str(int(m.group(2)) - 1), "red"),
+            index = color(m.group(1), "red")
+            size = color(m.group(2), "red")
+            index_range = (
+                f'{color("0", "red")}..{color(str(int(m.group(2)) - 1), "red")}'
             )
+            explanation = f"""You are using an illegal array index: {index}
+  Valid indices for an array of size {size} are {index_range}
+"""
 
     if not explanation:
         m = re.search(r"index (-?\d+) out of bounds", message)
         if m:
-            explanation = "You are using an illegal array index: %s\n" % (
-                color(m.group(1), "red")
-            )
+            index = color(m.group(1), "red")
+            explanation = f"You are using an illegal array index: {index}\n"
 
     if not explanation and "out of bounds" in message:
         explanation = "You are using an illegal array index."
@@ -262,9 +252,9 @@ def explain_ubsan_error(loc, output_stream, color):
         message = "undefined operation"
 
     if loc:
-        print("%s:%d" % (loc.filename, loc.line_number), end="", file=output_stream)
+        print(f"{loc.filename}:{loc.line_number}", end="", file=output_stream)
         if loc.column:
-            print(":%d" % (loc.column), end="", file=output_stream)
+            print(f":{loc.column}", end="", file=output_stream)
     print(": runtime error -", color(message, "red"), file=output_stream)
     if explanation:
         print(prefix, explanation, file=output_stream)
@@ -272,7 +262,7 @@ def explain_ubsan_error(loc, output_stream, color):
 
 def explain_asan_error(loc, output_stream, color):
     if loc:
-        print("%s:%d" % (loc.filename, loc.line_number), end=" ", file=output_stream)
+        print(f"{loc.filename}:{loc.line_number}", end=" ", file=output_stream)
     report = os.environ.get("DCC_ASAN_ERROR")
     if report:
         report = report.replace("-", " ")
@@ -349,7 +339,7 @@ def explain_signal(signal_number):
     elif signal_number == signal.SIGXFSZ:
         return "Execution stopped because too much data written."
     else:
-        return "Execution terminated by signal %s" % signal_number
+        return f"Execution terminated by signal {signal_number}"
 
 
 class Location:
@@ -372,14 +362,7 @@ class Location:
         self.frame_number = frame_number
 
     def __str__(self):
-        return "Location(%s,%s,column=%s,function=%s,params=%s,variable=%s)" % (
-            self.filename,
-            self.line_number,
-            self.column,
-            self.function,
-            self.params,
-            self.variable,
-        )
+        return f"Location({self.filename},{self.line_number},column={self.column},function={self.function},params={self.params},variable={self.variable})"
 
     def function_call(self, color):
         params = clarify_values(self.params, color)
@@ -460,10 +443,9 @@ def fileline(filename, line_number):
                     hash_define[filename][m.group(1)] = (line.rstrip(), m.group(2))
         return source[filename][line_number - 1].rstrip() + "\n"
     except IOError:
-        dprint(2, "fileline error can not open: %s" % (filename))
-        pass
+        dprint(2, f"fileline error can not open: {filename}")
     except IndexError:
-        pass
+        dprint(2, f"fileline error can not find {line_number} in {filename}")
     return ""
 
 
@@ -484,8 +466,8 @@ def gdb_evaluate(expression):
         "gdb_evaluate:",
         expression,
     )
-    value = gdb_execute("print %s" % expression)
-    value = re.sub("^[^=]*=\s*", "", value).strip()
+    value = gdb_execute(f"print {expression}")
+    value = re.sub(r"^[^=]*=\s*", "", value).strip()
     dprint(
         3,
         "->",
@@ -497,12 +479,12 @@ def gdb_evaluate(expression):
 def gdb_execute(command):
     dprint(3, "gdb.execute:", command)
     try:
-        str = gdb.execute(command, to_string=True)
+        s = gdb.execute(command, to_string=True)
     except gdb.error as e:
         dprint(3, "gdb.execute", e)
-        str = ""
-    dprint(3, "gdb.execute:", "->", str)
-    return str
+        s = ""
+    dprint(3, "gdb.execute:", "->", s)
+    return s
 
 
 def parse_gdb_stack_frame(line):
@@ -514,7 +496,7 @@ def parse_gdb_stack_frame(line):
         r"(?P<filename>[^\s:]+):(?P<line_number>\d+)\s*$",
         line,
     )
-    dprint(3, "parse_gdb_stack_frame", m != None, line)
+    dprint(3, "parse_gdb_stack_frame", m is not None, line)
     if m:
         filename = m.group("filename")
         if (
@@ -558,24 +540,20 @@ def gdb_set_frame():
             if frame is not None:
                 frames = [frame]
         if frames:
-            gdb_execute("frame " + str(frames[0].frame_number))
+            gdb_execute(f"frame {frames[0].frame_number}")
         else:
             dprint(3, "gdb_set_frame no frame number")
         return frames
-    except:
+    except Exception:
         if debug_level:
             traceback.print_exc(file=sys.stderr)
+        return None
 
 
-def relevant_variables(c_source_lines, color, arrays=[]):
+def relevant_variables(c_source_lines, color):
     expressions = []
     for line in c_source_lines:
         expressions += extract_expressions(line)
-    # 	 arrays=[r'[a-z][a-zA-Z0-9_]*']
-    # 	 dprint(2, 'relevant_variables', arrays, c_source)
-    # 	 for array in arrays:
-    # 		 indices = extract_indices(array, c_source)
-    # 		 expressions += indices
 
     # avoid trying to evaluate types/keywords for efficiency/clarity
     done = set(
@@ -608,7 +586,7 @@ def relevant_variables(c_source_lines, color, arrays=[]):
                 done.add(expression)
                 expression_value = evaluate_expression(expression, color)
                 if expression_value is not None:
-                    explanation += "%s = %s\n" % (expression, expression_value)
+                    explanation += f"{expression} = {expression_value}\n"
         except RuntimeError as e:
             dprint(2, "print_variables_expressions: RuntimeError", e)
     if explanation:
@@ -624,7 +602,7 @@ def evaluate_expression(expression, color):
     if re.search(r"[a-zA-Z0-9_]\s*\(", expression):
         return None  # don't evaluate function calls
 
-    expression_type = gdb_execute("whatis %s" % expression)
+    expression_type = gdb_execute(f"whatis {expression}")
     expression_type = re.sub(r"\s*type\s*=\s*", "", expression_type).strip()
     dprint(3, "expression_type=", expression_type)
     if re.search(r"\<|\)$", expression_type):
@@ -663,15 +641,15 @@ def clarify_expression_value(expression_value, expression_type, color):
     if expression_type == "char":
         m = re.match(r"^(-?\d+) '(.*)'$", expression_value)
         if m:
-            ascii = int(m.group(1))
-            if (0 < ascii < 9) or (13 < ascii < 32) or (ascii == 127):
-                expression_value = "%d (non-printable ASCII character)" % ascii
-            elif ascii < 0 or ascii > 128:
-                expression_value = "%d (not valid ASCII)" % ascii
-            elif ascii == 0:
+            ascii_value = int(m.group(1))
+            if (0 < ascii_value < 9) or (13 < ascii_value < 32) or (ascii_value == 127):
+                expression_value = f"{ascii_value} (non-printable ASCII character)"
+            elif ascii_value < 0 or ascii_value > 128:
+                expression_value = f"{ascii_value} (not valid ASCII)"
+            elif ascii_value == 0:
                 expression_value = "0 = '\\0'"
             else:
-                expression_value = "%s = '%s'" % m.groups()
+                expression_value = f"{m.group(1)} = '{m.group(2)}'"
     return clarify_values(expression_value, color)
 
 
@@ -716,9 +694,7 @@ def clarify_values(values, color):
     # convert "\276\276\276" ->  <3 uninitialized values>
     values = re.sub(
         r'"((\\276)+)"',
-        lambda m: color(
-            "<{} uninitialized values>".format(len(m.group(1)) // 4), "red"
-        ),
+        lambda m: color(f"<{len(m.group(1)) // 4} uninitialized values>", "red"),
         values,
     )
 
@@ -729,17 +705,17 @@ def clarify_values(values, color):
     return values
 
 
-def balance_bracket(str, depth=0):
-    # 	 dprint(2, 'balance_bracket(%s, %s)' % (str, depth))
-    if not str:
+def balance_bracket(s, depth=0):
+    # 	 dprint(2, 'balance_bracket(%s, %s)' % (s, depth))
+    if not s:
         return ""
-    elif str[0] == "]" or str[0] == ")":
+    elif s[0] == "]" or s[0] == ")":
         depth -= 1
-    elif str[0] == "[" or str[0] == "(":
+    elif s[0] == "[" or s[0] == "(":
         depth += 1
-    if depth < 0 and (len(str) == 1 or str[1] != "["):
+    if depth < 0 and (len(s) == 1 or s[1] != "["):
         return ""
-    return str[0] + balance_bracket(str[1:], depth)
+    return s[0] + balance_bracket(s[1:], depth)
 
 
 # FIXME - this is very crude
@@ -774,7 +750,7 @@ def extract_expressions(c_source):
         expressions = []
         for i in range(0, 8):
             m = re.match(
-                r"^[a-z][a-zA-Z0-9_]*(?:\s*->\s*[a-z][a-zA-Z0-9_]*){%s}" % i,
+                rf"^[a-z][a-zA-Z0-9_]*(?:\s*->\s*[a-z][a-zA-Z0-9_]*){{{i}}}",
                 c_source,
                 re.DOTALL,
             )
@@ -799,13 +775,12 @@ def extract_expressions(c_source):
 
 def explain_location(loc, color):
     if not isinstance(loc, Location):
-        return "Execution stopped at '%s'" % (loc)
+        return f"Execution stopped at '{loc}'"
     else:
         return "Execution stopped " + loc.long_description(color)
 
 
 def dprint(level, *args, **kwargs):
-    global debug_stream
     if debug_level >= level:
         kwargs["file"] = debug_stream
         print(*args, **kwargs)

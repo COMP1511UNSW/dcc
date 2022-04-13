@@ -21,7 +21,7 @@ def start_gdb(gdb_driver_file="drive_gdb.py"):
         print("start_gdb: ", end="")
         print(
             " ".join(
-                "{}={}".format(k, os.environ.get(k, ""))
+                f"{k}={os.environ.get(k, '')}"
                 for k in "DCC_PID DCC_SANITIZER1_PID DCC_SANITIZER2_PID DCC_BINARY".split()
             )
         )
@@ -46,8 +46,7 @@ def start_gdb(gdb_driver_file="drive_gdb.py"):
             "--nx",
             "--batch",
             "-ex",
-            "python exec(open('%s', encoding='utf-8', errors='replace').read())"
-            % gdb_driver_file,
+            f"python exec(open('{gdb_driver_file}', encoding='utf-8', errors='replace').read())",
             os.environ["DCC_BINARY"],
         ]
     else:
@@ -68,7 +67,7 @@ def start_gdb(gdb_driver_file="drive_gdb.py"):
     # gdb puts confusing messages on stderr & stdout  so send these to /dev/null
     # and use file descriptor 3 for our messages
     os.dup2(2, 3)
-
+    # pylint: disable=consider-using-with
     try:
         if debug_level > 1:
             p = subprocess.Popen(command, stdin=subprocess.DEVNULL, close_fds=False)
@@ -137,6 +136,7 @@ def unlink_sanitizer2_executable():
 
 
 def handler(signum, frame):
+    # pylint: disable=unused-argument
     kill_all()
 
 
@@ -175,9 +175,12 @@ def watch_stdin_for_valgrind_errors():
                 m = re.search(r"(\S+)\s*\((.+):(\d+)", line)
                 if m:
                     print(
-                        "Error: free not called for memory allocated with malloc in function {} in {} at line {}.".format(
-                            m.group(1), m.group(2), m.group(3)
-                        ),
+                        "Error: free not called for memory allocated with malloc in function",
+                        m.group(1),
+                        "in",
+                        m.group(2),
+                        "at line",
+                        m.group(3),
                         file=sys.stderr,
                     )
                 else:
