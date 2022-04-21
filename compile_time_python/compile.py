@@ -689,6 +689,8 @@ def parse_arg(arg, remaining_args, options):
         sanitizer_list = arg[len("-fsanitize=") :].split(",")
         for sanitizer in sanitizer_list:
             if sanitizer in ["memory", "address", "valgrind"]:
+                if sanitizer == "valgrind" and not search_path("valgrind"):
+                    options.warn("warning: valgrind does not seem be installed")
                 options.sanitizers.append(sanitizer)
             elif sanitizer not in ["undefined"]:
                 options.die("unknown sanitizer", sanitizer)
@@ -773,9 +775,17 @@ def parse_clang_arg(arg, options):
     if (
         arg == "-Weverything"
     ):  # -Weverything generate a pile of spurious warning from dcc wrapper code
+        options.warn(
+            "warning: -Weverything not compatible with dcc, replaced with Wextra"
+        )
         arg = "-Wextra"
     options.user_supplied_compiler_args.append(arg)
     if arg == "-c":
+        options.warn(
+            "warning: "
+            "using incremental compilation (-c) is not recommended with dcc\n"
+            "Signficant parts of dcc error detection do not work with incremental compilation."
+        )
         options.incremental_compilation = True
     elif arg.startswith("-l"):
         options.libraries_being_linked = True
