@@ -140,15 +140,15 @@ valgrind also usually detect this type of error, e.g.:
 * Deb-based Systems including Debian, Ubuntu, Mint and Windows Subsystem for Linux
 	
 	```bash
-	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.7/dcc_2.7.7_all.deb -o /tmp/dcc_2.7.7_all.deb
-	sudo apt install /tmp/dcc_2.7.7_all.deb
+	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc_2.7.8_all.deb -o /tmp/dcc_2.7.8_all.deb
+	sudo apt install /tmp/dcc_2.7.8_all.deb
 	```
 	
 	or
 	
 	```bash
 	sudo apt install  clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.7/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 	
@@ -164,7 +164,7 @@ valgrind also usually detect this type of error, e.g.:
 
 	```bash
 	sudo pacman -S clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.7/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 	
@@ -172,7 +172,7 @@ valgrind also usually detect this type of error, e.g.:
 
 	```bash
 	sudo yum install clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.7/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 	
@@ -180,7 +180,7 @@ valgrind also usually detect this type of error, e.g.:
 	
 	```bash
 	sudo zypper install clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.7/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 	
@@ -191,7 +191,7 @@ valgrind also usually detect this type of error, e.g.:
 	Install gdb - see https://sourceware.org/gdb/wiki/PermissionsDarwin
 
     ```bash
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.7/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
     ```
 	
