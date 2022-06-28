@@ -2,5 +2,5 @@ tests/extracted_compile_time_errors/expression_result_unused.c:2:5: warning: exp
     argc;
     ^~~~
 dcc explanation: you are doing nothing with a value on line 2 of tests/extracted_compile_time_errors/expression_result_unused.c.
-Did you meant to assign it to a varable?
+Did you mean to assign it to a varable?
 

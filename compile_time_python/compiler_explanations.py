@@ -53,7 +53,7 @@ class Explanation:
         long_explanation=False,
         long_explanation_url="",
     ):
-        self.label = label
+        self.label = label if label else re.sub('\W+', '_', regex).strip('_')
         self.precondition = precondition
         self.regex = regex
         self.explanation = explanation
@@ -331,7 +331,6 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
-        label="expression_not_assignable",
         regex=r"expression is not assignable",
         explanation="""\
 you are using **=** incorrectly perhaps you meant **==**.
@@ -374,7 +373,6 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="function-definition-not-allowed-here",
         regex=r"function definition is not allowed here",
         precondition=lambda message, match: message.line_number
         and int(message.line_number) > 1,
@@ -425,7 +423,6 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
-        label="duplicated-branches",
         regex=r"condition has identical branches",
         explanation="""\
 your if statement has identical then and else parts.
@@ -487,7 +484,6 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
-        label="shadow-local-variable",
         regex=r"declaration shadows a local variable",
         explanation="""you already have a variable named '**{highlighted_word}**'.
 It is confusing to have a second overlapping declaration of the same variable name.
@@ -533,7 +529,6 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="index_string",
         regex=r"array subscript is not an integer",
         precondition=lambda message, match: '"' in message.highlighted_word,
         explanation="""\
@@ -547,7 +542,6 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="continue_not_in_loop",
         regex=r"continue.* statement not in loop",
         explanation="""\
 **continue** statements can only be used inside a while or for loop.
@@ -560,7 +554,6 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="break_not_in_loop",
         regex=r"break.* statement not in loop",
         explanation="""\
 **break** statements can only be used inside a while loop, for loop or switch.
@@ -606,7 +599,6 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
-        label="data_argument_not_used_by_format_string",
         regex=r"data argument not used by format string",
         explanation="""\
 your printf has more argument values than % codes in the format string.
@@ -621,7 +613,6 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="more_conversions_than_data_arguments",
         regex=r"more '%' conversions than data arguments",
         explanation="""\
 your printf has less argument values than % codes in the format string.
@@ -636,7 +627,6 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="expected_semicolon_in_for_statement_specifier",
         regex=r"expected ';' in 'for' statement specifier",
         explanation="""\
 the three parts of a '**;**' statment should be separated with '**;**'
@@ -649,11 +639,10 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="expression_result_unused",
         regex=r"expression result unused",
         explanation="""\
 you are doing nothing with a value on line {line_number} of {file}.
-Did you meant to assign it to a varable?
+Did you mean to assign it to a varable?
 """,
         reproduce="""\
 int main(int argc, char *argv[]) {
@@ -662,7 +651,6 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
-        label="extra_tokens_at_end_of_include_directive",
         regex=r"extra tokens at end of #include directive",
         precondition=lambda message, match: ';' in ''.join(message.text_without_ansi_codes),
         explanation="""\
@@ -676,7 +664,6 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="extra_tokens_at_end_of_include_directive",
         regex=r"extra tokens at end of #include directive",
         explanation="""\
 you have unnecessary characters on your #include statement.
@@ -701,7 +688,6 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="has_empty_body",
         regex=r"has empty body",
         precondition=lambda message, match: ';' in ''.join(message.text_without_ansi_codes),
         explanation="""\
@@ -715,7 +701,6 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
-        label="ignoring_return_value_of_function",
         regex=r"ignoring return value of function",
         explanation="""\
 you are not using the value returned by function **{highlighted_word}** .
@@ -755,7 +740,6 @@ int main(void) {
 """,
     ),
     Explanation(
-        label="invalid_preprocessing_directive",
         regex=r"invalid preprocessing directive",
         explanation="""\
 you have an invalid line begining with '**#**'.
