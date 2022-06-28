@@ -116,7 +116,7 @@ explanations = [
         label="two_main_functions",
         regex=r"multiple definition of \W*main\b",
         explanation="Your program contains more than one main function - a C program can only contain one main function.",
-        reproduce="""
+        reproduce="""\
 // hack to get 2 main functions compiled in separate files
 //dcc_flags=$src_file
 int main(void) {
@@ -128,14 +128,14 @@ int main(void) {
         regex=r"undefined reference to \W*main\b",
         explanation="Your program does not contain a main function - a C program must contain a main function.",
         no_following_explanations=True,
-        reproduce="""
+        reproduce="""\
 """,
     ),
     Explanation(
         label="scanf_missing_ampersand",
         regex=r"format specifies type '(?P<type>int|double) \*' but the argument has type '(?P=type)'",
         explanation="Perhaps you have forgotten an '&' before '{emphasize(highlighted_word)}' on line {line_number}.",
-        reproduce="""
+        reproduce="""\
 #include <stdio.h>
 
 int main(void) {
@@ -148,7 +148,7 @@ int main(void) {
         label="format_type_mismatch",
         regex=r"format specifies type '[^:]+' but the argument has type '[^:]+'",
         explanation="make sure you are using the correct format code (e.g., `%d` for integers, `%lf` for floating-point values) in your format string on line {line_number}",
-        reproduce="""
+        reproduce="""\
 #include <stdio.h>
 
 int main(void) {
@@ -161,7 +161,7 @@ int main(void) {
         regex=r"called object type 'int' is not a function or function pointer",
         explanation="there is probably a syntax error such as missing semi-colon on line {int(line_number) - 1} of {file} or an earlier line",
         precondition=lambda message, match: message.highlighted_word == "assert",
-        reproduce="""
+        reproduce="""\
 #include <assert.h>
 
 int main(void) {
@@ -177,7 +177,7 @@ int main(void) {
         precondition=lambda message, match: message.highlighted_word == "assert",
         no_following_explanations=True,
         show_note=False,
-        reproduce="""
+        reproduce="""\
 #include <assert.h>
 
 int main(int argc, char *argv[]) {
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
         label="double_int_literal_conversion",
         regex=r"implicit conversion from 'double' to 'int'",
         explanation="you are assigning the floating point number {emphasize(highlighted_word)} to the int variable {emphasize(underlined_word)} , if this is what you want, change {emphasize(highlighted_word)} to {emphasize(truncate_number(highlighted_word))}",
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     int i = 6.7;
 }
@@ -198,10 +198,12 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="assign_to_multidimensional_array",
         regex=r"array type .*?\]\[.* is not assignable",
-        explanation="""you are trying to assign to '{emphasize(underlined_word)}' which is an array.
-  You can not assign to a whole array.
-  You can use a nested loop to assign to each array element individually.""",
-        reproduce="""
+        explanation="""\
+you are trying to assign to '{emphasize(underlined_word)}' which is an array.
+You can not assign to a whole array.
+You can use a nested loop to assign to each array element individually.
+""",
+        reproduce="""\
 int main(int argc, char *argv[]) {
     int a[3][1], b[3][1] = {0};
     a = b;
@@ -211,11 +213,13 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="assign_to_array",
         regex=r"array type .*?[^\]]\[(\d+)\]' is not assignable",
-        explanation="""you are trying to assign to '{emphasize(underlined_word)}' which is an array with {match.group(1)} element{'s' if match.group(1) != '1' else ''}.
-  You can not assign to a whole array.
-  You can use a loop to assign to each array element individually.""",
+        explanation="""\
+you are trying to assign to '{emphasize(underlined_word)}' which is an array with {match.group(1)} element{'s' if match.group(1) != '1' else ''}.
+You can not assign to a whole array.
+You can use a loop to assign to each array element individually.
+""",
         long_explanation=True,
-        reproduce="""
+        reproduce="""\
 int main(void) {
     int a[1], b[1] = {0};
     a = b;
@@ -225,10 +229,12 @@ int main(void) {
     Explanation(
         label="stack_use_after_return",
         regex=r"address of stack memory associated with local variable '(.*?)' returned",
-        explanation="""you are trying to return a pointer to the local variable '{emphasize(highlighted_word)}'.
-  You can not do this because {emphasize(highlighted_word)} will not exist after the function returns.""",
+        explanation="""\
+you are trying to return a pointer to the local variable '{emphasize(highlighted_word)}'.
+You can not do this because {emphasize(highlighted_word)} will not exist after the function returns.
+""",
         long_explanation=True,
-        reproduce="""
+        reproduce="""\
 int *f(void) {
     int i;
     return &i;
@@ -239,10 +245,12 @@ int main(void){}
     Explanation(
         label="assign_function_to_int",
         regex=r"incompatible pointer to integer conversion (assigning to|initializing) '(\w+)'.*\(",
-        explanation="""you are attempting to assign {emphasize(underlined_word)} which is a function to an {emphasize(match.group(2))} variable.
-Perhaps you are trying to call the function and have forgotten the round brackets and any parameter values.""",
+        explanation="""\
+you are attempting to assign {emphasize(underlined_word)} which is a function to an {emphasize(match.group(2))} variable.
+Perhaps you are trying to call the function and have forgotten the round brackets and any parameter values.
+""",
         long_explanation=True,
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     int a = main;
 }
@@ -251,7 +259,8 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="assign_array_to_int",
         regex=r"incompatible pointer to integer conversion (assigning to|initializing) '(\w+)'.*]'",
-        explanation="""you are attempting to assign {emphasize(underlined_word)} which is an array to an {emphasize(match.group(2))} variable.""",
+        explanation="""\
+you are attempting to assign {emphasize(underlined_word)} which is an array to an {emphasize(match.group(2))} variable.""",
         reproduce="""
 int main(void) {
     int a[3][3] = {0};
@@ -273,11 +282,12 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="missing_library_include",
         regex=r"implicitly declaring library function '(\w+)'",
-        explanation="""You are calling the function {emphasize(match.group(1))} on line {line_number} of {file} but dcc does not recognize {emphasize(match.group(1))} as a function
+        explanation="""\
+you are calling the function {emphasize(match.group(1))} on line {line_number} of {file} but dcc does not recognize {emphasize(match.group(1))} as a function
 because you have forgotten to {emphasize('#include <' + extract_system_include_file(note) + '>')}
 """,
         show_note=False,
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     printf("hello");
 }
@@ -286,11 +296,12 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="misspelt_printf",
         regex=r"implicit declaration of function '(print.?.?)' is invalid in C99",
-        explanation="""you are calling a function named {emphasize(match.group(1))} on line {line_number} of {file} but dcc does not recognize {emphasize(match.group(1))} as a function.
+        explanation="""\
+you are calling a function named {emphasize(match.group(1))} on line {line_number} of {file} but dcc does not recognize {emphasize(match.group(1))} as a function.
 Maybe you meant {emphasize('printf')}?
 """,
         no_following_explanations=True,
-        reproduce="""
+        reproduce="""\
 #include <stdio.h>
 int main(int argc, char *argv[]) {
     print("hello");
@@ -300,14 +311,15 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="implicit_function_declaration",
         regex=r"implicit declaration of function '(\w+)' is invalid in C99",
-        explanation="""you are calling a function named {emphasize(match.group(1))} line {line_number} of {file} but dcc does not recognize {emphasize(match.group(1))} as a function.
+        explanation="""\
+you are calling a function named {emphasize(match.group(1))} line {line_number} of {file} but dcc does not recognize {emphasize(match.group(1))} as a function.
 There are several possible causes:
   a) You might have misspelt the function name.
   b) You might need to add a #include line at the top of {file}.
   c) You might need to add a prototype for {emphasize(match.group(1))}.
 """,
         no_following_explanations=True,
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     f();
 }
@@ -316,11 +328,12 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="expression_not_assignable",
         regex=r"expression is not assignable",
-        explanation="""You are using {emphasize('=')} incorrectly perhaps you meant {emphasize('==')}.
+        explanation="""\
+you are using {emphasize('=')} incorrectly perhaps you meant {emphasize('==')}.
 Reminder: you use {emphasize('=')} to assign to a variable.
 You use {emphasize('==')} to compare values.
         """,
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     if (argc = 1 || argc = 2) {
         return 1;
@@ -331,8 +344,8 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="uninitialized-local-variable",
         regex=r"'(.*)' is used uninitialized in this function",
-        explanation="""You are using the value of the variable {emphasize(match.group(1))} before assigning a value to {emphasize(match.group(1))}.""",
-        reproduce="""
+        explanation="""you are using the value of the variable {emphasize(match.group(1))} before assigning a value to {emphasize(match.group(1))}.""",
+        reproduce="""\
 int main(void) {
     int a[1];
     return a[0];
@@ -344,10 +357,11 @@ int main(void) {
         regex=r"called object type .* is not a function or function pointer",
         precondition=lambda message, match: re.match(r"^\w+$", message.underlined_word),
         long_explanation=True,
-        explanation="""'{emphasize(underlined_word)}' is the name of a variable but you are trying to call it as a function.
-  If '{emphasize(underlined_word)}' is also the name of a function, you can avoid the clash,
-  by changing the name of the variable '{emphasize(underlined_word)}' to something else.""",
-        reproduce="""
+        explanation="""\
+'{emphasize(underlined_word)}' is the name of a variable but you are trying to call it as a function.
+If '{emphasize(underlined_word)}' is also the name of a function, you can avoid the clash,
+by changing the name of the variable '{emphasize(underlined_word)}' to something else.""",
+        reproduce="""\
 int main(void) {
     int main;
     return main();
@@ -360,10 +374,11 @@ int main(void) {
         precondition=lambda message, match: message.line_number
         and int(message.line_number) > 1,
         long_explanation=True,
-        explanation="""There is likely a closing brace (curly bracket) missing before line {line_number}.
+        explanation="""\
+there is likely a closing brace (curly bracket) missing before line {line_number}.
 Is a {emphasize('} missing')} in the previous function?""",
         no_following_explanations=True,
-        reproduce="""
+        reproduce="""\
 int f(int a) {
     return a;
 
@@ -375,10 +390,11 @@ int main(void) {
     Explanation(
         label="indirection-requires-pointer-operand",
         regex=r"indirection requires pointer operand \('(.*)' invalid\)",
-        explanation="""You are trying to use '{emphasize(underlined_word)}' as a pointer.
-  You can not do this because '{emphasize(underlined_word)}' is of type {emphasize(match.group(1))}.
+        explanation="""\
+you are trying to use '{emphasize(underlined_word)}' as a pointer.
+You can not do this because '{emphasize(underlined_word)}' is of type {emphasize(match.group(1))}.
 """,
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     return *argc;
 }
@@ -387,12 +403,12 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="duplicated-cond",
         regex=r"duplicated .*\bif\b.* condition",
-        explanation="""You have repeated the same condition in a chain of if statements.
+        explanation="""\
+you have repeated the same condition in a chain of if statements.
 Only the first if statement using the condition can be executed.
 The others can never be executed.
-
 """,
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     if (argc == 1)
         return 42;
@@ -406,12 +422,12 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="duplicated-branches",
         regex=r"condition has identical branches",
-        explanation="""Your if statement has identical then and else parts.
+        explanation="""\
+your if statement has identical then and else parts.
 It is pointless to have an if statement which executes the same code
 when its condition is true and also when its condition is false.
-
 """,
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     if (argc == 1)
         return 42;
@@ -425,7 +441,6 @@ int main(int argc, char *argv[]) {
         regex=r"logical .?\bor\b.* is always true|logical.*or.*of collectively exhaustive tests is always true|overlapping comparisons always evaluate to true",
         explanation="""Your '{emphasize('||')}' expression is always true, no matter what value variables have.
 Perhaps you meant to use '{emphasize('&&')}' ?
-
 """,
         reproduce="""
 int main(int argc, char *argv[]) {
@@ -441,7 +456,6 @@ int main(int argc, char *argv[]) {
         regex=r"logical .?\band\b.* is always false|overlapping comparisons always evaluate to false",
         explanation="""Your '{emphasize('&&')}' expression is always false, no matter what value variables have.
 Perhaps you meant to use '{emphasize('||')}' ?
-
 """,
         reproduce="""
 int main(int argc, char *argv[]) {
@@ -455,11 +469,10 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="logical-equal-expressions",
         regex=r"logical .?((and|or)).? of equal expressions",
-        explanation="""Your have used '{emphasize(highlighted_word)}' with same lefthand and righthand operands.
+        explanation="""you have used '{emphasize(highlighted_word)}' with same lefthand and righthand operands.
 If this what you meant, it can be simplified: {emphasize('x ' + highlighted_word + ' x')} can be replaced with just {emphasize('x')}.
-
 """,
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     if (argc > 1 ||argc > 1)
         return 42;
@@ -471,11 +484,10 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="shadow-local-variable",
         regex=r"declaration shadows a local variable",
-        explanation="""Your already have a variable named '{emphasize(highlighted_word)}'.
+        explanation="""you already have a variable named '{emphasize(highlighted_word)}'.
 It is confusing to have a second overlapping declaration of the same variable name.
-
 """,
-        reproduce="""
+        reproduce="""\
 int main(int argc, char *argv[]) {
     {
         int argc = 42;
@@ -489,7 +501,6 @@ int main(int argc, char *argv[]) {
         regex=r"argument (\d+) null where non-null expected",
         explanation="""You are passing {extract_argument_variable(highlighted_word, match.group(1), emphasize)} as {emphasize('argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}'.
 {emphasize('Argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}' should never be NULL.
-
 """,
         reproduce="""
 #include <unistd.h>

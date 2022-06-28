@@ -1,0 +1,12 @@
+tests/extracted_compile_time_errors/implicit_function_declaration.c:2:5: warning: implicit declaration of function 'f' is invalid in C99 [-Wimplicit-function-declaration]
+    f();
+    ^
+dcc explanation: you are calling a function named f line 2 of tests/extracted_compile_time_errors/implicit_function_declaration.c but dcc does not recognize f as a function.
+There are several possible causes:
+  a) You might have misspelt the function name.
+  b) You might need to add a #include line at the top of tests/extracted_compile_time_errors/implicit_function_declaration.c.
+  c) You might need to add a prototype for f.
+
+/bin/ld: /tmp/implicit_function_declaration-36dd98.o: in function `main':
+/home/andrewt/w/dcc/src/tests/extracted_compile_time_errors/implicit_function_declaration.c:2: undefined reference to `f'
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
