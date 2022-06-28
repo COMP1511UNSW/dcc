@@ -152,7 +152,7 @@ int main(void) {
 #include <stdio.h>
 
 int main(void) {
-    printf("%d\n", "hello!");
+    printf("%d", "hello!");
 }
 """,
     ),
@@ -499,15 +499,227 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="nonnull",
         regex=r"argument (\d+) null where non-null expected",
-        explanation="""You are passing {extract_argument_variable(highlighted_word, match.group(1), emphasize)} as {emphasize('argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}'.
+        explanation="""\
+you are passing {extract_argument_variable(highlighted_word, match.group(1), emphasize)} as {emphasize('argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}'.
 {emphasize('Argument ' + match.group(1))} to '{emphasize(extract_function_name(highlighted_word))}' should never be NULL.
 """,
-        reproduce="""
+        reproduce="""\
 #include <unistd.h>
 
 int main(void) {
     char *pathname = NULL;
     faccessat(0, pathname, 0, 0);
+}
+""",
+    ),
+    Explanation(
+        label="indexing_one_too_far",
+        regex=r"array index (\d+) is past the end of the array.*which contains \1 element",
+        explanation="""\
+remember arrays indices start at zero.
+The valid array indices for an array of size n are 0..n-1.
+For example, for an array of size 10 you can use 0..9 as indices.
+""",
+        reproduce="""\
+int main(void) {
+    int a[42] = { 0 };
+    return a[42];
+}
+""",
+    ),
+    Explanation(
+        label="index_string",
+        regex=r"array subscript is not an integer",
+        precondition=lambda message, match: '"' in message.highlighted_word,
+        explanation="""\
+you are using a string as an array index. An array index has to be an integer.
+""",
+        reproduce="""\
+int main(void) {
+    int a[1] = { 0 };
+    return a["0"];
+}
+""",
+    ),
+    Explanation(
+        label="continue_not_in_loop",
+        regex=r"continue.* statement not in loop",
+        explanation="""\
+continue statements can only be used inside a while or for loop.
+Check the braces {{}} are correct on nearby statements.
+""",
+        reproduce="""\
+int main(void) {
+    continue;
+}
+""",
+    ),
+    Explanation(
+        label="break_not_in_loop",
+        regex=r"break.* statement not in loop",
+        explanation="""\
+break statements can only be used inside a while loop, for loop or switch.
+Check the braces {{}} are correct on nearby statements.
+""",
+        reproduce="""\
+int main(void) {
+    break;
+}
+""",
+    ),
+    Explanation(
+        label="non_void_function_does_not_return_a_value_in_all_control_paths",
+        regex=r"non-void function does not return a value in all control paths",
+        explanation="""\
+You function contains a return but it is possible for execution
+to reach the end of the function without a return statment being executed.
+""",
+        reproduce="""\
+int f(int a) {
+    if (a) {
+        return 1;
+    }
+}
+int main(int argc, char *argv[]) {
+    f(argc);
+}
+""",
+    ),
+    Explanation(
+        label="non_void_function_does_not_return_a_value",
+        regex=r"non-void function does not return a value \[",
+        explanation="""\
+your function has no return statement.
+Unless a function is of type void, it must return a value using a return statement.
+""",
+        reproduce="""\
+int f(int a) {
+}
+int main(int argc, char *argv[]) {
+    f(argc);
+}
+""",
+    ),
+    Explanation(
+        label="data_argument_not_used_by_format_string",
+        regex=r"data argument not used by format string",
+        explanation="""\
+your printf has more argument values than % codes in the format string.
+You need to change the format string or change the number of arguments.
+""",
+        reproduce="""\
+#include <stdio.h>
+
+int main(void) {
+    printf("%d %d", 27, 28, 29);
+}
+""",
+    ),
+    Explanation(
+        label="more_conversions_than_data_arguments",
+        regex=r"more '%' conversions than data arguments",
+        explanation="""\
+your printf has less argument values than % codes in the format string.
+You need to change the format string or change the number of arguments.
+""",
+        reproduce="""\
+#include <stdio.h>
+
+int main(void) {
+    printf("%d %d %d %d", 27, 28, 29);
+}
+""",
+    ),
+    Explanation(
+        label="expected_semicolon_in_for_statement_specifier",
+        regex=r"expected ';' in 'for' statement specifier",
+        explanation="""\
+the three parts of a '{emphasize(';')}' statment should be separated with '{emphasize(';')}'
+""",
+        reproduce="""\
+int main(void) {
+    for (int i = 0; i < 10, i++) {
+    }
+}
+""",
+    ),
+    Explanation(
+        label="expression_result_unused",
+        regex=r"expression result unused",
+        explanation="""\
+you are doing nothing with a value on line {line_number} of {file}.
+Did you meant to assign it to a varable?
+""",
+        reproduce="""\
+int main(int argc, char *argv[]) {
+    argc;
+}
+""",
+    ),
+    Explanation(
+        label="extra_tokens_at_end_of_include_directive",
+        regex=r"extra tokens at end of #include directive",
+        precondition=lambda message, match: ';' in ''.join(message.text_without_ansi_codes),
+        explanation="""\
+you have unnecessary characters on your #include statement.
+Remember #include statements don't need a '{emphasize(';')}'.
+""",
+        reproduce="""\
+#include <stdio.h>;
+int main(void) {
+}
+""",
+    ),
+    Explanation(
+        label="extra_tokens_at_end_of_include_directive",
+        regex=r"extra tokens at end of #include directive",
+        explanation="""\
+you have unnecessary characters on your #include statement.
+""",
+        reproduce="""\
+#include <stdio.h>@
+int main(void) {
+}
+""",
+    ),
+    Explanation(
+        label="h_file_not_found",
+        regex=r"s.*o.h' file not found",
+        explanation="""\
+you are attempting to #include a file which does not exist.
+Did you mean: '{emphasize('#include <stdio.h>')}'
+""",
+        reproduce="""\
+#include <studio.h>
+int main(void) {
+}
+""",
+    ),
+    Explanation(
+        label="has_empty_body",
+        regex=r"has empty body",
+        precondition=lambda message, match: ';' in ''.join(message.text_without_ansi_codes),
+        explanation="""\
+you may have an extra '{emphasize(';')}' that you should remove.
+""",
+        reproduce="""\
+int main(int argc, char *argv[]) {
+	if (argc); {
+	}
+}
+""",
+    ),
+    Explanation(
+        label="ignoring_return_value_of_function",
+        regex=r"ignoring return value of function",
+        explanation="""\
+you are not using the value returned by function {emphasize(highlighted_word)} .
+Did you mean to assign it to a variable?
+""",
+        reproduce="""\
+#include <stdlib.h>
+int main(int argc, char *argv[]) {
+	atoi(argv[0]);
 }
 """,
     ),

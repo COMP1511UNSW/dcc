@@ -1,0 +1,8 @@
+tests/extracted_compile_time_errors/expected_semicolon_in_for_statement_specifier.c:2:23: warning: relational comparison result unused [-Wunused-comparison]
+    for (int i = 0; i < 10, i++) {
+                    ~~^~~~
+dcc explanation: Looks like you're comparing two values on line 2 of `tests/extracted_compile_time_errors/expected_semicolon_in_for_statement_specifier.c` but not using the result?
+tests/extracted_compile_time_errors/expected_semicolon_in_for_statement_specifier.c:2:32: error: expected ';' in 'for' statement specifier
+    for (int i = 0; i < 10, i++) {
+                               ^
+dcc explanation: the three parts of a ';' statment should be separated with ';'

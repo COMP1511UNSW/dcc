@@ -1,12 +1,10 @@
 tests/extracted_compile_time_errors/nonnull.c: In function ‘main’:
-tests/extracted_compile_time_errors/nonnull.c:6:9: warning: argument 2 null where non-null expected [-Wnonnull]
-    6 |         faccessat(0, pathname, 0, 0);
-      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
-dcc explanation: You are passing the variable pathname which always contains NULL as argument 2 to 'faccessat'.
+tests/extracted_compile_time_errors/nonnull.c:5:5: warning: argument 2 null where non-null expected [-Wnonnull]
+    5 |     faccessat(0, pathname, 0, 0);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+dcc explanation: you are passing the variable pathname which always contains NULL as argument 2 to 'faccessat'.
 Argument 2 to 'faccessat' should never be NULL.
-
-
-In file included from tests/extracted_compile_time_errors/nonnull.c:2:
+In file included from tests/extracted_compile_time_errors/nonnull.c:1:
 /usr/include/unistd.h:304:12: note: in a call to function ‘faccessat’ declared ‘nonnull’
   304 | extern int faccessat (int __fd, const char *__file, int __type, int __flag)
       |            ^~~~~~~~~[0m

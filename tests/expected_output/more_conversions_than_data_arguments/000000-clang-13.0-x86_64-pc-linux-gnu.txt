@@ -1,0 +1,6 @@
+tests/extracted_compile_time_errors/more_conversions_than_data_arguments.c:4:23: warning: more '%' conversions than data arguments [-Wformat-insufficient-args]
+    printf("%d %d %d %d", 27, 28, 29);
+                     ~^
+dcc explanation: your printf has less argument values than % codes in the format string.
+You need to change the format string or change the number of arguments.
+

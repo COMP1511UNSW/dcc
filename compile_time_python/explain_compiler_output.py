@@ -77,7 +77,7 @@ def explain_compiler_output(output, args):
 
         explanation = get_explanation(message, args.colorize_output)
         if explanation:
-            explanation_text = explanation.text
+            explanation_text = explanation.text.rstrip("\n")
         else:
             # FIXME - replace all cs50 explanations
             explanation_text = help_cs50(message.text_without_ansi_codes)
