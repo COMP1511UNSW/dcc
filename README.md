@@ -264,6 +264,8 @@ clang, python3, gdb, valgrind
 
 Andrew Taylor (andrewt@unsw.edu.au)
 
+Code for ANSI colors in colors.py is by Giorgos Verigakis
+
 # License
 
 GPLv3

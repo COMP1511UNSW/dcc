@@ -1,4 +1,4 @@
-# https://github.com/jonathaneunice/colors/ with use of csscolors edited out
+# https://github.com/jonathaneunice/colors/ with some code removed
 
 # Copyright (c) 2012 Giorgos Verigakis <verigak@gmail.com>
 #
@@ -14,15 +14,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from __future__ import absolute_import, print_function
 import re
-import sys
-#from .csscolors import parse_rgb, css_colors
-
-_PY2 = sys.version_info[0] == 2
-string_types = basestring if _PY2 else str
-
-from functools import partial
 
 # ANSI color names. There is also a "default"
 COLORS = ('black', 'red', 'green', 'yellow', 'blue',
@@ -31,13 +23,6 @@ COLORS = ('black', 'red', 'green', 'yellow', 'blue',
 # ANSI style names
 STYLES = ('none', 'bold', 'faint', 'italic', 'underline', 'blink',
 		  'blink2', 'negative', 'concealed', 'crossed')
-
-
-def is_string(obj):
-	"""
-	Is the given object a string?
-	"""
-	return isinstance(obj, string_types)
 
 
 def _join(*values):
@@ -66,7 +51,7 @@ def _color_code(spec, base):
 	:rtype: str
 	:raises: ValueError if cannot parse the color spec.
 	"""
-	if is_string(spec):
+	if isinstance(spec, str):
 		spec = spec.strip().lower()
 
 	if spec == 'default':
@@ -111,16 +96,9 @@ def color(s, fg=None, bg=None, style=None):
 
 	if codes:
 		template = '\x1b[{0}m{1}\x1b[0m'
-		if _PY2 and isinstance(s, unicode):
-			# Take care in PY2 to return str if str is given, or unicode if
-			# unicode given. A pain, but PY2's fragility with Unicode makes it
-			# important to avoid disruptions (including gratuitous up-casting
-			# of str to unicode) that might trigger downstream errors.
-			template = unicode(template)
 		return template.format(_join(*codes), s)
 	else:
 		return s
-
 
 def strip_color(s):
 	"""
@@ -134,32 +112,3 @@ def strip_color(s):
 	return re.sub('\x1b\\[(K|.*?m)', '', s)
 
 
-def ansilen(s):
-	"""
-	Given a string with embedded ANSI codes, what would its
-	length be without those codes?
-	"""
-	return len(strip_color(s))
-
-
-# Foreground color shortcuts
-black = partial(color, fg='black')
-red = partial(color, fg='red')
-green = partial(color, fg='green')
-yellow = partial(color, fg='yellow')
-blue = partial(color, fg='blue')
-magenta = partial(color, fg='magenta')
-cyan = partial(color, fg='cyan')
-white = partial(color, fg='white')
-
-# Style shortcuts
-bold = partial(color, style='bold')
-none = partial(color, style='none')
-faint = partial(color, style='faint')
-italic = partial(color, style='italic')
-underline = partial(color, style='underline')
-blink = partial(color, style='blink')
-blink2 = partial(color, style='blink2')
-negative = partial(color, style='negative')
-concealed = partial(color, style='concealed')
-crossed = partial(color, style='crossed')
