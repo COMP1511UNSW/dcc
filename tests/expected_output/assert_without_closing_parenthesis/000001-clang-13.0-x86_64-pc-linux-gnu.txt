@@ -1,4 +1,4 @@
 tests/extracted_compile_time_errors/assert_without_closing_parenthesis.c:4:5: error: unterminated function-like macro invocation
     assert(argc == 1;
     ^
-dcc explanation: it looks like there is a missing closing bracket on the assert on line 4 of tests/extracted_compile_time_errors/assert_without_closing_parenthesis.c
+dcc explanation: it looks like there is a missing closing bracket on the assert on line 4 of tests/extracted_compile_time_errors/assert_without_closing_parenthesis.c.

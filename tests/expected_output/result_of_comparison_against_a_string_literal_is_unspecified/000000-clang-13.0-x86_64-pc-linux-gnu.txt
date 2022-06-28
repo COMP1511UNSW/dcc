@@ -1,0 +1,6 @@
+tests/extracted_compile_time_errors/result_of_comparison_against_a_string_literal_is_unspecified.c:2:20: warning: result of comparison against a string literal is unspecified (use an explicit string comparison function instead) [-Wstring-compare]
+    return argv[0] < "";
+                   ^ ~~
+dcc explanation: you can not compare strings with '<', '>' etc.
+'string.h' has functions which can compare strings, e.g. 'strcmp'
+

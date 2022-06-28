@@ -1,5 +1,4 @@
 import re, sys
-from help_cs50 import help_cs50
 import colors
 from compiler_explanations import get_explanation
 
@@ -76,11 +75,9 @@ def explain_compiler_output(output, args):
             )
 
         explanation = get_explanation(message, args.colorize_output)
+        explanation_text = ""
         if explanation:
             explanation_text = explanation.text.rstrip("\n")
-        else:
-            # FIXME - replace all cs50 explanations
-            explanation_text = help_cs50(message.text_without_ansi_codes)
 
         if args.debug:
             print("explanation_text:", explanation_text, file=sys.stderr)

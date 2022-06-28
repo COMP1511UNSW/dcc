@@ -110,7 +110,6 @@ class Explanation:
         f_string = self.explanation
         f_string = re.sub(r'\*\*\{(.*?)\}\*\*', r"{emphasize(\1)}", f_string)
         f_string = re.sub(r'\*\*(.*?)\*\*', r"{emphasize('\1')}", f_string)
-        f_string = f_string.replace("\n", "\\n")
         f_string = 'f"""' + f_string + '"""'
 
         return eval(f_string, globals(), parameters)
@@ -139,7 +138,7 @@ int main(void) {
     Explanation(
         label="scanf_missing_ampersand",
         regex=r"format specifies type '(?P<type>int|double) \*' but the argument has type '(?P=type)'",
-        explanation="Perhaps you have forgotten an '&' before '**{highlighted_word}**' on line {line_number}.",
+        explanation="Perhaps you have forgotten an '&' before '**{highlighted_word}**' on line {line_number} of {file}.",
         reproduce="""\
 #include <stdio.h>
 
@@ -152,7 +151,7 @@ int main(void) {
     Explanation(
         label="format_type_mismatch",
         regex=r"format specifies type '[^:]+' but the argument has type '[^:]+'",
-        explanation="make sure you are using the correct format code (e.g., `%d` for integers, `%lf` for floating-point values) in your format string on line {line_number}",
+        explanation="make sure you are using the correct format code (e.g., `%d` for integers, `%lf` for floating-point values) in your format string on line {line_number} of {file}.",
         reproduce="""\
 #include <stdio.h>
 
@@ -178,7 +177,7 @@ int main(void) {
     Explanation(
         label="assert_without_closing_parenthesis",
         regex=r"unterminated function-like macro invocation",
-        explanation="it looks like there is a missing closing bracket on the assert on line {line_number} of {file}",
+        explanation="it looks like there is a missing closing bracket on the assert on line {line_number} of {file}.",
         precondition=lambda message, match: message.highlighted_word == "assert",
         no_following_explanations=True,
         show_note=False,
@@ -378,7 +377,7 @@ int main(void) {
         and int(message.line_number) > 1,
         long_explanation=True,
         explanation="""\
-there is likely a closing brace (curly bracket) missing before line {line_number}.
+there is likely a closing brace (curly bracket) missing before line {line_number} of {file}.
 Is a **} missing** in the previous function?""",
         no_following_explanations=True,
         reproduce="""\
@@ -633,7 +632,7 @@ the three parts of a '**;**' statment should be separated with '**;**'
 """,
         reproduce="""\
 int main(void) {
-    for (int i = 0; i < 10, i++) {
+    for (int i = 0; i < 10 i++) {
     }
 }
 """,
@@ -747,6 +746,216 @@ Did you mean **#include** or **#define ** ?
 """,
         reproduce="""\
 #inclde <stdio.h>
+int main(void) {
+}
+""",
+    ),
+    Explanation(
+        regex=r"return type of 'main' is not 'int'",
+        explanation="""\
+'**main**' must always have return type **int**.
+""",
+        reproduce="""\
+void main(void) {
+}
+""",
+    ),
+    Explanation(
+        regex=r"multiple unsequenced modifications",
+        explanation="""\
+you are changing a variable multiple times in the one statement. 
+**`++`** and **`--`** change the variable, there is no need to also assign the result to the variable.
+""",
+       reproduce="""\
+int main(int argc, char *argv[]) {
+    argc = argc--;
+}
+""",
+    ),
+    Explanation(
+        regex=r" parameter o. 'main'",
+        explanation="""\
+your declaration of '**main**' is incorrect.
+Try either '**int main(void)**' or '**int main(int argc, char *argv[])**'
+""",
+       reproduce="""\
+int main(int argc) {
+}
+""",
+    ),
+    Explanation(
+        regex=r"relational comparison result unused",
+        precondition=lambda message, match: ',' in ''.join(message.text_without_ansi_codes),
+        explanation="""\
+you appear to be combining combining comparison incorrectly. 
+Perhaps you are using '**,**' instead of '**&&**' or '**||**'.
+""",
+       reproduce="""\
+int main(int argc, char *argv[]) {
+    return argc < 0, argc < 23;
+}
+""",
+    ),
+    Explanation(
+        regex=r"result of comparison against a string literal is unspecified",
+        explanation="""\
+you can not compare strings with '<', '>' etc.
+'string.h' has functions which can compare strings, e.g. '**strcmp**'
+""",
+       reproduce="""\
+int main(int argc, char *argv[]) {
+    return argv[0] < "";
+}
+""",
+    ),
+    Explanation(
+        regex=r"subscripted value is not an array",
+        explanation="""\
+you appear to be incorrectly trying to use **{underlined_word}** as an array .
+""",
+       reproduce="""\
+int main(int argc, char *argv[]) {
+    return argc[0];
+}
+""",
+    ),
+    Explanation(
+        regex=r"type specifier missing, defaults to 'int'",
+        explanation="""\
+you appear to have forgotten the return type on a function.
+You must specify the return type of a function just before its name.
+""",
+       reproduce="""\
+square (int x) {
+    return 1;
+}
+int main(void) {
+    return square(0);
+}
+""",
+    ),
+    Explanation(
+        regex=r" warning: unknown escape sequence '\\ '",
+        precondition=lambda message, match: '\\ n' in ''.join(message.text_without_ansi_codes),
+        explanation="""\
+you have a space after a backslash which is not permitted. 
+Did you mean '\\\\n'?
+""",
+       reproduce="""\
+int main(void) {
+    return "\\ n"[0];
+}
+""",
+    ),
+    Explanation(
+        regex=r" warning: unknown escape sequence '\\ '",
+        explanation="""\
+you have a space after a backslash which is not permitted. 
+""",
+       reproduce="""\
+int main(void) {
+    return "\\ "[0];
+}
+""",
+    ),
+    Explanation(
+        regex=r"using the result of an assignment as a condition without parenthese",
+        explanation="""\
+you use '**=**' to assign to a variable, you use '**==**' to compare values.
+""",
+       reproduce="""\
+int main(int argc, char *argv[]) {
+    if (argc = 4) {
+        return 1;
+    }
+}
+""",
+    ),
+    Explanation(
+        regex=r"use of undeclared identifier",
+        explanation="""\
+ you have used the name '**{highlighted_word}**' on line {line_number} of {file} without previously declaring it.
+If you meant to use '**{highlighted_word}**' as a variable, check you have declared it by specifying its type
+Also  check you have spelled '**{highlighted_word}**' correctly everwhere.
+""",
+       reproduce="""\
+int main(void) {
+    return x;
+}
+""",
+    ),
+    Explanation(
+        regex=r"unknown type name 'define'",
+        explanation="""\
+you appear to have left out a '#'.
+Use #**define** to define a constant, for example: #define PI 3.14159
+""",
+       reproduce="""\
+define X 42
+int main(void) {
+}
+""",
+    ),
+    Explanation(
+        regex=r"unknown type name 'include'",
+        explanation="""\
+you appear to have left out a '#'.
+Use #**include** to include a file, for example: #include <stdio.h>
+""",
+       reproduce="""\
+define X 42
+int main(void) {
+}
+""",
+    ),
+    Explanation(
+        regex=r"is uninitialized when used here",
+        explanation="""\
+you are using variable '**{highlighted_word}**' before it has been assigned a value.
+Be sure to assign a value to '**{highlighted_word}**' before trying to use its value.
+""",
+       reproduce="""\
+int main(void) {
+    int x;
+}
+""",
+    ),
+    Explanation(
+        regex=r"is uninitialized when used within its own initialization",
+        explanation="""\
+you are using variable '**{highlighted_word}**' as part of its own initialization.
+You can not use a variable to initialize itself.
+""",
+       reproduce="""\
+int main(void) {
+    int x;
+}
+""",
+    ),
+    Explanation(
+        regex=r"void function '(.*)' should not return a value",
+        explanation="""\
+you are trying to **return** a value from function **{match.group(1)}** which is of type **void**.
+You need to change the return type of **{match.group(1)}** or change the **return** statement.
+""",
+       reproduce="""\
+void f(void) {
+    return 1;
+}
+int main(void) {
+}
+""",
+    ),
+    Explanation(
+        regex=r"void function '(.*)' should not return a value",
+        explanation="""\
+you are trying to **return** a value from function **{match.group(1)}** which is of type **void**.
+You need to change the return type of **{match.group(1)}** or change the **return** statement.
+""",
+       reproduce="""\
+void f(void) {
+    return 1;
+}
 int main(void) {
 }
 """,

@@ -264,8 +264,6 @@ clang, python3, gdb, valgrind
 
 Andrew Taylor (andrewt@unsw.edu.au)
 
-Except help_cs50.py  is almost entirely from  https://github.com/cs50/help50-server/blob/master/helpers/clang.py
-
 # License
 
 GPLv3

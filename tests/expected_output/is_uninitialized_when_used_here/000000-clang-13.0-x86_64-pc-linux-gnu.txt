@@ -1,0 +1,4 @@
+tests/extracted_compile_time_errors/is_uninitialized_when_used_here.c:2:9: warning: unused variable 'x' [-Wunused-variable]
+    int x;
+        ^
+

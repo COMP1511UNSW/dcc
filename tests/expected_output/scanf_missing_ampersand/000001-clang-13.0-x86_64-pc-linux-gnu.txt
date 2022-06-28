@@ -1,5 +1,5 @@
 tests/extracted_compile_time_errors/scanf_missing_ampersand.c:5:17: warning: format specifies type 'int *' but the argument has type 'int' [-Wformat]
     scanf("%d", i);
            ~~   ^
-dcc explanation: Perhaps you have forgotten an '&' before 'i' on line 5.
+dcc explanation: Perhaps you have forgotten an '&' before 'i' on line 5 of tests/extracted_compile_time_errors/scanf_missing_ampersand.c.
 

@@ -1,0 +1,6 @@
+tests/extracted_compile_time_errors/use_of_undeclared_identifier.c:2:12: error: use of undeclared identifier 'x'
+    return x;
+           ^
+dcc explanation:  you have used the name 'x' on line 2 of tests/extracted_compile_time_errors/use_of_undeclared_identifier.c without previously declaring it.
+If you meant to use 'x' as a variable, check you have declared it by specifying its type
+Also  check you have spelled 'x' correctly everwhere.
