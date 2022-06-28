@@ -550,7 +550,7 @@ int main(void) {
         label="continue_not_in_loop",
         regex=r"continue.* statement not in loop",
         explanation="""\
-continue statements can only be used inside a while or for loop.
+**continue** statements can only be used inside a while or for loop.
 Check the braces {{}} are correct on nearby statements.
 """,
         reproduce="""\
@@ -563,8 +563,8 @@ int main(void) {
         label="break_not_in_loop",
         regex=r"break.* statement not in loop",
         explanation="""\
-break statements can only be used inside a while loop, for loop or switch.
-Check the braces {{}} are correct on nearby statements.
+**break** statements can only be used inside a while loop, for loop or switch.
+Check the braces **{{}}** are correct on nearby statements.
 """,
         reproduce="""\
 int main(void) {
@@ -576,8 +576,8 @@ int main(void) {
         label="non_void_function_does_not_return_a_value_in_all_control_paths",
         regex=r"non-void function does not return a value in all control paths",
         explanation="""\
-You function contains a return but it is possible for execution
-to reach the end of the function without a return statment being executed.
+You function contains a **return** but it is possible for execution
+to reach the end of the function without a **return** statment being executed.
 """,
         reproduce="""\
 int f(int a) {
@@ -594,8 +594,8 @@ int main(int argc, char *argv[]) {
         label="non_void_function_does_not_return_a_value",
         regex=r"non-void function does not return a value \[",
         explanation="""\
-your function has no return statement.
-Unless a function is of type void, it must return a value using a return statement.
+your function has no **return** statement.
+Unless a function is of type void, it must return a value using a **return** statement.
 """,
         reproduce="""\
 int f(int a) {
@@ -725,6 +725,45 @@ Did you mean to assign it to a variable?
 #include <stdlib.h>
 int main(int argc, char *argv[]) {
 	atoi(argv[0]);
+}
+""",
+    ),
+    Explanation(
+        label="ignoring_return_value_of_function",
+        regex=r"ignoring return value of function",
+        explanation="""\
+you are not using the value returned by function **{highlighted_word}** .
+Did you mean to assign it to a variable?
+""",
+        reproduce="""\
+#include <stdlib.h>
+int main(int argc, char *argv[]) {
+	atoi(argv[0]);
+}
+""",
+    ),
+    Explanation(
+        label="invalid_equal_equal_at_end_of_declaration",
+        regex=r"invalid '==' at end of declaration; did you mean '='",
+        explanation="""\
+remember '**=**' is used to assign a value to a variable, '**==**' is used to compare values, 
+""",
+        reproduce="""\
+int main(void) {
+	int i == 0;
+}
+""",
+    ),
+    Explanation(
+        label="invalid_preprocessing_directive",
+        regex=r"invalid preprocessing directive",
+        explanation="""\
+you have an invalid line begining with '**#**'.
+Did you mean **#include** or **#define ** ? 
+""",
+        reproduce="""\
+#inclde <stdio.h>
+int main(void) {
 }
 """,
     ),
