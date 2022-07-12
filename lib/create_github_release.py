@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# run as e.g.  create_github_release.py 1.0 'Initial github release of dcc'
+
 # https://stackoverflow.com/questions/38153418/can-someone-give-a-python-requests-example-of-uploading-a-release-asset-in-githu/52354681#52354681
 
 import json, os, re, subprocess, sys

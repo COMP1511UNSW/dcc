@@ -245,16 +245,62 @@ Indirection using pointers consisting of 0xbe bytes will produced an unaligned a
 	
 	a->next = <uninitialized value>
 
+
 # Build Instructions
 
-    $ git clone https://github.com/COMP1511UNSW/dcc
-    $ cd dcc
-    $ make
-    $ cp -p ./dcc /usr/local/bin/dcc
- 
-# Release instruction
+```
+$ git clone https://github.com/COMP1511UNSW/dcc
+$ cd dcc
+$ make
+$ cp -p ./dcc /usr/local/bin/dcc
+```
 
-	$ ./create_github_release.py 1.0 'Initial github release of dcc'
+# Compilation Diagram
+
+```mermaid
+flowchart
+    dcc[dcc program.c -o program] --> user_code[program.c]
+    user_code --> gcc[gcc<br>for extra error-detection only]
+    gcc --> |compile-time error| explanation
+    dcc --> wrapper_code[dcc wrapper C code]
+    dcc --> embedded_Python[embeded Python<br>for runtime error-handling]
+    user_code --> clang1["clang with options for valgrind<br>(no sanitizers)"]
+    wrapper_code --> clang1
+    clang1 --> |compile-time error| explanation[error message with explanation<br> suitable for novice]
+    clang1 --> temporary_executable[temporary executable]
+    wrapper_code --> clang2[clang with options for AddressSanitizer]
+    user_code --> clang2
+    embedded_Python --> |tar file embedded by<br>encoding as array initializer| clang2
+    temporary_executable --> |binary embedded by<br>encoding as array initializer| clang2
+    clang2 --> program
+```
+
+Assumes the default option of AddressSanitizer + valgrind run in parallel.
+
+
+# Runtime Error Handling Diagram
+
+```mermaid
+flowchart
+    user1[user runs binary from dcc] --> main
+    main[execute dcc wrapper code in binary]  --> |stack pages initialized to 0xbe| Sanitizer1["execute user's code in binary<br>(compiled with AddressSanitizer)"]
+    main --> |extract embedded binary<br>to temporary file & fork| Sanitizer2["valgrind executes user's code in temporary file<br>(not compiled with sanitizers)"]
+    main --> |fork| Watcher[Valgrind watcher]
+    
+    Sanitizer1 --> |runtime error| embedded_C[intercepted by dcc code in binary]
+    Sanitizer1 <--> | synchronize at system calls | Sanitizer2
+    embedded_C --> |error details| embedded_Python
+    embedded_C --> gdb
+
+    Watcher --> |error details| embedded_Python
+    Sanitizer2 --> gdb
+    Sanitizer2 --> |runtime error| Watcher
+    gdb --> |stack backtrace & variable values| embedded_Python[embedded Python]
+    embedded_Python --> |outputs| user2[novice friendly error message<br>location in source code<br>variable values<br>extra explanation]
+```
+
+Assumes the default option of AddressSanitizer + valgrind run in parallel.
+
    
 # Dependencies
 
