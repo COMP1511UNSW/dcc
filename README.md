@@ -259,21 +259,21 @@ $ cp -p ./dcc /usr/local/bin/dcc
 
 ```mermaid
 flowchart
-    dcc[dcc program.c -o program] --> user_code[program.c]
+    dcc["dcc program.c -o program<br> (python)"] --> user_code[program.c]
     user_code --> gcc[gcc<br>for extra error-detection only]
-    gcc --> |compile-time error| explanation
+    gcc --> |compile-time error| dcc_explanation[dcc python]
+    dcc_explanation ---> |outputs| explanation[error message with explanation added<br> suitable for novice]
     dcc --> wrapper_code[dcc wrapper C code]
     dcc --> embedded_Python[embeded Python<br>for runtime error-handling]
     user_code --> clang1["clang with options for valgrind<br>(no sanitizers)"]
     wrapper_code --> clang1
-    clang1 --> |compile-time error| explanation[error message with explanation<br> suitable for novice]
+    clang1 --> |compile-time error| dcc_explanation
     clang1 --> temporary_executable[temporary executable]
     wrapper_code --> clang2[clang with options for AddressSanitizer]
     user_code --> clang2
     embedded_Python --> |tar file embedded by<br>encoding as array initializer| clang2
     temporary_executable --> |binary embedded by<br>encoding as array initializer| clang2
-    clang2 --> program
-```
+    clang2 --> program```
 
 Assumes the default option of AddressSanitizer + valgrind run in parallel.
 
