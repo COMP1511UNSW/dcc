@@ -24,17 +24,17 @@ For example:
     $ dcc buffer_overflow.c
     $ ./a.out
     a.c:6:3: runtime error: index 10 out of bounds for type 'int [10]'
-    
+
     Execution stopped here in main() in buffer_overflow.c at line 6:
-    
+
         int a[10];
         for (int i = 0; i <= 10; i++) {
     -->     a[i] = i * i;
         }
     }
-    
+
     Values when execution stopped:
-    
+
     a = {0, 1, 4, 9, 16, 25, 36, 49, 64, 81}
     i = 10
 
@@ -44,7 +44,7 @@ and print a message a novice programmer can hopefully understand. For example:
     $ dcc uninitialized.c
     $ ./a.out
     uninitialized.c:6 runtime error uninitialized variable used
-    
+
     Execution stopped here in main() in uninitialized.c at line 6:
 
         int a[1000];
@@ -67,7 +67,7 @@ which should include almost all typical programs writen by novice programmers.
 f synchronisation is lost the 2nd process should terminate silently.
 
 If libraries other the standard C library are used, uninitialized variables does not occur.
- 
+
 # Leak checking
 
 dcc can also embed code to check for memory-leaks:
@@ -104,14 +104,14 @@ Environment variables are considered true if their value is a non-empty string s
     $ dcc --use-after-return bad_function.c
     $ ./a.out
 	bad_function.c:22 runtime error - stack use after return
-	
+
 	dcc explanation: You have used a pointer to a local variable that no longer exists.
 	  When a function returns its local variables are destroyed.
-	
+
 	For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html
 	Execution stopped here in main() in bad_function at line 22:
-	
-	
+
+
 		int *a = f(42);
 	-->	printf("%d\n", a[0]);
 	}
@@ -124,13 +124,13 @@ valgrind also usually detect this type of error, e.g.:
 	Runtime error: access to function variables after function has returned
 	You have used a pointer to a local variable that no longer exists.
 	When a function returns its local variables are destroyed.
-	
+
 	For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html'
-	
-	
+
+
 	Execution stopped here in main() in tests/run_time/bad_function.c at line 22:
-	
-	
+
+
 	int main(void) {
 	-->	printf("%d\n", *f(50));
 	}
@@ -138,20 +138,20 @@ valgrind also usually detect this type of error, e.g.:
 # Installation
 
 * Deb-based Systems including Debian, Ubuntu, Mint and Windows Subsystem for Linux
-	
+
 	```bash
 	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc_2.7.8_all.deb -o /tmp/dcc_2.7.8_all.deb
 	sudo apt install /tmp/dcc_2.7.8_all.deb
 	```
-	
+
 	or
-	
+
 	```bash
 	sudo apt install  clang gcc gdb valgrind python3 curl
 	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
-	
+
 	```bash
     # on  Windows Subsystem for Linux (only) this might be necessary to run programs
 	sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope;echo 1 >/proc/sys/vm/overcommit_memory"
@@ -167,34 +167,33 @@ valgrind also usually detect this type of error, e.g.:
 	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
-	
-* RPM-based Systems including CentOS, Fedora 
+
+* RPM-based Systems including CentOS, Fedora
 
 	```bash
 	sudo yum install clang gcc gdb valgrind python3 curl
 	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
-	
+
 	On OpenSUSE:
-	
+
 	```bash
 	sudo zypper install clang gcc gdb valgrind python3 curl
 	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
-	
-	
-* OSX
 
+
+* MacOS
 	Install python3 - see https://docs.python-guide.org/starting/install3/osx/
 	Install gdb - see https://sourceware.org/gdb/wiki/PermissionsDarwin
+	In your terminal, run:
+	```bash
+	bash <(curl -s https://raw.githubusercontent.com/jakerenzella/dcc/enhance/add-macos-support/install_scripts/macos_install.sh)
+	```
+	Note: It is usually not a good idea to blindly run remote bash scripts in your terminal, you can inspect the file by opening the URL and reading to see what it does yourself.
 
-    ```bash
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
-	sudo chmod o+rx  /usr/local/bin/dcc
-    ```
-	
 
 # Run-time Error Handling Implementation
 
@@ -223,26 +222,26 @@ dcc embeds code in the binary which initializes the first few megabytes of the s
 
 For valgrind dcc uses its malloc-fill and --free-fill options to achieve the same result see [dcc_util.c].  AddressSanitizer & MemorySanitizer use a malloc which does this by default.
 
-When printing variable values, dcc prints ints, doubles & pointers consisting of 0xbe bytes as "<uninitialized>". 
+When printing variable values, dcc prints ints, doubles & pointers consisting of 0xbe bytes as "<uninitialized>".
 
 Indirection using pointers consisting of 0xbe bytes will produced an unaligned access error from  UndefinedBehaviourSanitizer, unless the pointer is to char.  dcc intercepts these and explanations suitable for novice programmers (see  explain_ubsan_error in [drive_gdb.py])
 
     $ dcc dereference_uninitialized.c
     $ ./a.out
 	tests/run_time/dereference_uninitialized_with_arrow.c:9:14: runtime error - accessing a field via an uninitialized pointer
-	
+
 	dcc explanation: You are using a pointer which has not been initialized
 	  A common error is using p->field without first assigning a value to p.
-	
+
 	Execution stopped here in main() in dereference_uninitialized.c at line 9:
-	
-	int main(void) { 
+
+	int main(void) {
 	    struct list_node *a = malloc(sizeof *a);
 	--> a->next->data = 42;
 	}
-	
+
 	Values when execution stopped:
-	
+
 	a->next = <uninitialized value>
 
 # Build Instructions
@@ -251,14 +250,14 @@ Indirection using pointers consisting of 0xbe bytes will produced an unaligned a
     $ cd dcc
     $ make
     $ cp -p ./dcc /usr/local/bin/dcc
- 
+
 # Release instruction
 
 	$ ./create_github_release.py 1.0 'Initial github release of dcc'
-   
+
 # Dependencies
 
-clang, python3, gdb, valgrind 
+clang, python3, gdb, valgrind
 
 # Author
 
