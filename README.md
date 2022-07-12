@@ -3,6 +3,7 @@
 
 dcc helps novice C programmers by catching common errors and providing easy-to-understand explnations.
 
+For example:
 
 dcc add extra runtime checking for errors and prints information
 likely to be helpful to novice programmers, including
@@ -185,20 +186,20 @@ int main(void) {
 # Installation
 
 * Deb-based Systems including Debian, Ubuntu, Mint and Windows Subsystem for Linux
-	
+
 	```bash
 	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc_2.7.8_all.deb -o /tmp/dcc_2.7.8_all.deb
 	sudo apt install /tmp/dcc_2.7.8_all.deb
 	```
-	
+
 	or
-	
+
 	```bash
 	sudo apt install  clang gcc gdb valgrind python3 curl
 	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
-	
+
 	```bash
     # on  Windows Subsystem for Linux (only) this might be necessary to run programs
 	sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope;echo 1 >/proc/sys/vm/overcommit_memory"
@@ -214,17 +215,17 @@ int main(void) {
 	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
-	
-* RPM-based Systems including CentOS, Fedora 
+
+* RPM-based Systems including CentOS, Fedora
 
 	```bash
 	sudo yum install clang gcc gdb valgrind python3 curl
 	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
-	
+
 	On OpenSUSE:
-	
+
 	```bash
 	sudo zypper install clang gcc gdb valgrind python3 curl
 	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
@@ -234,8 +235,15 @@ int main(void) {
 	
 * OSX
 
+
+* MacOS
 	Install python3 - see https://docs.python-guide.org/starting/install3/osx/
 	Install gdb - see https://sourceware.org/gdb/wiki/PermissionsDarwin
+	In your terminal, run:
+	```bash
+	bash <(curl -s https://raw.githubusercontent.com/jakerenzella/dcc/enhance/add-macos-support/install_scripts/macos_install.sh)
+	```
+	Note: It is usually not a good idea to blindly run remote bash scripts in your terminal, you can inspect the file by opening the URL and reading to see what it does yourself.
 
     ```bash
 	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.7.8/dcc -o /usr/local/bin/dcc
@@ -351,7 +359,7 @@ Assumes the default option of AddressSanitizer + valgrind run in parallel.
    
 # Dependencies
 
-clang, python3, gdb, valgrind 
+clang, python3, gdb, valgrind
 
 # Author
 
