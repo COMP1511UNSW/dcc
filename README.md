@@ -64,7 +64,7 @@ Uninitialized variables are detected by running valgrind simultaneously as a sep
 
 The synchronisation of the 2 processes is only effective for the standard C library (signal.h and threads.h excepted).
 which should include almost all typical programs writen by novice programmers.
-f synchronisation is lost the 2nd process should terminate silently.
+If synchronisation is lost the 2nd process should terminate silently.
 
 If libraries other the standard C library are used, uninitialized variables does not occur.
  
@@ -273,7 +273,8 @@ flowchart
     user_code --> clang2
     embedded_Python --> |tar file embedded by<br>encoding as array initializer| clang2
     temporary_executable --> |binary embedded by<br>encoding as array initializer| clang2
-    clang2 --> program```
+    clang2 --> program
+```
 
 Assumes the default option of AddressSanitizer + valgrind run in parallel.
 
