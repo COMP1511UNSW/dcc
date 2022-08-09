@@ -1,81 +1,123 @@
 
 # Introduction
 
-dcc compiles C programs using clang and adds explanations suitable for novice programmers
-to compiler messages novice programmers are likely to encounter and not understand.
-
-For example:
-
-    $ dcc a.c
-    a.c:3:15: warning: address of stack memory associated with local variable 'counter' returned [-Wreturn-stack-address]
-            return &counter;
-
-    dcc explanation: you are trying to return a pointer to the local variable 'counter'.
-      You can not do this because counter will not exist after the function returns.
-      See more information here: https://comp1511unsw.github.io/dcc/stack_use_after_return.html
-
-
 dcc adds code to the binary which detects run-time errors and prints information
 likely to be helpful to novice programmers, including
-printing values of variable in lines used near where the run-time error occurred.
+printing values of variables and expressions
+used near where the run-time error occurred.
+Run-time checking includes array indices, for example:
 
+```
+$ gcc count_zero.c
+$ ./a.out
+9
+$ dcc count_zero.c
+$ ./a.out
+count_zero.c.c:7:7: runtime error - index 10 out of bounds for type 'int [10]'
+dcc explanation: You are using an illegal array index: 10
+  Valid indices for an array of size 10 are 0..9
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+Execution stopped in main() in count_zero.c at line 7:
+
+int main(void) {
+	int numbers[10] = {0};
+	int count = 0;
+	for (int i = 1; i <= 10; i++) {
+-->		if (numbers[i] > 0) {
+			count++;
+		}
+	}
+
+Values when execution stopped:
+count = 0
+i = 10
+numbers = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+numbers[i] = <uninitialized value>
+```
+
+Run-time checking also includes pointer dereferences, for example:
+
+```
+$ gcc linked_list.c
+$ a.out
+Segmentation fault (core dumped)
+$ dcc linked_list.c
+$ a.out
+linked_list.c:12:15: runtime error - accessing a field via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is  using p->field when p == NULL.
+Execution stopped in main() in linked_list.c at line 12:
+
+int main(void) {
+    struct list_node s = {0};
+    struct list_node *a = &s;
+    while (a != NULL) {
+-->     a->next->data = 42;
+        a = a->next;
+    }
+}
+
+Values when execution stopped:
+s = {next = NULL, data = 0}
+a->next = NULL
+```
+
+dcc also embeds code to detect use of uninitialized variables, for example:
+
+```
+$ gcc uninitialised_variable.c
+$ a.out
+0
+$ dcc uninitialised_variable.c
+$ a.out
+Runtime error: uninitialized variable accessed.
+Execution stopped in main() in uninitialised_variable.c at required:
+
+int main(void) {
+    int numbers[10];
+    for (int i = 1; i < 10; i++) {
+        numbers[i] = i;
+    }
+--> printf("%d\n", numbers[0]);
+}
+
+Values when execution stopped:
+numbers = {<uninitialized value>,1,2,3,4,5,6,7,8,9}
+numbers[0] = <uninitialized value>
+```
+
+dcc compiles C programs using clang and adds explanations suitable for novice programmers
+to compiler messages novice programmers are likely to encounter and not understand.
 For example:
 
-    $ dcc buffer_overflow.c
-    $ ./a.out
-    a.c:6:3: runtime error: index 10 out of bounds for type 'int [10]'
-    
-    Execution stopped here in main() in buffer_overflow.c at line 6:
-    
-        int a[10];
-        for (int i = 0; i <= 10; i++) {
-    -->     a[i] = i * i;
-        }
-    }
-    
-    Values when execution stopped:
-    
-    a = {0, 1, 4, 9, 16, 25, 36, 49, 64, 81}
-    i = 10
+```
+$ dcc a.c
+a.c:3:15: warning: address of stack memory associated with local variable 'counter' returned [-Wreturn-stack-address]
+        return &counter;
 
-dcc also embeds code to detect use of uninitialized variables
-and print a message a novice programmer can hopefully understand. For example:
-
-    $ dcc uninitialized.c
-    $ ./a.out
-    uninitialized.c:6 runtime error uninitialized variable used
-    
-    Execution stopped here in main() in uninitialized.c at line 6:
-
-        int a[1000];
-        a[42] = 42;
-    -->    if (a[argc]) {
-        a[43] = 43;
-    }
-
-    Values when execution stopped:
-
-    argc = 1
-    a[42] = 42
-    a[43] = <uninitialized value>
-    a[argc] = <uninitialized value>
+dcc explanation: you are trying to return a pointer to the local variable 'counter'.
+  You can not do this because counter will not exist after the function returns.
+  See more information here: https://comp1511unsw.github.io/dcc/stack_use_after_return.html
+```
 
 Uninitialized variables are detected by running valgrind simultaneously as a separate process.
 
 The synchronisation of the 2 processes is only effective for the standard C library (signal.h and threads.h excepted).
-which should include almost all typical programs writen by novice programmers.
+which should include almost all typical programs written by novice programmers.
 If synchronisation is lost the 2nd process should terminate silently.
 
 If libraries other the standard C library are used, uninitialized variables does not occur.
  
 # Leak checking
 
-dcc can also embed code to check for memory-leaks:
+dcc can also embed code to check for memory leaks:
 
-    $ dcc  --leak-check leak.c
-    $ ./a.out
-    Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
-
+```
+$ dcc  --leak-check leak.c
+$ ./a.out
+Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
+```
 
 # Output checking
 
@@ -101,39 +143,42 @@ Environment variables are considered true if their value is a non-empty string s
 
 # Local Variable Use After Function Return Detection
 
-    $ dcc --use-after-return bad_function.c
-    $ ./a.out
-	bad_function.c:22 runtime error - stack use after return
-	
-	dcc explanation: You have used a pointer to a local variable that no longer exists.
-	  When a function returns its local variables are destroyed.
-	
-	For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html
-	Execution stopped here in main() in bad_function at line 22:
-	
-	
-		int *a = f(42);
-	-->	printf("%d\n", a[0]);
-	}
+```
+$ dcc --use-after-return bad_function.c
+$ ./a.out
+bad_function.c:22 runtime error - stack use after return
 
+dcc explanation: You have used a pointer to a local variable that no longer exists.
+  When a function returns its local variables are destroyed.
+
+For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html
+Execution stopped here in main() in bad_function at line 22:
+
+
+	int *a = f(42);
+-->	printf("%d\n", a[0]);
+}
+```
 
 valgrind also usually detect this type of error, e.g.:
 
-    $ dcc --use_after_return bad_function.c
-    $ ./a.out
-	Runtime error: access to function variables after function has returned
-	You have used a pointer to a local variable that no longer exists.
-	When a function returns its local variables are destroyed.
-	
-	For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html'
-	
-	
-	Execution stopped here in main() in tests/run_time/bad_function.c at line 22:
-	
-	
-	int main(void) {
-	-->	printf("%d\n", *f(50));
-	}
+```
+$ dcc --use_after_return bad_function.c
+$ ./a.out
+Runtime error: access to function variables after function has returned
+You have used a pointer to a local variable that no longer exists.
+When a function returns its local variables are destroyed.
+
+For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html'
+
+
+Execution stopped here in main() in tests/run_time/bad_function.c at line 22:
+
+
+int main(void) {
+-->	printf("%d\n", *f(50));
+}
+```
 
 # Installation
 
@@ -227,33 +272,32 @@ When printing variable values, dcc prints ints, doubles & pointers consisting of
 
 Indirection using pointers consisting of 0xbe bytes will produced an unaligned access error from  UndefinedBehaviourSanitizer, unless the pointer is to char.  dcc intercepts these and explanations suitable for novice programmers (see  explain_ubsan_error in [drive_gdb.py])
 
-    $ dcc dereference_uninitialized.c
-    $ ./a.out
-	tests/run_time/dereference_uninitialized_with_arrow.c:9:14: runtime error - accessing a field via an uninitialized pointer
-	
-	dcc explanation: You are using a pointer which has not been initialized
-	  A common error is using p->field without first assigning a value to p.
-	
-	Execution stopped here in main() in dereference_uninitialized.c at line 9:
-	
-	int main(void) { 
-	    struct list_node *a = malloc(sizeof *a);
-	--> a->next->data = 42;
-	}
-	
-	Values when execution stopped:
-	
-	a->next = <uninitialized value>
+```
+$ dcc dereference_uninitialized.c
+$ ./a.out
+tests/run_time/dereference_uninitialized_with_arrow.c:9:14: runtime error - accessing a field via an uninitialized pointer
 
+dcc explanation: You are using a pointer which has not been initialized
+  A common error is using p->field without first assigning a value to p.
+
+Execution stopped here in main() in dereference_uninitialized.c at line 9:
+
+int main(void) {
+    struct list_node *a = malloc(sizeof *a);
+--> a->next->data = 42;
+}
+
+Values when execution stopped:
+
+a->next = <uninitialized value>
+```
 
 # Build Instructions
 
-```
 $ git clone https://github.com/COMP1511UNSW/dcc
 $ cd dcc
 $ make
 $ cp -p ./dcc /usr/local/bin/dcc
-```
 
 # Compilation Diagram
 
@@ -286,17 +330,17 @@ flowchart
     user1[user runs binary from dcc] --> main
     main[execute dcc wrapper code in binary]  --> |stack pages initialized to 0xbe| Sanitizer1["execute user's code in binary<br>(compiled with AddressSanitizer)"]
     main --> |extract embedded binary<br>to temporary file & fork| Sanitizer2["valgrind executes user's code in temporary file<br>(not compiled with sanitizers)"]
-    main --> |fork| Watcher[Valgrind watcher]
+    main --> |fork| Watcher[valgrind watcher]
     
     Sanitizer1 --> |runtime error| embedded_C[intercepted by dcc code in binary]
     Sanitizer1 <--> | synchronize at system calls | Sanitizer2
-    embedded_C --> |error details| embedded_Python
-    embedded_C --> gdb
+
+    embedded_C --> embedded_Python
 
     Watcher --> |error details| embedded_Python
-    Sanitizer2 --> gdb
+
     Sanitizer2 --> |runtime error| Watcher
-    gdb --> |stack backtrace & variable values| embedded_Python[embedded Python]
+    gdb <--> |stack backtrace & variable values| embedded_Python[embedded Python]
     embedded_Python --> |outputs| user2[novice friendly error message<br>location in source code<br>variable values<br>extra explanation]
 ```
 
