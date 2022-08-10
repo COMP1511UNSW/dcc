@@ -294,10 +294,12 @@ a->next = <uninitialized value>
 
 # Build Instructions
 
-$ git clone https://github.com/COMP1511UNSW/dcc
-$ cd dcc
-$ make
-$ cp -p ./dcc /usr/local/bin/dcc
+```bash
+git clone https://github.com/COMP1511UNSW/dcc
+cd dcc
+make
+cp -p ./dcc /usr/local/bin/dcc
+```
 
 # Compilation Diagram
 
@@ -322,7 +324,6 @@ flowchart
 
 Assumes the default option of AddressSanitizer + valgrind run in parallel.
 
-
 # Runtime Error Handling Diagram
 
 ```mermaid
@@ -345,7 +346,6 @@ flowchart
 ```
 
 Assumes the default option of AddressSanitizer + valgrind run in parallel.
-
    
 # Dependencies
 
