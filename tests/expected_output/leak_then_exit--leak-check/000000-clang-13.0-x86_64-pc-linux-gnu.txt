@@ -1,0 +1,2 @@
+
+Error: free not called for memory allocated with malloc in function main in leak_then_exit.c at line 6.
