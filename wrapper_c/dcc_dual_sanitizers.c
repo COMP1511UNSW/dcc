@@ -1,4 +1,4 @@
-#if !__CHECK_OUTPUT__ && __N_SANITIZERS__ < 1
+#if !__CHECK_OUTPUT__ && __N_SANITIZERS__ == 1
 
 static void init_cookies(void) {
 }
