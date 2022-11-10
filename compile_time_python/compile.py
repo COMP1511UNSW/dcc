@@ -581,7 +581,7 @@ def get_options():
         if not options.clang_version:
             options.die("can not find clang compiler")
     elif "clang" in options.c_compiler:
-        test_clang_version_exists("clang", options)
+        test_clang_version_exists(options.c_compiler, options)
         if not options.clang_version:
             options.die(f"can not get version information for {options.c_compiler}")
 
@@ -607,7 +607,7 @@ def get_options():
             reason = "threads used"
         elif options.unsafe_system_includes:
             reason = options.unsafe_system_includes[0] + " used"
-        elif sys.platform == "darwin":
+        elif sys.platform == "":
             reason = "not supported on OSX"
 
         if reason:
