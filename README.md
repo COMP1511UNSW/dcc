@@ -1,10 +1,12 @@
 
 # Introduction
 
-dcc adds code to the binary which detects run-time errors and prints information
+dcc helps novice C programmers by catching common errors and providing easy-to-understand explnations.
+
+
+dcc add extra runtime checking for errors and prints information
 likely to be helpful to novice programmers, including
-printing values of variables and expressions
-used near where the run-time error occurred.
+printing values of variables and expressions.
 Run-time checking includes array indices, for example:
 
 ```
