@@ -87,6 +87,7 @@ static void init_cookies(void);
 #if __N_SANITIZERS__ == 1
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
+	debug_stream = stderr;
 	char *mypath = realpath(argv[0], NULL);
 	if (mypath) {
 		setenvd("DCC_BINARY", mypath);
