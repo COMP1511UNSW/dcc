@@ -622,8 +622,13 @@ def get_options():
                 )
             else:
                 options.sanitizers = ["address"]
-        else:
+        elif search_path("valgrind"):
             options.sanitizers = ["address", "valgrind"]
+        else:
+            options.sanitizers = ["address", "memory"]
+            options.debug_print(
+                "warning: valgrind does not seem be installed, using MemorySanitizer instead"
+            )
 
     if options.valgrind_fix_posix_spawn is None and "valgrind" in options.sanitizers:
         options.valgrind_fix_posix_spawn = sys.platform == "linux"
