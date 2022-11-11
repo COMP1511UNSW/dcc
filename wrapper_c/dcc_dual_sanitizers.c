@@ -66,6 +66,24 @@ static void init_cookies(void) {
 #endif
 }
 
+#if __USE_FUNOPEN__
+#include <bsd/stdio.h>
+
+static int __dcc_cookie_read(void *v, char *buf, int size);
+static int __dcc_cookie_write(void *v, const char *buf, int size);
+static off_t __dcc_cookie_seek(void *v, off_t offset, int whence);
+static int __dcc_cookie_close(void *v);
+
+FILE *open_cookie(void *cookie, const char *mode) {	
+#if __N_SANITIZERS__ > 1
+	return funopen(cookie, __dcc_cookie_read, __dcc_cookie_write, __dcc_cookie_seek, __dcc_cookie_close);
+#else
+	return funopen(cookie, NULL, __dcc_cookie_write, NULL, __dcc_cookie_close);
+#endif
+}
+
+#else
+
 static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size);
 static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size);
 static int __dcc_cookie_seek(void *v, off64_t *offset, int whence);
@@ -81,6 +99,8 @@ FILE *open_cookie(void *cookie, const char *mode) {
 #endif
 				});
 }
+
+#endif
 
 #ifndef getchar
 // if we don't override getchar the fopencookie hooks are sometimes not called - reasons unclear
@@ -329,10 +349,12 @@ static int64_t synchronize_system_call_result(enum which_system_call which
 
 #endif
 
-// pass results of a read sanitizer 1 -> sanitizer 2
 
+#if __USE_FUNOPEN__
+static int __dcc_cookie_read(void *v, char *buf, int size) {
+#else
 static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
-
+#endif
 	// libc 2.28-5 doesn't flush stdout if it is a (linebuffered) fopencookie streams
 	// when there is a read on stdin which is a (linebuffered) fopencookie streams
 	// workaround by flushing stdout here on read of any stream
@@ -370,9 +392,11 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 static void __dcc_check_output(int fd, const char *buf, size_t size);
 static void __dcc_check_close(int fd);
 
-// pass results of a write sanitizer 1 -> sanitizer 2
-
+#if __USE_FUNOPEN__
+static int __dcc_cookie_write(void *v, const char *buf, int size) {
+#else
 static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
+#endif
 	synchronize_system_call(sc_write, size);
 #if __I_AM_SANITIZER1__
 	struct cookie *cookie = v;
@@ -389,8 +413,21 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 }
 
 
-// pass results of a seek sanitizer 1 -> sanitizer 2
+#if __USE_FUNOPEN__
+static off_t __dcc_cookie_seek(void *v, off_t offset, int whence) {
+	synchronize_system_call(sc_seek, offset);
 
+#if __I_AM_SANITIZER1__
+	struct cookie *cookie = v;
+	off_t result = lseek(cookie->fd, offset, whence);
+	(void)synchronize_system_call_result(sc_seek, result);
+#else
+	int result = synchronize_system_call_result(sc_seek);
+#endif
+	quick_clear_stack();
+	return result;
+}
+#else
 static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 	synchronize_system_call(sc_seek, *offset);
 
@@ -409,6 +446,7 @@ static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 	quick_clear_stack();
 	return result;
 }
+#endif
 
 // pass results of a close sanitizer 1 -> sanitizer 2
 
@@ -428,6 +466,7 @@ static int __dcc_cookie_close(void *v) {
 	quick_clear_stack();
 	return result;
 }
+
 
 #if __N_SANITIZERS__ > 1
 void abort(void) {
