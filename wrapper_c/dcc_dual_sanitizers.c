@@ -66,33 +66,30 @@ static void init_cookies(void) {
 #endif
 }
 
-// Darwin file I/O is always 64bit
-// so no need to enforce 64bit
-#ifdef __APPLE__
-#  define off64_t off_t
-#  define fopen64 fopen
+#if __USE_FUNOPEN__
+#include <bsd/stdio.h>
 
-// MacOS does not have fopencookie, instead it has funopen
-# define fopencookie funopen
+static int __dcc_cookie_read(void *v, char *buf, int size);
+static int __dcc_cookie_write(void *v, const char *buf, int size);
+static off_t __dcc_cookie_seek(void *v, off_t offset, int whence);
+static int __dcc_cookie_close(void *v);
+
+FILE *open_cookie(void *cookie, const char *mode) {	
+#if __N_SANITIZERS__ > 1
+	return funopen(cookie, __dcc_cookie_read, __dcc_cookie_write, __dcc_cookie_seek, __dcc_cookie_close);
+#else
+	return funopen(cookie, NULL, __dcc_cookie_write, NULL, __dcc_cookie_close);
 #endif
+}
+
+#else
 
 static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size);
 static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size);
 static int __dcc_cookie_seek(void *v, off64_t *offset, int whence);
 static int __dcc_cookie_close(void *v);
 
-// Define fcc_cookie_*** functions to be used by funopen
-// With slightly different signatures
-// These wrap __dcc_cookie_*** functions
-static int __dcc_cookie_read_apple(void *v, char *buf, int size);
-static int __dcc_cookie_write_apple(void *v, const char *buf, int size);
-static fpos_t __dcc_cookie_seek_apple(void *v, fpos_t offset, int whence);
-static int __dcc_cookie_close_apple(void *v, const char *buf, int size);
-
 FILE *open_cookie(void *cookie, const char *mode) {
-#ifdef __APPLE__
-	return funopen(cookie, __dcc_cookie_read_apple, __dcc_cookie_write_apple, __dcc_cookie_seek_apple, __dcc_cookie_close);
-#else
 	return fopencookie(cookie, mode, (cookie_io_functions_t) {
 				.write = __dcc_cookie_write,
 				.close = __dcc_cookie_close,
@@ -101,8 +98,9 @@ FILE *open_cookie(void *cookie, const char *mode) {
 				.seek = __dcc_cookie_seek,
 #endif
 				});
-#endif
 }
+
+#endif
 
 #ifndef getchar
 // if we don't override getchar the fopencookie hooks are sometimes not called - reasons unclear
@@ -351,14 +349,12 @@ static int64_t synchronize_system_call_result(enum which_system_call which
 
 #endif
 
-// pass results of a read sanitizer 1 -> sanitizer 2
 
-int __dcc_cookie_read_apple(void *v, char *buf, int size) {
-	return (int)__dcc_cookie_read(v, buf, (size_t)size);
-}
-
+#if __USE_FUNOPEN__
+static int __dcc_cookie_read(void *v, char *buf, int size) {
+#else
 static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
-
+#endif
 	// libc 2.28-5 doesn't flush stdout if it is a (linebuffered) fopencookie streams
 	// when there is a read on stdin which is a (linebuffered) fopencookie streams
 	// workaround by flushing stdout here on read of any stream
@@ -396,12 +392,11 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 static void __dcc_check_output(int fd, const char *buf, size_t size);
 static void __dcc_check_close(int fd);
 
-// pass results of a write sanitizer 1 -> sanitizer 2
-int __dcc_cookie_write_apple(void *v, const char *buf, int size) {
-	return (int)__dcc_cookie_write(v, buf, (size_t)size);
-}
-
+#if __USE_FUNOPEN__
+static int __dcc_cookie_write(void *v, const char *buf, int size) {
+#else
 static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
+#endif
 	synchronize_system_call(sc_write, size);
 #if __I_AM_SANITIZER1__
 	struct cookie *cookie = v;
@@ -418,11 +413,21 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 }
 
 
-// pass results of a seek sanitizer 1 -> sanitizer 2
-static fpos_t __dcc_cookie_seek_apple(void *v, fpos_t offset, int whence) {
-	return (fpos_t)__dcc_cookie_seek(v, &offset, whence);
-}
+#if __USE_FUNOPEN__
+static off_t __dcc_cookie_seek(void *v, off_t offset, int whence) {
+	synchronize_system_call(sc_seek, offset);
 
+#if __I_AM_SANITIZER1__
+	struct cookie *cookie = v;
+	off_t result = lseek(cookie->fd, offset, whence);
+	(void)synchronize_system_call_result(sc_seek, result);
+#else
+	int result = synchronize_system_call_result(sc_seek);
+#endif
+	quick_clear_stack();
+	return result;
+}
+#else
 static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 	synchronize_system_call(sc_seek, *offset);
 
@@ -441,6 +446,7 @@ static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 	quick_clear_stack();
 	return result;
 }
+#endif
 
 // pass results of a close sanitizer 1 -> sanitizer 2
 
@@ -460,6 +466,7 @@ static int __dcc_cookie_close(void *v) {
 	quick_clear_stack();
 	return result;
 }
+
 
 #if __N_SANITIZERS__ > 1
 void abort(void) {

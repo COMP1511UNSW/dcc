@@ -211,6 +211,9 @@ def update_wrapper_source(sanitizer, sanitizer_n, wrapper_source, tar_source, op
     wrapper_source = wrapper_source.replace(
         "__LEAK_CHECK_1_0__", "1" if leak_check else "0"
     )
+    wrapper_source = wrapper_source.replace(
+        "__USE_FUNOPEN__", "1" if options.use_funopen else "0"
+    )
 
     wrapper_source = wrapper_source.replace(
         "__I_AM_SANITIZER1__", "1" if sanitizer_n == 1 else "0"
@@ -536,6 +539,7 @@ class Options:
         self.stack_use_after_return = None
         self.suppressions_file = os.devnull
         self.system_includes_used = set()
+        self.use_funopen = None
 
         self.tar_buffer = io.BytesIO()
         # pylint: disable=consider-using-with
@@ -607,7 +611,7 @@ def get_options():
             reason = "threads used"
         elif options.unsafe_system_includes:
             reason = options.unsafe_system_includes[0] + " used"
-        elif sys.platform == "":
+        elif sys.platform == "darwin":
             reason = "not supported on OSX"
 
         if reason:
@@ -650,12 +654,15 @@ def get_options():
     ):
         options.shared_libasan = True
 
+    if options.use_funopen and sys.platform == "linux":
+        options.c_compiler_args += ["-lbsd"]
+        options.gcc_args += ["-lm"]
+
     if options.incremental_compilation and len(options.sanitizers) > 1:
         options.die("only a single sanitizer supported with incremental compilation")
 
     if options.object_files_being_linked and len(options.sanitizers) > 1:
         options.die("only a single sanitizer supported with linking of .o files")
-
     return options
 
 
@@ -696,9 +703,9 @@ def parse_arg(arg, remaining_args, options):
                 options.die("unknown sanitizer", sanitizer)
         if len(options.sanitizers) not in [1, 2]:
             options.die("only 1 or 2 sanitizers supported")
-    elif arg in ["--memory"]:  # for backwardscompatibility
+    elif arg in ["--memory"]:  # for backwards compatibility
         options.sanitizers = ["memory"]
-    elif arg == "--valgrind":  # for backwardscompatibility
+    elif arg == "--valgrind":  # for backwards compatibility
         options.sanitizers = ["valgrind"]
     elif arg == "--leak-check" or arg == "--leakcheck":
         options.leak_check = True
@@ -712,9 +719,11 @@ def parse_arg(arg, remaining_args, options):
         options.explanations = False
     elif arg == "--shared-libasan" or arg == "-shared-libasan":
         options.shared_libasan = True
-    # support both spelling for backwars compatibility
+    # support both spelling for backwards compatibility
     elif arg == "--use-after-return" or arg == "--use_after_return":
         options.stack_use_after_return = True
+    elif arg == "--use-funopen":
+        options.use_funopen = True
     elif arg == "--no-shared-libasan":
         options.shared_libasan = False
     elif arg == "--valgrind-fix-posix-spawn":
