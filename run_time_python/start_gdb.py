@@ -81,7 +81,7 @@ def start_gdb(gdb_driver_file="drive_gdb.py"):
             )
         p.communicate()
     except OSError:
-        print("\ngdb not available to print variable values\n", file=sys.stderr)
+        print("\ngdb not available to print program location and variable values\n", file=sys.stderr)
     if debug_level > 1:
         print("kill_all()")
     kill_all()
