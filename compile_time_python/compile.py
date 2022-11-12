@@ -454,11 +454,11 @@ class Options:
     def __init__(self):
         self.debug = int(os.environ.get("DCC_DEBUG", "0"))
 
-        # OSX has clang renamed as gcc - but it doesn't take gcc options
+        # macOS has clang renamed as gcc - but it doesn't take gcc options
         self.also_run_gcc = sys.platform != "darwin" and search_path("gcc")
 
         self.basename = os.path.basename(sys.argv[0])
-        self.check_output = sys.platform != "darwin"
+        self.check_output = True
         self.valgrind_fix_posix_spawn = None
 
         self.c_compiler_args = COMMON_COMPILER_ARGS
@@ -520,8 +520,10 @@ class Options:
 
         self.explanations = True
 
-        # ld reportedly doesn't have wrap on OSX
+        # ld doesn't have wrap on macOS
         self.ifdef_instead_of_wrap = sys.platform == "darwin"
+        # fopencookie is not available on macOS
+        self.use_funopen = sys.platform == "darwin"
 
         self.incremental_compilation = False
 
@@ -539,7 +541,6 @@ class Options:
         self.stack_use_after_return = None
         self.suppressions_file = os.devnull
         self.system_includes_used = set()
-        self.use_funopen = None
 
         self.tar_buffer = io.BytesIO()
         # pylint: disable=consider-using-with

@@ -241,7 +241,7 @@ int main(void) {
 	Install gdb - see https://sourceware.org/gdb/wiki/PermissionsDarwin
 	In your terminal, run:
 	```bash
-	bash <(curl -s https://raw.githubusercontent.com/jakerenzella/dcc/enhance/add-macos-support/install_scripts/macos_install.sh)
+	bash <(curl -s https://raw.githubusercontent.com/COMP1511UNSW/dcc/master/install_scripts/macos_install.sh)
 	```
 	Note: It is usually not a good idea to blindly run remote bash scripts in your terminal, you can inspect the file by opening the URL and reading to see what it does yourself.
 
