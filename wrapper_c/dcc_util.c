@@ -129,6 +129,7 @@ void __asan_on_error(void) {
 
 // intercept ASAN explanation
 void _Unwind_Backtrace(void *a, ...) {
+	(void)a; // avoid unused parameter warning
 	debug_printf(2, "_Unwind_Backtrace\n");
 	_explain_error();
 }

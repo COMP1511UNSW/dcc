@@ -7,10 +7,14 @@ static int init_check_output(void) {
 }
 
 static void __dcc_check_output(int fd, const char *buf, size_t size) {
+	(void)fd; // avoid unused parameter warning
+	(void)buf; // avoid unused parameter warning
+	(void)size; // avoid unused parameter warning
 	expected_stdout = (unsigned char *)getenv("DCC_EXPECTED_STDOUT");
 }
 
 static void __dcc_check_close(int fd) {
+	(void)fd; // avoid unused parameter warning
 }
 
 static void __dcc_check_output_exit(void) {

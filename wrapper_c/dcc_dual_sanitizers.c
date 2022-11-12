@@ -40,6 +40,7 @@ static FILE *get_cookie(FILE *f, const char *mode) {
 
 #else
 static FILE *get_cookie(FILE *f, const char *mode) {
+	(void)f; // avoid unused parameter warning
 	return open_cookie(NULL, mode);
 }
 #endif
@@ -376,6 +377,7 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 	}
 #endif
 #else
+	(void)v; // avoid unused parameter warning
 	ssize_t n_bytes_read = synchronize_system_call_result(sc_read);
 	if (n_bytes_read > 0) {
 		ssize_t n_bytes_actually_read = read(to_sanitizer2_pipe[0], buf, n_bytes_read);
@@ -406,6 +408,9 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 
 	(void)synchronize_system_call_result(sc_write, n_bytes_written);
 #else
+	(void)v; // avoid unused parameter warning
+	(void)buf; // avoid unused parameter warning
+	(void)size; // avoid unused parameter warning
 	size_t n_bytes_written = synchronize_system_call_result(sc_write);
 #endif
 	quick_clear_stack();
@@ -422,6 +427,9 @@ static off_t __dcc_cookie_seek(void *v, off_t offset, int whence) {
 	off_t result = lseek(cookie->fd, offset, whence);
 	(void)synchronize_system_call_result(sc_seek, result);
 #else
+	(void)v; // avoid unused parameter warning
+	(void)offset; // avoid unused parameter warning
+	(void)whence; // avoid unused parameter warning
 	int result = synchronize_system_call_result(sc_seek);
 #endif
 	quick_clear_stack();
@@ -441,6 +449,9 @@ static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 
 	(void)synchronize_system_call_result(sc_seek, result);
 #else
+	(void)v; // avoid unused parameter warning
+	(void)offset; // avoid unused parameter warning
+	(void)whence; // avoid unused parameter warning
 	int result = synchronize_system_call_result(sc_seek);
 #endif
 	quick_clear_stack();
@@ -461,6 +472,7 @@ static int __dcc_cookie_close(void *v) {
 	cookie->fd = 0;
 	(void)synchronize_system_call_result(sc_close, result);
 #else
+	(void)v; // avoid unused parameter warning
 	int result = (int)synchronize_system_call_result(sc_close);
 #endif
 	quick_clear_stack();
@@ -521,6 +533,7 @@ int __wrap_remove(const char *pathname) {
 	extern int __real_remove(const char *pathname);
 	return synchronize_system_call_result(sc_remove, __real_remove(pathname));
 #else
+	(void)pathname; // avoid unused parameter warning
 	return synchronize_system_call_result(sc_remove);
 #endif
 }
@@ -534,6 +547,8 @@ int __wrap_rename(const char *oldpath, const char *newpath) {
 	extern int __real_rename(const char *oldpath, const char *newpath);
 	return synchronize_system_call_result(sc_rename, __real_rename(oldpath, newpath));
 #else
+	(void)oldpath; // avoid unused parameter warning
+	(void)newpath; // avoid unused parameter warning
 	return synchronize_system_call_result(sc_rename);
 #endif
 }
@@ -548,6 +563,7 @@ int __wrap_system(const char *command) {
 	int __real_system(const char *command);
 	return synchronize_system_call_result(sc_system, __real_system(command));
 #else
+	(void)command; // avoid unused parameter warning
 	return synchronize_system_call_result(sc_system);
 #endif
 }
@@ -560,6 +576,7 @@ static FILE *fopen_helper(FILE *f, const char *mode, enum which_system_call syst
 	(void)synchronize_system_call_result(system_call, !!f1);
 	return f1;
 #else
+	(void)f; // avoid unused parameter warning
 	int64_t r = synchronize_system_call_result(system_call);
 	if (r) {
 		return open_cookie(NULL, mode);
@@ -576,6 +593,7 @@ FILE *__wrap_popen(const char *command, const char *type) {
 	extern FILE *__real_popen(const char *command, const char *type);
 	FILE *f = __real_popen(command, type);
 #else
+	(void)command; // avoid unused parameter warning
 	FILE *f = NULL;
 #endif
 	return fopen_helper(f, type, sc_popen);
@@ -589,6 +607,7 @@ FILE *__wrap_fopen(const char *pathname, const char *mode) {
 	extern FILE *__real_fopen(const char *pathname, const char *mode);
 	FILE *f = __real_fopen(pathname, mode);
 #else
+	(void)pathname; // avoid unused parameter warning
 	FILE *f = NULL;
 #endif
 	return fopen_helper(f, mode, sc_fopen);
@@ -601,6 +620,7 @@ FILE *__wrap_fdopen(int fd, const char *mode) {
 	extern FILE *__real_fdopen(int fd, const char *mode);
 	FILE *f = __real_fdopen(fd, mode);
 #else
+	(void)fd; // avoid unused parameter warning
 	FILE *f = NULL;
 #endif
 	return fopen_helper(f, mode, sc_fdopen);
@@ -636,6 +656,8 @@ FILE *__wrap_freopen(const char *pathname, const char *mode, FILE *stream) {
 		return NULL;
 	}
 #else
+	(void)pathname; // avoid unused parameter warning
+	(void)stream; // avoid unused parameter warning
 	int64_t r = synchronize_system_call_result(sc_freopen);
 	if (r) {
 		return open_cookie(NULL, mode);

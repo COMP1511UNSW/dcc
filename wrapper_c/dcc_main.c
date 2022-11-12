@@ -87,6 +87,7 @@ static void init_cookies(void);
 #if __N_SANITIZERS__ == 1
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
+	(void)envp; // avoid unused parameter warning
 	debug_stream = stderr;
 	char *mypath = realpath(argv[0], NULL);
 	if (mypath) {
@@ -103,6 +104,7 @@ static int from_sanitizer2_pipe[2];
 #if __I_AM_SANITIZER2__
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
+	(void)envp; // avoid unused parameter warning
 	debug_stream = stderr;
 	to_sanitizer2_pipe[0] = atoi(getenv("DCC_PIPE_TO_CHILD"));
 	from_sanitizer2_pipe[1] = atoi(getenv("DCC_PIPE_FROM_CHILD"));
@@ -122,6 +124,7 @@ static void __dcc_main_sanitizer1(int argc, char *argv[]) NO_SANITIZE;
 static void __dcc_main_sanitizer2(int argc, char *argv[], char *sanitizer2_executable_pathname) NO_SANITIZE;
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
+	(void)envp; // avoid unused parameter warning
 	extern char **environ;
 	char *mypath = realpath(argv[0], NULL);
 	if (mypath) {
