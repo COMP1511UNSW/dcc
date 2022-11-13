@@ -25,7 +25,7 @@ COMMON_WARNING_ARGS = """
     -Wshadow
     """.split()
 
-COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-std=gnu11 -g -lm".split()
+COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-g -lm".split()
 
 CLANG_ONLY_ARGS = """
     -Wunused-comparison
