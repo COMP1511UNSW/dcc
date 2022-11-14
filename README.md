@@ -233,9 +233,6 @@ int main(void) {
 	```
 	
 	
-* OSX
-
-
 * MacOS
 	Install python3 - see https://docs.python-guide.org/starting/install3/osx/
 	Install gdb - see https://sourceware.org/gdb/wiki/PermissionsDarwin
@@ -250,6 +247,21 @@ int main(void) {
 	sudo chmod o+rx  /usr/local/bin/dcc
     ```
 	
+	valgrind and MemorySanitizer are not currently supported on macOS which prevent checking for unitialized variables
+
+
+# C++ Support
+
+There is experimental support for C++ programs if `dcc` is invoked as `dcc++`.
+
+Install by creating a symbolic link, e.g.:
+
+```bash
+sudo ln  -sf dcc /usr/local/bin/dcc++
+```
+
+Running dual-sanitizers is not currently supported for C++.
+
 
 # Run-time Error Handling Implementation
 

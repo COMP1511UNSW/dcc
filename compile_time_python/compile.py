@@ -161,7 +161,8 @@ def compile_user_program():
         and "gcc" not in options.c_compiler
         and not options.object_files_being_linked
     ):
-        command = ["gcc"] + options.user_supplied_compiler_args + options.gcc_args
+        gcc = "g++" if options.basename.endswith("++") else "gcc"
+        command = [gcc] + options.user_supplied_compiler_args + options.gcc_args
         options.debug_print("compiling with gcc for extra checking")
         execute_compiler(
             command, "", options, rename_functions=False, checking_only=True
@@ -291,7 +292,7 @@ def execute_compiler(
 
     if options.debug > 1:
         try:
-            contents = " ".join(command).replace("-x c -", debug_wrapper_file)
+            contents = " ".join(command).replace("-x c -", "-x c " + debug_wrapper_file)
             if not os.path.exists(DEBUG_COMPILE_FILE):
                 options.debug_print(
                     f"Leaving dcc compile_command in {DEBUG_COMPILE_FILE}"
@@ -477,7 +478,7 @@ class Options:
             "DCC_COLORIZE_OUTPUT", False
         )
 
-        # used by hopefully obsolete code which use executes dcc from binary
+        # used by obsolete code which use executes dcc from binary
         self.dcc_path = os.path.realpath(sys.argv[0])
 
         # list of system includes for standard lib function which will not
@@ -572,7 +573,7 @@ def get_options():
     options = parse_args(sys.argv[1:])
 
     if not options.c_compiler:
-        clang = "clang++" if sys.argv[0].endswith("++") else "clang"
+        clang = "clang++" if options.basename.endswith("++") else "clang"
         test_clang_version_exists(clang, options)
         # this needs to be generalized to select preferred clang version
         # when multiple versions available

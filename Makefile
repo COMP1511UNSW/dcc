@@ -38,6 +38,7 @@ packaging/debian/dcc_${VERSION}_all.deb: dcc dcc.1
 	rm -rf debian
 	mkdir -p debian/DEBIAN/usr/local/bin/
 	cp -p dcc debian/DEBIAN/usr/local/bin/
+	ln -sf dcc debian/DEBIAN/usr/local/bin/dcc++
 	echo Package: dcc >debian/DEBIAN/control
 	echo Architecture: all >>debian/DEBIAN/control
 	echo Description:  a C compiler which explain errors to novice programmers >>debian/DEBIAN/control
