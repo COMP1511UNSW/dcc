@@ -12,7 +12,7 @@ int f1(int *a) {
 }
 
 int main(int argc, char **argv) {
-    int **i = malloc(2 * sizeof (int *));
+    int **i = (int **)malloc(2 * sizeof (int *));
     i[argc] = NULL;
     return f1(i[0]);
 }

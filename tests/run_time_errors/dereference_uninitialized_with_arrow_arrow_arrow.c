@@ -5,7 +5,7 @@ struct list_node {
     int data;
 };
 int main(void) { 
-    struct list_node *a = malloc(sizeof *a);
-    a->next =  malloc(sizeof *a);
+    struct list_node *a = (struct list_node *)malloc(sizeof *a);
+    a->next =  (struct list_node *)malloc(sizeof *a);
     a->next->next->data = 42;
 }

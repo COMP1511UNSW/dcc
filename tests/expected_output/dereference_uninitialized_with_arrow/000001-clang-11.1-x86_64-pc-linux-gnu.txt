@@ -1,0 +1,20 @@
+
+tests/run_time_errors/dereference_uninitialized_with_arrow.c:12:14: runtime error - accessing a field via an uninitialized pointer
+
+dcc explanation: You are using a pointer which has not been initialized
+  A common error is using p->field without first assigning a value to p.
+
+Execution stopped in main() in tests/run_time_errors/dereference_uninitialized_with_arrow.c at line 12:
+
+int main(int argc, char **argv) { 
+    struct list_node *a = (struct list_node *)malloc(2 * sizeof *a);
+    if (argc != 1) {
+        a->next = NULL;
+    }
+--> a->next->data = 42;
+}
+
+Values when execution stopped:
+
+argc = 1
+a->next = <uninitialized value>

@@ -572,13 +572,14 @@ def get_options():
     options = parse_args(sys.argv[1:])
 
     if not options.c_compiler:
-        test_clang_version_exists("clang", options)
+        clang = "clang++" if sys.argv[0].endswith("++") else "clang"
+        test_clang_version_exists(clang, options)
         # this needs to be generalized to select preferred clang version
         # when multiple versions available
         try:
             if not options.clang_version or int(options.clang_version_major) < 11:
                 for major in range(11, 31, 2):
-                    if test_clang_version_exists(f"clang-{major}", options):
+                    if test_clang_version_exists(f"{clang}-{major}", options):
                         break
 
         except ValueError:
@@ -967,7 +968,7 @@ def test_clang_version_exists(compiler, options):
             [compiler, "--version"], universal_newlines=True
         )
         options.debug_print("clang version:", clang_version_string)
-        # assume little about how version is printed, e.g. because Apple mangles it
+        # assume little about how version is printed, e.g. because macOS mangles it
         m = re.search(r"((\d+)\.(\d+)\.\d+)", clang_version_string, flags=re.I)
         if m:
             options.clang_version = m.group(1)

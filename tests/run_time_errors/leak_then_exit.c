@@ -3,6 +3,6 @@
 #include <stdlib.h>
 
 int main(void) {
-	char *p = malloc(1);
+	char *p = (char *)malloc(1);
 	exit(!p);
 }
