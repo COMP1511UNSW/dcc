@@ -260,6 +260,9 @@ def get_options():
         options.dcc_supplied_compiler_args += ["-lbsd"]
         options.gcc_args += ["-lm"]
 
+    if options.ifdef_instead_of_wrap:
+        options.dcc_supplied_compiler_args += ["-Wno-return-type"]
+
     if options.incremental_compilation and len(options.sanitizers) > 1:
         options.die("only a single sanitizer supported with incremental compilation")
 
