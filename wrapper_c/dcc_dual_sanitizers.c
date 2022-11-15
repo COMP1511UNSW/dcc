@@ -123,6 +123,12 @@ int putchar(int c) {
 }
 #endif
 
+#ifndef __APPLE__
+
+// On macOS overriding puts gives this error:
+// Interceptors are not working. This may be because AddressSanitizer is loaded too late
+// Benefit unclear from overriding puts on any platform
+
 #ifndef puts
 // overriding puts in case this is also needed to ensure fopencookie hooks called
 int puts(const char *s) {
@@ -136,6 +142,7 @@ int puts(const char *s) {
 	}
 	return ret1 + 1;
 }
+#endif
 #endif
 
 #if __N_SANITIZERS__ == 1
