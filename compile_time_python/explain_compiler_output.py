@@ -19,7 +19,7 @@ def explain_compiler_output(output, args):
         not errors_explained or len(explanations_made) < args.max_explanations
     ):
         message, lines = get_next_message(lines)
-        if args.debug:
+        if args.debug > 2:
             print("message", message, file=sys.stderr)
         if not message:
             print(lines.pop(0), file=sys.stderr)

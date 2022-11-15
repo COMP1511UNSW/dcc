@@ -60,7 +60,7 @@ def drive_gdb():
     output_stream.flush()
     # __dcc_error_exit hangs for unknown reason on WSL
     if not windows_subsystem_for_linux:
-        gdb_execute("call __dcc_error_exit()")
+        gdb_execute("call (void)__dcc_error_exit()")
     # 	kill_all()
     gdb_execute("quit")
 

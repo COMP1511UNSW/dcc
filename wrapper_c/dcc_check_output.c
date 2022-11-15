@@ -98,8 +98,8 @@ static int init_check_output(void) {
 	}
 
 	// comparison is line based so we can't ignore newline characters
-	ignore_characters['\n'] = 0;
-	ignore_characters['\r'] = 0;
+	ignore_characters[(int)'\n'] = 0;
+	ignore_characters[(int)'\r'] = 0;
 
 	return 0;
 }
@@ -145,7 +145,7 @@ static size_t n_actual_lines_seen;
 
 static unsigned char expected_line[ACTUAL_LINE_MAX + 2];
 
-static void __dcc_compare_output_error(char *reason, int actual_column, int expected_column);
+static void __dcc_compare_output_error(const char *reason, int actual_column, int expected_column);
 static void __dcc_compare_line(unsigned char *expected, unsigned char *actual);
 static int get_next_expected_line(void);
 static int is_empty_line(unsigned char *line);
@@ -305,7 +305,7 @@ static int get_next_expected_line1(void) {
 //	}
 //}
 
-static void __dcc_compare_output_error(char *reason, int actual_column, int expected_column) {
+static void __dcc_compare_output_error(const char *reason, int actual_column, int expected_column) {
 	debug_printf(2, "__dcc_compare_output_error(%s)\n", reason);
 	char buffer[6][128];
 	snprintf(buffer[0], sizeof buffer[0], "DCC_OUTPUT_ERROR=%s", reason);

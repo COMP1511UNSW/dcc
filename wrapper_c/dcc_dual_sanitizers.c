@@ -68,7 +68,10 @@ static void init_cookies(void) {
 }
 
 #if __USE_FUNOPEN__
+
+#ifndef __APPLE__
 #include <bsd/stdio.h>
+#endif
 
 static int __dcc_cookie_read(void *v, char *buf, int size);
 static int __dcc_cookie_write(void *v, const char *buf, int size);
@@ -364,7 +367,7 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 
 	synchronize_system_call(sc_read, size);
 #if __I_AM_SANITIZER1__
-	struct cookie *cookie = v;
+	struct cookie *cookie = (struct cookie *)v;
 	ssize_t n_bytes_read = read(cookie->fd, buf, size);
 #if __N_SANITIZERS__ > 1
 	(void)synchronize_system_call_result(sc_read, n_bytes_read);
@@ -401,7 +404,7 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 #endif
 	synchronize_system_call(sc_write, size);
 #if __I_AM_SANITIZER1__
-	struct cookie *cookie = v;
+	struct cookie *cookie = (struct cookie *)v;
 	size_t n_bytes_written = write(cookie->fd, buf, size);
 
 	__dcc_check_output(cookie->fd, buf, size);
@@ -423,7 +426,7 @@ static off_t __dcc_cookie_seek(void *v, off_t offset, int whence) {
 	synchronize_system_call(sc_seek, offset);
 
 #if __I_AM_SANITIZER1__
-	struct cookie *cookie = v;
+	struct cookie *cookie = (struct cookie *)v;
 	off_t result = lseek(cookie->fd, offset, whence);
 	(void)synchronize_system_call_result(sc_seek, result);
 #else
@@ -440,7 +443,7 @@ static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 	synchronize_system_call(sc_seek, *offset);
 
 #if __I_AM_SANITIZER1__
-	struct cookie *cookie = v;
+	struct cookie *cookie = (struct cookie *)v;
 	off_t result = lseek(cookie->fd, *offset, whence);
 	if (result != -1) {
 		*offset = result;
@@ -464,7 +467,7 @@ static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 static int __dcc_cookie_close(void *v) {
 	synchronize_system_call(sc_close, 0);
 #if __I_AM_SANITIZER1__
-	struct cookie *cookie = v;
+	struct cookie *cookie = (struct cookie *)v;
 	int result = fclose(cookie->stream);
 	__dcc_check_close(cookie->fd);
 	cookie->stream = NULL;

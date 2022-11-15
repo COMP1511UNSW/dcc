@@ -61,9 +61,9 @@ void __dcc_error_exit(void) NO_SANITIZE;
 static void __dcc_signal_handler(int signum) NO_SANITIZE;
 static void set_signals_default(void) NO_SANITIZE;
 static void launch_valgrind(int argc, char *argv[]) NO_SANITIZE;
-static void setenvd_int(char *n, int v) NO_SANITIZE;
-static void setenvd(char *n, char *v) NO_SANITIZE;
-static void putenvd(char *s) NO_SANITIZE;
+static void setenvd_int(const char *n, int v) NO_SANITIZE;
+static void setenvd(const char *n, const char *v) NO_SANITIZE;
+static void putenvd(const char *s) NO_SANITIZE;
 #ifndef debug_printf
 static int debug_printf(int level, const char *format, ...) NO_SANITIZE;
 #endif
@@ -121,7 +121,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 static pid_t sanitizer2_pid;
 
 static void __dcc_main_sanitizer1(int argc, char *argv[]) NO_SANITIZE;
-static void __dcc_main_sanitizer2(int argc, char *argv[], char *sanitizer2_executable_pathname) NO_SANITIZE;
+static void __dcc_main_sanitizer2(int argc, char *argv[], const char *sanitizer2_executable_pathname) NO_SANITIZE;
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
 	(void)envp; // avoid unused parameter warning
@@ -183,7 +183,7 @@ static void __dcc_main_sanitizer1(int argc, char *argv[]) {
 }
 
 
-static void __dcc_main_sanitizer2(int argc, char *argv[], char *sanitizer2_executable_pathname) {
+static void __dcc_main_sanitizer2(int argc, char *argv[], const char *sanitizer2_executable_pathname) {
 	debug_printf(2, "main sanitizer2\n");
 	close(to_sanitizer2_pipe[1]);
 	close(from_sanitizer2_pipe[0]);
@@ -196,7 +196,7 @@ static void __dcc_main_sanitizer2(int argc, char *argv[], char *sanitizer2_execu
 	execvp(sanitizer2_executable_pathname, argv);
 	debug_printf(1, "execvp %s failed", sanitizer2_executable_pathname);
 #else
-	argv[0] = sanitizer2_executable_pathname;
+	argv[0] = (char *)sanitizer2_executable_pathname;
 	launch_valgrind(argc, argv);
 #endif
 	exit(1);

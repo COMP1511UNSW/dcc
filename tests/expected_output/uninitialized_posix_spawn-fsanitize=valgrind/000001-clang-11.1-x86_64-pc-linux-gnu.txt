@@ -1,21 +1,8 @@
 
-Runtime error: uninitialized variable accessed.
+Runtime error: invalid parameters to process creation
 
-Execution stopped in main() in tests/run_time_errors/uninitialized_posix_spawn.c at line 10:
+An error has occurred in process creation.
+This is likely an invalid argument to posix_spawn, posix_spawnp or clone.
+Check all arguments are initialized.
 
-	pid_t p;
-	char *a[] = {(char *)"/bin/true", NULL};
-	posix_spawn_file_actions_t file_actions;
-    if (argc != 1) {
-         posix_spawn_file_actions_init(&file_actions);
-    }
--->	posix_spawn(&p, a[0], &file_actions, NULL, a, NULL);
-}
 
-Values when execution stopped:
-
-a = {0x4337cb "/bin/true", NULL}
-argc = 1
-file_actions = {__allocated = <uninitialized value>, __used = <uninitialized value>, __actions = <uninitialized value>, ...}
-p = <uninitialized value>
-a[0] = "/bin/true"
