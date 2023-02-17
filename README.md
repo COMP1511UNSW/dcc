@@ -260,9 +260,6 @@ Install by creating a symbolic link, e.g.:
 sudo ln  -sf dcc /usr/local/bin/dcc++
 ```
 
-A significant limitation is that running dual-sanitizers is not currently supported for the 
- `iostream` library which is commonly used in novice programs.
-
 
 # Run-time Error Handling Implementation
 

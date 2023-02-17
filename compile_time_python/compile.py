@@ -37,7 +37,7 @@ def main():
 
 
 def compile_user_program(options):
-    wrapper_source, tar_source = get_wrapper_tar_source(options)
+    wrapper_source, tar_source, wrapper_cpp_source = get_wrapper_code(options)
     compiler_stdout = ""
     executable_source = ""
 
@@ -67,8 +67,9 @@ def compile_user_program(options):
                 + sanitizer2_sanitizer_args
                 + ["-o", executable],
                 options,
-                wrapper_source=sanitizer2_wrapper_source,
-                debug_wrapper_file="tmp_dcc_sanitizer2.c",
+                wrapper_C_source=sanitizer2_wrapper_source,
+                wrapper_cpp_source=wrapper_cpp_source,
+                debug_C_wrapper_file="tmp_dcc_sanitizer2.c",
             )
             with open(executable, "rb") as f:
                 (
@@ -115,7 +116,8 @@ def compile_user_program(options):
         + sanitizer_args
         + ["-o", options.object_pathname],
         options,
-        wrapper_source=wrapper_source,
+        wrapper_C_source=wrapper_source,
+        wrapper_cpp_source=wrapper_cpp_source,
         print_stdout=not compiler_stdout,
     )
 
@@ -142,8 +144,8 @@ def compile_user_program(options):
 
 
 # customize wrapper source for a particular sanitizer
-def update_wrapper_source(sanitizer, sanitizer_n, wrapper_source, tar_source, options):
-    wrapper_source = wrapper_source.replace("__SANITIZER__", sanitizer.upper())
+def update_wrapper_source(sanitizer, sanitizer_n, src, tar_source, options):
+    src = src.replace("__SANITIZER__", sanitizer.upper())
     if sanitizer == "valgrind":
         sanitizer_args = []
     elif sanitizer == "memory":
@@ -153,11 +155,9 @@ def update_wrapper_source(sanitizer, sanitizer_n, wrapper_source, tar_source, op
 
     # 	if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
     if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
-        # FIXME if we enable  '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
+        # FIXME if we enable '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
         # which would be preferable here we get uninitialized variable error message for undefined errors
-        wrapper_source = wrapper_source.replace(
-            "__UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__", "1"
-        )
+        src = src.replace("__UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__", "1")
         sanitizer_args += ["-fsanitize=undefined"]
 
     # These options stop error explanations if	__ubsan_on_report can not be intercepted (on Ubuntu)
@@ -172,59 +172,64 @@ def update_wrapper_source(sanitizer, sanitizer_n, wrapper_source, tar_source, op
         if os.path.exists(lib_dir):
             sanitizer_args += ["-shared-libasan", "-Wl,-rpath," + lib_dir]
 
-    wrapper_source = wrapper_source.replace(
-        "__LEAK_CHECK_YES_NO__", "yes" if options.leak_check else "no"
-    )
+    src = src.replace("__LEAK_CHECK_YES_NO__", "yes" if options.leak_check else "no")
     leak_check = options.leak_check
     if leak_check and options.sanitizers[1:] == ["valgrind"]:
         # do leak checking in valgrind (only) for (currently) better messages
         leak_check = False
-    wrapper_source = wrapper_source.replace(
-        "__LEAK_CHECK_1_0__", "1" if leak_check else "0"
-    )
-    wrapper_source = wrapper_source.replace(
-        "__USE_FUNOPEN__", "1" if options.use_funopen else "0"
-    )
+    src = src.replace("__LEAK_CHECK_1_0__", "1" if leak_check else "0")
+    src = src.replace("__USE_FUNOPEN__", "1" if options.use_funopen else "0")
 
-    wrapper_source = wrapper_source.replace(
-        "__I_AM_SANITIZER1__", "1" if sanitizer_n == 1 else "0"
-    )
-    wrapper_source = wrapper_source.replace(
-        "__I_AM_SANITIZER2__", "1" if sanitizer_n == 2 else "0"
-    )
-    wrapper_source = wrapper_source.replace(
+    src = src.replace("__I_AM_SANITIZER1__", "1" if sanitizer_n == 1 else "0")
+    src = src.replace("__I_AM_SANITIZER2__", "1" if sanitizer_n == 2 else "0")
+    src = src.replace(
         "__WHICH_SANITIZER__", "sanitizer2" if sanitizer_n == 2 else "sanitizer1"
     )
 
-    wrapper_source = tar_source + wrapper_source
-    return wrapper_source, sanitizer_args
+    src = tar_source + src
+    return src, sanitizer_args
 
 
 def execute_compiler(
     compiler,
     dcc_supplied_arguments,
     options,
-    wrapper_source="",
-    debug_wrapper_file="tmp_dcc_sanitizer1.c",
+    wrapper_C_source="",
+    debug_C_wrapper_file="tmp_dcc_sanitizer1.c",
     rename_functions=True,
     print_stdout=True,
     checking_only=False,
+    wrapper_cpp_source="",
+    debug_cpp_wrapper_file="tmp_dcc_sanitizer1.cpp",
 ):
-    extra_arguments, extra_arguments_debug = compile_wrapper_source(
-        wrapper_source, options, rename_functions, debug_wrapper_file
+    extra_c_arguments, extra_c_arguments_debug = compile_wrapper_source(
+        wrapper_C_source,
+        options,
+        debug_C_wrapper_file,
+        cpp=False,
+        rename_functions=rename_functions,
+    )
+    extra_cpp_arguments, extra_cpp_arguments_debug = compile_wrapper_source(
+        wrapper_cpp_source,
+        options,
+        debug_cpp_wrapper_file,
+        cpp=True,
+        rename_functions=rename_functions,
     )
 
     command = (
         [compiler]
         + dcc_supplied_arguments
-        + extra_arguments
+        + extra_c_arguments
+        + extra_cpp_arguments
         + options.user_supplied_compiler_args
     )
     if options.debug > 1:
         debug_command = (
             [compiler]
             + dcc_supplied_arguments
-            + extra_arguments_debug
+            + extra_c_arguments_debug
+            + extra_cpp_arguments_debug
             + options.user_supplied_compiler_args
         )
         append_debug_compile(debug_command)
@@ -282,9 +287,11 @@ def execute_compiler(
             dcc_supplied_arguments,
             options,
             rename_functions=False,
-            wrapper_source=wrapper_source,
+            wrapper_C_source=wrapper_C_source,
             print_stdout=print_stdout,
-            debug_wrapper_file=debug_wrapper_file,
+            debug_C_wrapper_file=debug_C_wrapper_file,
+            wrapper_cpp_source=wrapper_cpp_source,
+            debug_cpp_wrapper_file=debug_cpp_wrapper_file,
         )
 
     if stdout and print_stdout:
@@ -300,15 +307,20 @@ def execute_compiler(
 
 
 def compile_wrapper_source(
-    source, options, rename_functions=True, debug_wrapper_file="tmp_dcc_sanitizer1.c"
+    source, options, debug_wrapper_file, cpp=False, rename_functions=True
 ):
     if not source:
         return [], []
     rename_arguments, source = get_rename_arguments(source, options, rename_functions)
-    relocatable_filename = os.path.join(
-        options.temporary_directory, "dcc_wrapper_source.o"
+    relocatable_basename = (
+        "dcc_cpp_wrapper_source.o" if cpp else "dcc_c_wrapper_source.o"
     )
-    compiler = options.c_compiler.replace("clang++", "clang").replace("++", "cc")
+    relocatable_pathname = os.path.join(
+        options.temporary_directory, relocatable_basename
+    )
+    compiler = options.c_compiler
+    if not cpp:
+        compiler = options.c_compiler.replace("clang++", "clang").replace("++", "cc")
     if options.debug > 1:
         try:
             options.debug_print("Leaving dcc code in", debug_wrapper_file)
@@ -321,23 +333,23 @@ def compile_wrapper_source(
             "-c",
             debug_wrapper_file,
             "-o",
-            "dcc_wrapper_source.o",
+            relocatable_basename,
         ] + WRAPPER_SOURCE_COMPILER_ARGS
         append_debug_compile(debug_command)
     command = [
         compiler,
         "-c",
         "-x",
-        "c",
+        "c++" if cpp else "c",
         "-",
         "-o",
-        relocatable_filename,
+        relocatable_pathname,
     ] + WRAPPER_SOURCE_COMPILER_ARGS
     process = run(command, options, input=source)
     if process.stdout or process.returncode != 0:
         options.die("Internal error\n" + process.stdout)
-    return rename_arguments + [relocatable_filename], rename_arguments + [
-        "dcc_wrapper_source.o",
+    return rename_arguments + [relocatable_pathname], rename_arguments + [
+        relocatable_basename
     ]
 
 
@@ -401,7 +413,17 @@ def append_debug_compile(command):
         print(e, file=sys.stderr)
 
 
-def get_wrapper_tar_source(options):
+def get_wrapper_cpp_code(options):
+    wrapper_source = "".join(
+        pkgutil.get_data("embedded_src", f).decode("utf8")
+        for f in [
+            "dcc_io.c",
+        ]
+    )
+    return add_constants_to_source_code(wrapper_source, options)
+
+
+def get_wrapper_code(options):
     wrapper_source = "".join(
         pkgutil.get_data("embedded_src", f).decode("utf8")
         for f in [
@@ -411,41 +433,45 @@ def get_wrapper_tar_source(options):
             "dcc_check_output.c",
         ]
     )
+    wrapper_source = add_constants_to_source_code(wrapper_source, options)
+    wrapper_source, tar_source = add_embedded_tarfile_handling_to_source_code(
+        wrapper_source, options
+    )
+    wrapper_cpp_source = ""
+    if options.cpp_mode:
+        wrapper_cpp_source = "".join(
+            pkgutil.get_data("embedded_src", f).decode("utf8")
+            for f in [
+                "dcc_io.cpp",
+            ]
+        )
+    return wrapper_source, tar_source, wrapper_cpp_source
 
-    wrapper_source = wrapper_source.replace("__PATH__", options.dcc_path)
-    wrapper_source = wrapper_source.replace("__DCC_VERSION__", '"' + VERSION + '"')
-    wrapper_source = wrapper_source.replace("__HOSTNAME__", '"' + platform.node() + '"')
-    wrapper_source = wrapper_source.replace(
-        "__CLANG_VERSION__", f'"{options.clang_version}"'
-    )
-    wrapper_source = wrapper_source.replace(
-        "__SUPRESSIONS_FILE__", options.suppressions_file
-    )
-    wrapper_source = wrapper_source.replace(
+
+def add_constants_to_source_code(src, options):
+    src = src.replace("__PATH__", options.dcc_path)
+    src = src.replace("__DCC_VERSION__", '"' + VERSION + '"')
+    src = src.replace("__HOSTNAME__", '"' + platform.node() + '"')
+    src = src.replace("__CLANG_VERSION__", f'"{options.clang_version}"')
+    src = src.replace("__SUPRESSIONS_FILE__", options.suppressions_file)
+    src = src.replace(
         "__STACK_USE_AFTER_RETURN__", "1" if options.stack_use_after_return else "0"
     )
-    wrapper_source = wrapper_source.replace(
-        "__CHECK_OUTPUT__", "1" if options.check_output else "0"
-    )
-    wrapper_source = wrapper_source.replace(
+    src = src.replace("__CHECK_OUTPUT__", "1" if options.check_output else "0")
+    src = src.replace("__CPP_MODE__", "1" if options.cpp_mode else "0")
+    src = src.replace(
         "__WRAP_POSIX_SPAWN__", "1" if options.valgrind_fix_posix_spawn else "0"
     )
-    wrapper_source = wrapper_source.replace(
-        "__CLANG_VERSION_MAJOR__", str(options.clang_version_major)
-    )
-    wrapper_source = wrapper_source.replace(
-        "__CLANG_VERSION_MINOR__", str(options.clang_version_minor)
-    )
-    wrapper_source = wrapper_source.replace(
-        "__N_SANITIZERS__", str(len(options.sanitizers))
-    )
-    wrapper_source = wrapper_source.replace("__DEBUG__", "1" if options.debug else "0")
-
+    src = src.replace("__CLANG_VERSION_MAJOR__", str(options.clang_version_major))
+    src = src.replace("__CLANG_VERSION_MINOR__", str(options.clang_version_minor))
+    src = src.replace("__N_SANITIZERS__", str(len(options.sanitizers)))
+    src = src.replace("__DEBUG__", "1" if options.debug else "0")
     if len(options.sanitizers) > 1:
-        wrapper_source = wrapper_source.replace(
-            "__SANITIZER_2__", options.sanitizers[1].upper()
-        )
+        src = src.replace("__SANITIZER_2__", options.sanitizers[1].upper())
+    return src
 
+
+def add_embedded_tarfile_handling_to_source_code(src, options):
     tar_n_bytes, tar_source = source_for_embedded_tarfile(options)
     watcher = rf"python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
@@ -455,10 +481,8 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
   os.chdir(temp_dir)\n\
   exec(open('watch_valgrind.py').read())\n\
 \""
-
-    wrapper_source = wrapper_source.replace("__MONITOR_VALGRIND__", watcher)
-
-    return wrapper_source, tar_source
+    src = src.replace("__MONITOR_VALGRIND__", watcher)
+    return src, tar_source
 
 
 def run(

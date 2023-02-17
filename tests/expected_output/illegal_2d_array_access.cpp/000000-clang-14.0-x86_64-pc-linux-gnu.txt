@@ -1,0 +1,21 @@
+=================================================================
+
+tests/run_time_errors/illegal_2d_array_access.cpp:4 runtime error - stack buffer overflow
+
+dcc explanation: access past the end of a local variable.
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in twod(b=0x7ffdf5d821a0) in tests/run_time_errors/illegal_2d_array_access.cpp at line 4:
+
+void twod(int b[5][4]) {
+--> std::cout << b[5][2] << "\n";
+}
+
+Values when execution stopped:
+
+b[5][2] = <uninitialized value>
+
+Function Call Traceback
+twod(b=0x7ffdf5d821a0) called at line 9 of tests/run_time_errors/illegal_2d_array_access.cpp
+main()

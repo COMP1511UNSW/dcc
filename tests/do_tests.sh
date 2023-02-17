@@ -37,7 +37,9 @@ REMOVE_NON_DETERMINATE_VALUES='
 '
 
 export dcc="${1:-./dcc}"
+export dcc_cpp="${dcc}++"
 c_compiler="${2:-clang}"
+cpp_compiler="${3:-clang++}"
 
 mkdir -p extracted_compile_time_errors
 cd extracted_compile_time_errors || exit
@@ -68,6 +70,16 @@ do
 			expected_output_basename="`basename $src_file .c`$suffix"
 			#echo "$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file"
 			"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
+			test ! -s tmp.actual_stderr && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
+			;;
+
+		*.cpp)
+			dcc_flags=
+			suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/ /_/g;s/["$]//g;s/src_file//;s?/?_?g'`
+			eval $compile_options
+			expected_output_basename="`basename $src_file`$suffix"
+			#echo "$dcc" --c-compiler=$cpp_compiler $dcc_flags "$src_file"
+			"$dcc_cpp" --c-compiler=$cpp_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
 			test ! -s tmp.actual_stderr && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
 			;;
 
