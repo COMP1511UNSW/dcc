@@ -56,7 +56,8 @@ static FILE *debug_stream = NULL;
 int __wrap_main(int argc, char *argv[], char *envp[]) NO_SANITIZE;
 int __real_main(int argc, char *argv[], char *envp[]);
 
-static void __dcc_start(void) __attribute__((constructor)) NO_SANITIZE;
+//static void __dcc_start(void) __attribute__((constructor)) NO_SANITIZE;
+static void __dcc_start(void) NO_SANITIZE;
 void __dcc_error_exit(void) NO_SANITIZE;
 static void __dcc_signal_handler(int signum) NO_SANITIZE;
 static void set_signals_default(void) NO_SANITIZE;
@@ -87,6 +88,7 @@ static void init_cookies(void);
 #if __N_SANITIZERS__ == 1
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
+	__dcc_start();
 	(void)envp; // avoid unused parameter warning
 	debug_stream = stderr;
 	char *mypath = realpath(argv[0], NULL);
@@ -104,6 +106,7 @@ static int from_sanitizer2_pipe[2];
 #if __I_AM_SANITIZER2__
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
+	__dcc_start();
 	(void)envp; // avoid unused parameter warning
 	debug_stream = stderr;
 	to_sanitizer2_pipe[0] = atoi(getenv("DCC_PIPE_TO_CHILD"));
@@ -124,6 +127,7 @@ static void __dcc_main_sanitizer1(int argc, char *argv[]) NO_SANITIZE;
 static void __dcc_main_sanitizer2(int argc, char *argv[], const char *sanitizer2_executable_pathname) NO_SANITIZE;
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
+	__dcc_start();
 	(void)envp; // avoid unused parameter warning
 	extern char **environ;
 	char *mypath = realpath(argv[0], NULL);

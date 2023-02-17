@@ -1,7 +1,9 @@
 import io, os, platform, re, subprocess, sys, tarfile
 from version import VERSION
 
-# on some platforms -Wno-unused-result is needed to avoid warnings about scanf's return value being ignored -
+
+# on some platforms -Wno-unused-result is needed
+# to avoid warnings about scanf's return value being ignored and
 # novice programmers will often be told to ignore scanf's return value
 # when writing their first programs
 
@@ -27,17 +29,20 @@ CLANG_ONLY_ARGS = """
     """.split()
 
 
-# gcc flags some novice programmer mistakes than clang doesn't so
-# we run it has an extra checking pass with several extra warnings enabled
-# -Wduplicated-branches was only added with gcc-8 so it will break older versions of gcc
-# this will be silent but we lose gcc checking - we could fix by  checking gcc version
+# gcc detects some typical novice programmer mistakes that clang doesn't
+# We run gcc has an extra checking pass with several warnings options enabled
 #
-# -Wnull-dererefence would be useful here but when it flags potential paths
-# the errors look confusing for novice programmers ,and there appears no way to get only definite null-derefs
+# The option -Wduplicated-branches was only added with gcc-8
+# it will break older versions of gcc
+# this will be silent but we lose gcc checking
+#
+# The option -Wnull-dererefence looks be useful but when it flags potential paths
+# the errors look confusing for novice programmers,
+# and there appears no way to get only definite null-derefs
 #
 # -O is needed with gcc to get warnings for some things
 
-GCC_ONLY_ARGS = "-Wunused-but-set-variable -Wduplicated-cond -Wduplicated-branches -Wlogical-op -O	-o /dev/null".split()
+GCC_ONLY_ARGS = "-Wunused-but-set-variable -Wduplicated-cond -Wduplicated-branches -Wlogical-op -O -o /dev/null".split()
 
 
 class Options:
@@ -109,6 +114,7 @@ class Options:
         ]
         safe_c_includes = [i + ".h" for i in safe_c_includes_basenames]
         safe_cpp_includes = ["c" + i for i in safe_c_includes_basenames if "/" not in i]
+        safe_cpp_includes += ["iostream"]
         self.dual_sanitizer_safe_system_includes = set(
             safe_c_includes + safe_cpp_includes
         )

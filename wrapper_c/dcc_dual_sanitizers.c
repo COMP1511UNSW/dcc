@@ -46,7 +46,6 @@ static FILE *get_cookie(FILE *f, const char *mode) {
 #endif
 
 static int init_check_output(void);
-
 static void init_cookies(void) {
 	setbuf(stderr, NULL);
 	debug_stream = stderr;
@@ -60,9 +59,23 @@ static void init_cookies(void) {
 	// this should be workable
 	setlinebuf(stdin);
 	setlinebuf(stdout);
+#if __CPP_MODE__
+	extern void __dcc_replace_cin(FILE *stream);
+	extern void __dcc_replace_cout(FILE *stream);
+	extern void __dcc_replace_cerr(FILE *stream);
+	__dcc_replace_cin(stdin);
+	__dcc_replace_cout(stdout);
+	__dcc_replace_cerr(stderr);
+#endif
+
 #else
 	if (init_check_output()) {
 		stdout = get_cookie(stdout, "w");
+#if __CPP_MODE__
+		extern void __dcc_replace_cout(FILE *stream);
+		__dcc_replace_cout(stdout);
+#endif
+
 	}
 #endif
 }
@@ -244,6 +257,15 @@ static void __dcc_cleanup_before_exit(void) __attribute__((destructor));
 static void __dcc_cleanup_before_exit(void) {
 	debug_printf(3, "__dcc_cleanup_before_exit\n");
 	__dcc_check_output_exit();
+#if __CPP_MODE__
+	extern void __dcc_restore_cin(void);
+	extern void __dcc_restore_cout(void);
+	extern void __dcc_restore_cerr(void);
+	__dcc_restore_cin();
+	__dcc_restore_cout();
+	__dcc_restore_cerr();
+#endif
+
 	disconnect_sanitizers();
 #if __I_AM_SANITIZER1__
 	wait_for_sanitizer2_to_terminate();
