@@ -1,0 +1,20 @@
+=================================================================
+
+tests/run_time_errors/use_after_free.c:9 runtime error - malloc use after free
+
+dcc explanation: access to memory that has already been freed.
+
+Execution stopped in main() in tests/run_time_errors/use_after_free.c at line 9:
+
+int main(int argc, char *argv[]) {
+    int *p = (int *)malloc(sizeof(int *));
+    *p = 1;
+    if (argc > 0) {
+        free(p);
+    }
+--> return *p;
+}
+
+Values when execution stopped:
+
+argc = 1

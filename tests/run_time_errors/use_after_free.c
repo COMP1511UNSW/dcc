@@ -1,8 +1,10 @@
 #include <stdlib.h>
 
-int main(void) {
-    int *p = (int *)malloc(sizeof (int *));
+int main(int argc, char *argv[]) {
+    int *p = (int *)malloc(sizeof(int *));
     *p = 1;
-    free(p);
+    if (argc > 0) {
+        free(p);
+    }
     return *p;
 }

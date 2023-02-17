@@ -15,6 +15,9 @@ int * f(int num) {
     }
     factors[0] = count;
     int *factorPointer = factors;
+    if (num == 0) {
+    	factorPointer = NULL;
+    }
     return factorPointer;
 
 }
