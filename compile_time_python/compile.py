@@ -223,6 +223,7 @@ def execute_compiler(
         + extra_c_arguments
         + extra_cpp_arguments
         + options.user_supplied_compiler_args
+        + options.dcc_supplied_linker_args
     )
     if options.debug > 1:
         debug_command = (
@@ -231,6 +232,7 @@ def execute_compiler(
             + extra_c_arguments_debug
             + extra_cpp_arguments_debug
             + options.user_supplied_compiler_args
+            + options.dcc_supplied_linker_args
         )
         append_debug_compile(debug_command)
     process = run(command, options)
@@ -238,7 +240,12 @@ def execute_compiler(
     if checking_only:
         # we are running gcc as an extra checking phase
         # and options don't match the gcc version so give up silently
-        if "command line" in stdout or "option" in stdout or "/dev/null" in stdout:
+        if (
+            "command line" in stdout
+            or "option" in stdout
+            or "/dev/null" in stdout
+            or "undefined reference" in stdout
+        ):
             options.debug_print(stdout)
             return ""
 

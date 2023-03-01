@@ -16,7 +16,7 @@ COMMON_WARNING_ARGS = """
     -Wshadow
     """.split()
 
-COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-g -lm".split()
+COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-g".split()
 
 CLANG_ONLY_ARGS = """
     -Wunused-comparison
@@ -27,6 +27,8 @@ CLANG_ONLY_ARGS = """
     -Qunused-arguments
     -Wno-unused-parameter
     """.split()
+
+IMPLICIT_LINKER_ARGS = "-lm".split()
 
 
 # gcc detects some typical novice programmer mistakes that clang doesn't
@@ -59,6 +61,7 @@ class Options:
         self.valgrind_fix_posix_spawn = None
 
         self.dcc_supplied_compiler_args = COMMON_COMPILER_ARGS
+        self.dcc_supplied_linker_args = IMPLICIT_LINKER_ARGS
         self.c_compiler = ""
 
         # needed for shared-libasan
@@ -263,8 +266,7 @@ def get_options():
         options.shared_libasan = True
 
     if options.use_funopen and sys.platform == "linux":
-        options.dcc_supplied_compiler_args += ["-lbsd"]
-        options.gcc_args += ["-lm"]
+        options.dcc_supplied_linker_args += ["-lbsd"]
 
     if options.ifdef_instead_of_wrap:
         options.dcc_supplied_compiler_args += ["-Wno-return-type"]
