@@ -344,6 +344,9 @@ flowchart
 
 Assumes the default option of AddressSanitizer + valgrind run in parallel.
 
+# Runtime Overview
+![DCC Runtime Overview](docs/dcc_overview.png)
+
 # Runtime Error Handling Diagram
 
 ```mermaid
@@ -367,6 +370,10 @@ flowchart
 
 Assumes the default option of AddressSanitizer + valgrind run in parallel.
    
+# Papers
+
+[Foundations First: Improving C's Viability in Introductory Programming Courses with the Debugging C Compiler. In Proceedings of the 54th ACM Technical Symposium on Computer Science Education V. 1 (SIGCSE 2023).](https://dl.acm.org/doi/10.1145/3545945.3569768)
+
 # Dependencies
 
 clang, python3, gdb, valgrind
