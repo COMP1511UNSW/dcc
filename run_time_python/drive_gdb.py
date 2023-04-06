@@ -1,6 +1,9 @@
 import collections, os, platform, re, sys, signal, traceback
+
+from llm_explainer import explain_dcc_output_via_llm
 from explain_output_difference import explain_output_difference
 import colors
+import io
 from util import explanation_url
 
 #
@@ -85,10 +88,14 @@ def explain_error(output_stream, color):
     loc = stack[0] if stack else None
     signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
 
+    specific_explanation
     if signal_number != signal.SIGABRT:
-        print(explain_signal(signal_number), file=output_stream)
+        specific_explanation = explain_signal(signal_number)
+        # explain_dcc_output_via_llm(loc, output_stream)
     elif "DCC_ASAN_ERROR" in os.environ:
-        explain_asan_error(loc, output_stream, color)
+        output = explain_asan_error(loc, output_stream, color)
+        explain_dcc_output_via_llm(loc, source, output)
+        print(output, file=output_stream)
     elif "DCC_UBSAN_ERROR_KIND" in os.environ:
         explain_ubsan_error(loc, output_stream, color)
     elif "DCC_OUTPUT_ERROR" in os.environ:
@@ -102,6 +109,7 @@ def explain_error(output_stream, color):
             file=output_stream,
         )
 
+    # after explaining the specific error, print the location in the source code
     if loc:
         print(explain_location(loc, color), end="", file=output_stream)
         print(
@@ -261,8 +269,9 @@ def explain_ubsan_error(loc, output_stream, color):
 
 
 def explain_asan_error(loc, output_stream, color):
+    output = io.StringIO()
     if loc:
-        print(f"{loc.filename}:{loc.line_number}", end=" ", file=output_stream)
+        output.write(f"{loc.filename}:{loc.line_number} ")
     report = os.environ.get("DCC_ASAN_ERROR")
     if report:
         report = report.replace("-", " ")
@@ -270,63 +279,56 @@ def explain_asan_error(loc, output_stream, color):
         report = report.replace("null deref", "NULL pointer dereferenced")
     else:
         report = "illegal array, pointer or other operation"
-    print("runtime error -", color(report, "red"), file=output_stream)
+    output.write("runtime error -", color(report, "red"))
 
     prefix = "\n" + color("dcc explanation:", "cyan")
     if "malloc buffer overflow" in report:
-        print(
+        output.write(
             prefix,
             """access past the end of malloc'ed memory.
   Make sure you have allocated enough memory for the size of your struct/array.
   A common error is to use the size of a pointer instead of the size of the struct or array.
-""",
-            file=output_stream,
-        )
-        print(
+""",)
+        output.write(
             "For more information see:",
             explanation_url("malloc_sizeof"),
-            file=output_stream,
         )
     if "stack buffer overflow" in report:
-        print(
+        output.write(
             prefix,
             """access past the end of a local variable.
   Make sure the size of your array is correct.
   Make sure your array indices are correct.
 """,
-            file=output_stream,
         )
     elif "use after return" in report:
-        print(
+        output.write(
             prefix,
             """You have used a pointer to a local variable that no longer exists.
   When a function returns its local variables are destroyed.
 """,
-            file=output_stream,
         )
-        print(
+        output.write(
             "For more information see:",
             explanation_url("stack_use_after_return"),
-            file=output_stream,
         )
     elif "use after" in report:
-        print(
+        output.write(
             prefix,
             "access to memory that has already been freed.\n",
-            file=output_stream,
         )
     elif "double free" in report:
-        print(
+        output.write(
             prefix,
             "attempt to free memory that has already been freed.\n",
-            file=output_stream,
         )
     elif "null" in report.lower():
-        print(
+        output.write(
             prefix,
             "attempt to access value using a pointer which is NULL.\n",
-            file=output_stream,
         )
+    
+    return output.getvalue()
 
 
 def explain_signal(signal_number):

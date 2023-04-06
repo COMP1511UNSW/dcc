@@ -2,11 +2,14 @@ import re, sys
 import colors
 from compiler_explanations import get_explanation
 
+from llm_explainer import explain_dcc_output_via_llm
+
 ANSI_DEFAULT = "\033[0m"
 
 
 def explain_compiler_output(output, args):
     lines = output.splitlines()
+    print(lines)
     explanations_made = set()
     errors_explained = 0
     last_message = None
