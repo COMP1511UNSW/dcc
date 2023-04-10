@@ -1,5 +1,6 @@
 import io, os, platform, re, subprocess, sys, tarfile
 from version import VERSION
+from util import search_path
 
 
 # on some platforms -Wno-unused-result is needed
@@ -503,12 +504,4 @@ def get_libc_version(options):
     except Exception as e:
         if options.debug:
             print(e)
-    return None
-
-
-def search_path(program):
-    for path in os.environ["PATH"].split(os.pathsep):
-        full_path = os.path.join(path, program)
-        if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
-            return full_path
     return None

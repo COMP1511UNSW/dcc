@@ -1,0 +1,13 @@
+
+tests/run_time_errors/mod_zero.cpp:4:18 runtime error - division by zero
+dcc explanation:A common error is to evaluate x % y when y == 0 which is undefined.
+
+Execution stopped in main() in tests/run_time_errors/mod_zero.cpp at line 4:
+
+int main(int argc, char **argv) { 
+-->	std::cout << 42 % (argc - 1) << "\n";
+}
+
+Values when execution stopped:
+
+argc = 1

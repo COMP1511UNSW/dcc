@@ -247,6 +247,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
   if not buffer_length:\n\
     sys.exit(1)\n\
   tarfile.open(fileobj=buffer, bufsize=buffer_length, mode='r|xz').extractall(temp_dir)\n\
+  os.environ['DCC_PWD'] = os.getcwd()\n\
   os.chdir(temp_dir)\n\
   exec(open('start_gdb.py').read())\n\
 \"";

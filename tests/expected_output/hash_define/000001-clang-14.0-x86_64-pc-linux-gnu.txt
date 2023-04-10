@@ -1,0 +1,26 @@
+
+tests/run_time_errors/hash_define.c:10:3 runtime error - index 1000 out of bounds for type 'int[1000]'
+dcc explanation:You are using an illegal array index: 1000
+  Valid indices for an array of size 1000 are 0..999
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in main() in tests/run_time_errors/hash_define.c at line 10:
+
+int main(int argc, char **argv) { 
+    int a[ARRAY_SIZE];
+    int i;
+    
+    for (i = 0; i < ARRAY_SIZE; i++) {
+-->		a[i+argc] = i+argc;
+    }
+    return a[0];
+}
+
+Values when execution stopped:
+
+a = {<uninitialized value>, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...}
+argc = 1
+i = 999
+i+argc = 1000
+a[i+argc] = <uninitialized value>

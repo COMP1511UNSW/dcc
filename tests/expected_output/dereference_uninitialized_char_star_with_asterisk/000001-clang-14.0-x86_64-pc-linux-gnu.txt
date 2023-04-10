@@ -1,0 +1,14 @@
+
+tests/run_time_errors/dereference_uninitialized_char_star_with_asterisk.c:5 Execution terminated by signal 11
+Execution stopped in main() in tests/run_time_errors/dereference_uninitialized_char_star_with_asterisk.c at line 5:
+
+int main(int argc, char **argv) { 
+    char **a = (char **)malloc(2 * sizeof *a);
+    a[argc] = NULL;
+--> return **a;
+}
+
+Values when execution stopped:
+
+argc = 1
+a[argc] = NULL

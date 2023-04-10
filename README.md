@@ -122,6 +122,32 @@ $ ./a.out
 Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
 ```
 
+# Helper Scripts
+
+After reporting a runtime error an executable produced by `dcc`  can optionally run an external program.
+
+This [example script]( dcc-helper) invokes ChatGPT to provide further explanation of the runtime error.
+
+After reporting a runtime error a `dcc` executable checks if an executable
+named **dcc-helper** exists in `$PATH` and if so runs it.
+
+An alternate name for the executable file can be supplied in the environment variable `DCC_HELPER`
+
+The helper executable is run with a different working directory to the orignal executable.
+It is run in a temporary directory created by the dcc executable which contains the source
+to the original executable and dcc infrastructure files.
+
+These environment variable are supplied to the helper script. They may be empty.
+
+- `DCC_PWD` - the original directory where the executable was run
+- `DCC_HELPER_FILENAME` - source filename where error occurred
+- `DCC_HELPER_LINE_NUMBER` - source line number where error occurred
+- `DCC_HELPER_COLUMN`  - source column where error occurred
+- `DCC_HELPER_EXPLANATION` - dcc text explaining error
+- `DCC_HELPER_SOURCE` - source lines surrounding error
+- `DCC_HELPER_CALL_STACK` - function call stack 
+- `DCC_HELPER_VARIABLES` - current values of variables near the error location
+
 # Output checking
 
 dcc can check a program's output is correct.  If a program outputs an incorrect line, the program is stopped.  A description of why the output is incorrect is printed.  The current execution location is shown with the current values of variables & expressions.
@@ -252,12 +278,12 @@ int main(void) {
 
 # C++ Support
 
-There is experimental support for C++ programs if `dcc` is invoked as `dcc++`.
+There is experimental support for C++ programs if `dcc` is invoked as `d++` or `dcc++`.
 
 Install by creating a symbolic link, e.g.:
 
 ```bash
-sudo ln  -sf dcc /usr/local/bin/dcc++
+sudo ln  -sf dcc /usr/local/bin/d++
 ```
 
 

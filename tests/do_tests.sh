@@ -52,7 +52,7 @@ platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
 
 tests_failed=0
 
-for src_file in tests/extracted_compile_time_errors/*.c tests/compile_time_errors/*.c tests/run_time_errors/*.* tests/run_time_no_errors/*.* tests/check_output/*.sh
+for src_file in tests/run_time_errors/*.* tests/extracted_compile_time_errors/*.c tests/compile_time_errors/*.c tests/run_time_no_errors/*.* tests/check_output/*.sh
 do
 	# don't change the name of the variable src_file some tests rely on it
 	compile_options_list=$(egrep '^//dcc_flags=' "$src_file"|sed 's?//??;s/ /#/g')

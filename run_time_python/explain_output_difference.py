@@ -1,19 +1,19 @@
-import os, re
+import io, os, re
 from util import explanation_url
 
 # Expected output has been supplied as an environment variable
 # and the program has been stoped because the output was incorrect
 
 
-def explain_output_difference(output_stream, color):
+def explain_output_difference(color):
+    output_stream = io.StringIO()
     # autotest may try to print all errors in red, so disable this
     print(color("", "black"), end="", file=output_stream)
     explain_output_difference1(output_stream, color)
-    print(file=output_stream)
+    return output_stream.getvalue()
 
 
 def explain_output_difference1(output_stream, color):
-
     # values supplied for expected output for this execution
     expected_stdout = os.environb.get(b"DCC_EXPECTED_STDOUT", "")
     # 	ignore_case = getenv_boolean('DCC_IGNORE_CASE')

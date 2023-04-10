@@ -485,6 +485,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
  buffer = io.BytesIO(sys.stdin.buffer.raw.read({tar_n_bytes}))\n\
  if len(buffer.getbuffer()) == {tar_n_bytes}:\n\
   tarfile.open(fileobj=buffer, bufsize={tar_n_bytes}, mode='r|xz').extractall(temp_dir)\n\
+  os.environ['DCC_PWD'] = os.getcwd()\n\
   os.chdir(temp_dir)\n\
   exec(open('watch_valgrind.py').read())\n\
 \""

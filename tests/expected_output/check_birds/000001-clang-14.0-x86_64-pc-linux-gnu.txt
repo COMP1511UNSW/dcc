@@ -1,0 +1,131 @@
+bird-EOF-byte.c
+
+/home/andrewt/w/dcc/src/tests/check_output/birds/bird-EOF-byte.c:10 Execution stopped because a non-ASCII byte was printed.
+Byte 4 of line 3 of program output was a non-ascii byte \xff
+Here is line 3 with non-printable characters replaced with backslash-escaped equivalents:
+((_\xff_))\n
+
+Have you accidentally printed the special EOF value getchar returns?
+For more information go to: https://comp1511unsw.github.io/dcc/eof_byte.html
+
+Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-EOF-byte.c at line 10:
+
+int main(void) {
+    printf("  ___\n");
+    printf(" ('v')\n");
+--> printf("((_%c_))\n", EOF);
+    printf(" ^   +\n");
+    return 0;
+}
+bird-extra-newline.c
+
+/home/andrewt/w/dcc/src/tests/check_output/birds/bird-extra-newline.c:11 Execution stopped because of unexpected extra output.
+The program produced all the expected output and then produced extra output.
+The extra line was an empty line (a '\n').
+
+Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-extra-newline.c at line 11:
+
+int main(void) {
+    printf("  ___\n");
+    printf(" ('v')\n");
+    printf("((___))\n");
+--> printf(" ^   ^\n\n");
+    return 0;
+}
+bird-line-missing-1-byte.c
+
+/home/andrewt/w/dcc/src/tests/check_output/birds/bird-line-missing-1-byte.c:10 Execution stopped because of an incorrect output line.
+Byte 7 of line 3 of program output was incorrect.
+A ')' was missing from the end of the output line.
+The correct output line was:
+((___))
+Your program printed this line:
+((___)
+
+Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-line-missing-1-byte.c at line 10:
+
+int main(void) {
+    printf("  ___\n");
+    printf(" ('v')\n");
+--> printf("((___)\n");
+    printf(" ^   ^\n");
+    return 0;
+}
+bird-line-too-long.c
+
+/home/andrewt/w/dcc/src/tests/check_output/birds/bird-line-too-long.c:8 Execution failed because program wrote a line containing over 65536 bytes.
+Do you have an infinite loop?
+The start of the line was:
+________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________ ...
+
+Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-line-too-long.c at line 8:
+
+int main(void) {
+--> for (int i = 0;i < 100000; i++) printf("____________________________________________________________");
+    return 0;
+}
+
+Values when execution stopped:
+
+i = 1228
+bird-line-wrong.c
+
+/home/andrewt/w/dcc/src/tests/check_output/birds/bird-line-wrong.c:10 Execution stopped because of an incorrect output line.
+Byte 4 of line 3 of program output was incorrect.
+The correct output line was:
+((___))
+Your program printed this line:
+((_+_))
+
+Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-line-wrong.c at line 10:
+
+int main(void) {
+    printf("  ___\n");
+    printf(" ('v')\n");
+--> printf("((_+_))\n");
+    printf(" ^   ^\n");
+    return 0;
+}
+bird-missing-newline.c
+
+Execution failed because the last newline was missing.
+Your program produced all the expected output, except the last newline ('\n') was missing.
+
+For more information go to https://comp1511unsw.github.io/dcc/missing_newline.html
+
+tests/check_output/check_birds.sh: line 13: 2533684 Killed                  ./a.out > /dev/null
+bird-no-output.c
+
+Execution failed because program produced no output.
+4 lines of output were expected
+The first expected line was:
+  ___
+
+tests/check_output/check_birds.sh: line 13: 2533744 Killed                  ./a.out > /dev/null
+bird-truncated.c
+
+Execution failed because of missing output lines.
+Your program printed 3 lines of correct output but stopped before printing all the expected output.
+The next expected line was:
+((___))
+
+tests/check_output/check_birds.sh: line 13: 2533804 Killed                  ./a.out > /dev/null
+bird-zero-byte.c
+
+/home/andrewt/w/dcc/src/tests/check_output/birds/bird-zero-byte.c:10 Execution failed because a zero byte ('\0') was printed.
+Byte 3 of line 3 of program's output was a zero byte ('\0')
+Here are the characters on the line before the zero byte:
+((_
+
+For more information go to: https://comp1511unsw.github.io/dcc/zero_byte.html
+
+Execution stopped in main() in /home/andrewt/w/dcc/src/tests/check_output/birds/bird-zero-byte.c at line 10:
+
+int main(void) {
+    printf("  ___\n");
+    printf(" ('v')\n");
+--> printf("((_%c_))\n", 0);
+    printf(" ^   +\n");
+    return 0;
+}
+All Tests Correct

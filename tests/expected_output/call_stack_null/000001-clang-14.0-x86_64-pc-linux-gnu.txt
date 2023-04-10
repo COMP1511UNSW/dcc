@@ -1,0 +1,21 @@
+
+tests/run_time_errors/call_stack_null.c:5:11 runtime error - accessing a value via a NULL pointer
+dcc explanation:You are using a pointer which is NULL
+  A common error is accessing *p or p[index] when p == NULL.
+
+Execution stopped in f3(a=NULL) in tests/run_time_errors/call_stack_null.c at line 5:
+
+int f3(int *a) {
+	int b[] = {0};
+-->	return b[*a];
+}
+
+Values when execution stopped:
+
+a = NULL
+
+Function Call Traceback
+f3(a=NULL) called at line 8 of tests/run_time_errors/call_stack_null.c
+f2(a=NULL) called at line 12 of tests/run_time_errors/call_stack_null.c
+f1(a=NULL) called at line 16 of tests/run_time_errors/call_stack_null.c
+main()
