@@ -122,16 +122,16 @@ $ ./a.out
 Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
 ```
 
-# Helper Scripts
+# Runtime Helper Script
 
 After reporting a runtime error an executable produced by `dcc`  can optionally run an external program.
 
-This [example script]( dcc-helper) invokes ChatGPT to provide further explanation of the runtime error.
+This [example script](dcc-runtime-helper-chatgpt) invokes ChatGPT to provide further explanation of the runtime error.
 
 After reporting a runtime error a `dcc` executable checks if an executable
-named **dcc-helper** exists in `$PATH` and if so runs it.
+named **dcc-runtime-helper** exists in `$PATH` and if so runs it.
 
-An alternate name for the executable file can be supplied in the environment variable `DCC_HELPER`
+An alternate name for the executable file can be supplied in the environment variable `DCC_RUNTIME_HELPER`
 
 The helper executable is run with a different working directory to the orignal executable.
 It is run in a temporary directory created by the dcc executable which contains the source
@@ -143,10 +143,29 @@ These environment variable are supplied to the helper script. They may be empty.
 - `DCC_HELPER_FILENAME` - source filename where error occurred
 - `DCC_HELPER_LINE_NUMBER` - source line number where error occurred
 - `DCC_HELPER_COLUMN`  - source column where error occurred
-- `DCC_HELPER_EXPLANATION` - dcc text explaining error
 - `DCC_HELPER_SOURCE` - source lines surrounding error
 - `DCC_HELPER_CALL_STACK` - function call stack 
 - `DCC_HELPER_VARIABLES` - current values of variables near the error location
+
+# Compile Helper Script
+
+After reporting a compiler message `dcc`  can optionally run an external program.
+
+This [example script](dcc-compile-helper-chatgpt) invokes ChatGPT to provide further explanation of the compiler messages.
+
+After reporting a compiler message `dcc`  checks if an executable
+named **dcc-compiler-helper** exists in `$PATH` and if so runs it.
+
+An alternate name for the executable file can be supplied in the environment variable `DCC_COMPILE_HELPER`
+
+These environment variable are supplied to the helper script. They may be empty.
+
+- `DCC_HELPER_COMPILER_MESSAGE` - compiler message
+- `DCC_HELPER_MESSAGE_TYPE` - message type (e.g warning)
+- `DCC_HELPER_FILENAME` - source filename where error occurred
+- `DCC_HELPER_LINE_NUMBER` - source line number where error occurred
+- `DCC_HELPER_COLUMN`  - source column where error occurred
+- `DCC_HELPER_EXPLANATION` - dcc text explaining error
 
 # Output checking
 

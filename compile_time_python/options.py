@@ -31,6 +31,8 @@ CLANG_ONLY_ARGS = """
 
 IMPLICIT_LINKER_ARGS = "-lm".split()
 
+COMPILE_HELPER_BASENAME = "dcc-compile-helper"
+
 
 # gcc detects some typical novice programmer mistakes that clang doesn't
 # We run gcc has an extra checking pass with several warnings options enabled
@@ -154,6 +156,7 @@ class Options:
         self.threads_used = False
         self.treat_warnings_as_errors = False
         self.user_supplied_compiler_args = []
+        self.compile_helper = search_path(COMPILE_HELPER_BASENAME)
 
     def die(self, *args, **kwargs):
         self.warn(*args, **kwargs)

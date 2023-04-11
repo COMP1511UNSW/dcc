@@ -15,7 +15,6 @@ Execution failed because program produced no output.
 The first expected line was:
 Hello!
 
-tests/check_output/simple_check_output.sh: line 27: 2534057 Killed                  ./a.out "$actual_output" > /dev/null
 *** Test 3 - one-byte-missing-fail
 *** Test Environment 
 expected output: Hello!
@@ -31,7 +30,7 @@ Hello!
 Your program printed this line:
 Hello
 
-Execution stopped in main(argc=2, argv=0x7ffd8f950498) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffff0e15358) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
@@ -54,7 +53,7 @@ Hello!
 Your program printed this line:
 Hell
 
-Execution stopped in main(argc=2, argv=0x7fff96306c68) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffe514f5618) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
@@ -82,7 +81,7 @@ Hello!
 Your program printed this line:
 Hello!   
 
-Execution stopped in main(argc=2, argv=0x7ffe18946d48) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffc2e4accd8) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
@@ -102,7 +101,7 @@ tmp.c:2 Execution stopped because of unexpected extra output.
 The program produced all the expected output and then produced extra output.
 The extra line was an empty line (a '\n').
 
-Execution stopped in main(argc=2, argv=0x7ffe887ae8b8) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffd96f096b8) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
@@ -128,7 +127,6 @@ Your program produced all the expected output, except the last newline ('\n') wa
 
 For more information go to https://comp1511unsw.github.io/dcc/missing_newline.html
 
-tests/check_output/simple_check_output.sh: line 27: 2534400 Killed                  ./a.out "$actual_output" > /dev/null
 *** Test 10 - ignore-case-1-fail
 *** Test Environment 
 expected output: Hello!
@@ -143,7 +141,7 @@ Hello!
 Your program printed this line:
 hEllo!
 
-Execution stopped in main(argc=2, argv=0x7fffa97efa88) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffedbb1ac68) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
@@ -171,7 +169,7 @@ Hello!
 Your program printed this line:
 H ello\t!
 
-Execution stopped in main(argc=2, argv=0x7ffc83ca7688) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffee28fb248) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
@@ -206,7 +204,7 @@ Hello!
 Your program printed this line:
 Hen
 
-Execution stopped in main(argc=2, argv=0x7ffcd5b9f618) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffcd6125718) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
@@ -234,7 +232,7 @@ Hello!
 Your program printed this line:
 HiheHilloHi\t!
 
-Execution stopped in main(argc=2, argv=0x7ffe9cc6ec88) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffef9db74d8) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}
@@ -262,7 +260,7 @@ Hello!
 Your program printed this line:
 HiheHilloHi\t!
 
-Execution stopped in main(argc=2, argv=0x7ffd4be664f8) in tmp.c at line 2:
+Execution stopped in main(argc=2, argv=0x7ffeb0836e98) in tmp.c at line 2:
 
 #include <stdio.h>
 -->int main(int argc, char *argv[]) {printf("%s", argv[1]);return 0;}

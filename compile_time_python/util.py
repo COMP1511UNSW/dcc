@@ -4,8 +4,6 @@ import os
 
 EXPLANATION_BASE_URL = "https://comp1511unsw.github.io/dcc/"
 
-HELPER_BASENAME = "dcc-helper"
-
 
 def explanation_url(page):
     return EXPLANATION_BASE_URL + page + ".html"

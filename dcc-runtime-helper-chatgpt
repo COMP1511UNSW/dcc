@@ -1,16 +1,16 @@
 #!/bin/sh
 
-# Example dcc helper script - add Chat-GPT explanation to a dcc error
+# Example dcc runtime helper script - add Chat-GPT explanation to a dcc error
 # requires an openai key in $DCC_OPENAI_API_KEY
 
 # If there is a run-time error in a executable produced by dcc,
-# and an executable file named dcc-helper exists in $PATH
+# and an executable file named dcc-runtime-helper exists in $PATH
 # it is run after reporting the error.
 
 # An alternate name for the executable file can be supplied
-# in the environment variable DCC_HELPER
+# in the environment variable DCC_RUNTIME_HELPER
 
-# The helper executable is run with a different working directory to the orignal executable.
+# The helper executable is run with a different working directory to the original executable.
 # It is run in a temporary directory created by the dcc executable which contains the source
 # to the original executable and dcc infrastructure files.
  
@@ -82,5 +82,5 @@ jq '.usage.total_tokens' --monochrome-output --raw-output <<eof
 $response_json
 eof
 )
-
+echo
 echo "[ Tokens used: $n_tokens_used]"

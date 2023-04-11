@@ -3,6 +3,8 @@ import colors
 from explain_output_difference import explain_output_difference
 import util
 
+RUNTIME_HELPER_BASENAME = "dcc-runtime-helper"
+
 #
 # Code below is executed from gdb.
 # It prints details of the program state likely to be of interest to
@@ -134,7 +136,7 @@ def explain_error(output_stream, color):
     if not explanation:
     	explanation = os.environ.get("DCC_VALGRIND_ERROR", "")
 
-    run_helper(loc, explanation, stack, output_stream)
+    run_runtime_helper(loc, explanation, stack, output_stream)
 
     output_stream.flush()
     gdb.flush(gdb.STDOUT)
@@ -331,12 +333,12 @@ def explain_signal(signal_number):
         return f"Execution terminated by signal {signal_number}"
 
 
-def run_helper(loc, explanation, stack, output_stream):
+def run_runtime_helper(loc, explanation, stack, output_stream):
     color = lambda text, color_name: text
-    helper = os.environ.get("DCC_HELPER", "")
+    helper = os.environ.get("DCC_RUNTIME_HELPER", "")
     if not helper:
         helper = util.search_path(
-            util.HELPER_BASENAME, cwd=os.environ.get("DCC_PWD", ".")
+            RUNTIME_HELPER_BASENAME, cwd=os.environ.get("DCC_PWD", ".")
         )
     dprint(2, f"run_helper helper='{helper}'")
     if not helper:
