@@ -157,6 +157,7 @@ class Options:
         self.treat_warnings_as_errors = False
         self.user_supplied_compiler_args = []
         self.compile_helper = search_path(COMPILE_HELPER_BASENAME)
+        self.embedded_environment_variables = []
 
     def die(self, *args, **kwargs):
         self.warn(*args, **kwargs)
@@ -353,6 +354,13 @@ def parse_arg(arg, remaining_args, options):
         options.c_compiler = arg[arg.index("=") + 1 :]
         if not search_path(options.c_compiler):
             options.die(f"{options.c_compiler} not found")
+    elif arg.startswith("--compile_helper="):
+        options.compile_helper = arg[len("--compile_helper=") :]
+    elif arg.startswith("--embedded_environment_variable="):
+        name_value = arg[len("--embedded_environment_variable=") :]
+        name = name_value.split("=")[0]
+        value = "=".join(name_value.split("=")[1:])
+        options.embedded_environment_variables.append((name, value))
     elif arg == "-fcolor-diagnostics":
         options.colorize_output = True
     elif arg == "-fno-color-diagnostics":

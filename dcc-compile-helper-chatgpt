@@ -1,0 +1,78 @@
+#!/bin/sh
+
+# Example dcc compile-helper script - add Chat-GPT explanation to a dcc error
+# requires an openai key in $DCC_OPENAI_API_KEY
+
+# If there is a run-time error in a executable produced by dcc,
+# and an executable file named dcc-compiler-helper exists in $PATH
+# it is run after reporting the error.
+
+# An alternate name for the executable file can be supplied
+# in the environment variable DCC_COMPILE_HELPER
+
+# These environment variable are supplied to the helper
+# They may be empty.
+
+# DCC_HELPER_COMPILER_MESSAGE - compiler message
+# DCC_HELPER_MESSAGE_TYPE - message type (e.g warning)
+# DCC_HELPER_FILENAME - source filename where error occurred
+# DCC_HELPER_LINE_NUMBER - source line number where error occurred
+# DCC_HELPER_COLUMN  - source column where error occurred
+# DCC_HELPER_EXPLANATION - dcc text explaining error
+
+set -e
+
+test -n "$DCC_OPENAI_API_KEY" || 
+	exit 1
+
+trap 'exit' INT TERM
+trap 'rm -f "$header_file"' EXIT
+header_file="$(mktemp)"
+
+system_content=${DCC_CHATGPT_SYSTEM_ROLE-"You teach coding"}
+
+user_content="${DCC_CHATGPT_SOURCE_PREFIX-'Why did I get this message from the C compiler:'}:
+
+$DCC_HELPER_COMPILER_MESSAGE
+
+$DCC_HELPER_EXPLANATION
+"
+
+query_json="$(
+	jq -n \
+		--arg system_content "$system_content" \
+		--arg user_content "$user_content" \
+		'{
+		"model": "gpt-3.5-turbo",
+		"messages": [
+			{"role": "system", "content": $system_content},
+		    {"role": "user", "content": $user_content}
+		]
+		}'
+	)"
+
+# can't supply key as command-line arguument to curl as may be visible to other users
+
+cat >$header_file <<eof
+Content-Type: application/json
+Authorization: Bearer $DCC_OPENAI_API_KEY
+eof
+
+echo
+echo "Chat-GPT Explanation"
+echo
+
+response_json="$(
+	curl --silent https://api.openai.com/v1/chat/completions -H "@$header_file" -d "$query_json"
+)"
+jq '.choices[0].message.content' --monochrome-output --raw-output <<eof
+$response_json
+eof
+
+n_tokens_used=$(
+jq '.usage.total_tokens' --monochrome-output --raw-output <<eof
+$response_json
+eof
+)
+echo
+echo "[ Tokens used: $n_tokens_used]"
