@@ -13,9 +13,10 @@ FILES_EMBEDDED_IN_BINARY = [
     "util.py",
 ]
 
-# its possible  -g -fno-omit-frame-pointer could be needed here
+# its possible -fno-omit-frame-pointer could be needed here
 WRAPPER_SOURCE_COMPILER_ARGS = """
     -O3
+    -g
 """.split()
 
 DEBUG_COMPILE_FILE = "tmp_dcc.sh"
