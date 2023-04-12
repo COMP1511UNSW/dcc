@@ -36,7 +36,7 @@ def read_line(color, debug_level):
     if line:
         if debug_level > 1:
             print("valgrind: ", line, file=sys.stderr, end="")
-        return process_line(line, color)
+        return process_line(line, color, debug_level)
     return 0
 
 
@@ -44,7 +44,7 @@ def read_line(color, debug_level):
 # return 0 if we should exit
 
 
-def process_line(line, color):
+def process_line(line, color, debug_level):
     error = None
     action = start_gdb
 
@@ -100,8 +100,19 @@ A common cause of this error is infinite recursion.
 """
     elif "loss record" in line:
         line = sys.stdin.readline()
+        if debug_level > 1:
+            print("valgrind: ", line, file=sys.stderr, end="")
+
         if "malloc" in line:
             line = sys.stdin.readline()
+            if debug_level > 1:
+                print("valgrind: ", line, file=sys.stderr, end="")
+            # crude workaround to stop spurious error from fopencookie use in wrapper code
+            # closing streams using cookies seems to have no affect
+            # real cause is probably valgrind bug - suppression file needing update
+            if "LIBC" in line or "fopencookie" in line:
+                return 1
+
             m = re.search(r"(\S+)\s*\((.+):(\d+)", line)
             error = "Error: free not called for memory allocated with malloc"
             if m:

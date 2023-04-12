@@ -15,6 +15,7 @@ FILES_EMBEDDED_IN_BINARY = [
 
 # its possible  -g -fno-omit-frame-pointer could be needed here
 WRAPPER_SOURCE_COMPILER_ARGS = """
+    -g
     -O3
 """.split()
 

@@ -116,7 +116,9 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	init_cookies();
 	clear_stack();
 	extern char **environ;
-	exit(__real_main(argc, argv, environ));
+	int r = __real_main(argc, argv, environ);
+	debug_printf(2, "__real_main returning %d\n", r);
+	exit(r);
 	return 1; // not reached
 }
 
