@@ -231,15 +231,15 @@ int main(void) {
 * Deb-based Systems including Debian, Ubuntu, Mint and Windows Subsystem for Linux
 
 	```bash
-	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.16/dcc_2.16_all.deb -o /tmp/dcc_2.16_all.deb
-	sudo apt install /tmp/dcc_2.16_all.deb
+	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.17/dcc_2.17_all.deb -o /tmp/dcc_2.17_all.deb
+	sudo apt install /tmp/dcc_2.17_all.deb
 	```
 
 	or
 
 	```bash
 	sudo apt install  clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.16/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.17/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 
@@ -255,7 +255,7 @@ int main(void) {
 
 	```bash
 	sudo pacman -S clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.16/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.17/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 
@@ -263,7 +263,7 @@ int main(void) {
 
 	```bash
 	sudo yum install clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.16/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.17/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 
@@ -271,7 +271,7 @@ int main(void) {
 
 	```bash
 	sudo zypper install clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.16/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.17/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 	
@@ -286,7 +286,7 @@ int main(void) {
 	Note: It is usually not a good idea to blindly run remote bash scripts in your terminal, you can inspect the file by opening the URL and reading to see what it does yourself.
 
     ```bash
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.16/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.17/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
     ```
 	
