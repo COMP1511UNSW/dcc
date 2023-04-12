@@ -91,7 +91,7 @@ A huge local array can produce this error.
 
     elif "Invalid read of size" in line:
         error = f"""Runtime error: {color('invalid memory access.', 'red')}
-A common cause of this error is use of invalid FILE * pointer.
+A common cause of this error is use of an invalid FILE * pointer.
 """
 
     elif "Stack overflow" in line:

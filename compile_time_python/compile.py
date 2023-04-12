@@ -473,6 +473,9 @@ def add_constants_to_source_code(src, options):
     src = src.replace("__CLANG_VERSION_MINOR__", str(options.clang_version_minor))
     src = src.replace("__N_SANITIZERS__", str(len(options.sanitizers)))
     src = src.replace("__DEBUG__", "1" if options.debug else "0")
+    src = src.replace(
+        "__SET_EMBEDDED_ENVIRONMENT_VARIABLES__", embeded_environment_variables(options)
+    )
     if len(options.sanitizers) > 1:
         src = src.replace("__SANITIZER_2__", options.sanitizers[1].upper())
     return src
@@ -485,11 +488,22 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
  buffer = io.BytesIO(sys.stdin.buffer.raw.read({tar_n_bytes}))\n\
  if len(buffer.getbuffer()) == {tar_n_bytes}:\n\
   tarfile.open(fileobj=buffer, bufsize={tar_n_bytes}, mode='r|xz').extractall(temp_dir)\n\
+  os.environ['DCC_PWD'] = os.getcwd()\n\
   os.chdir(temp_dir)\n\
   exec(open('watch_valgrind.py').read())\n\
 \""
     src = src.replace("__MONITOR_VALGRIND__", watcher)
     return src, tar_source
+
+
+def embeded_environment_variables(options):
+    ev = options.embedded_environment_variables
+    assignments = [f'setenvd({c_repr(k)}, {c_repr(v)});' for (k, v) in ev]
+    return "\n".join(assignments)
+
+
+def c_repr(str):
+	return '"' + str.replace('\\', r'\\').replace(r'"', r'\"').replace('\n', r'\n') + '"'
 
 
 def run(

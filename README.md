@@ -122,6 +122,49 @@ $ ./a.out
 Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
 ```
 
+# Runtime Helper Script
+
+After reporting a runtime error an executable produced by `dcc`  can optionally run an external program.
+
+After reporting a runtime error a `dcc` executable checks if an executable
+named **dcc-runtime-helper** exists in `$PATH` and if so runs it.
+
+An alternate name for the executable file can be supplied in the environment variable `DCC_RUNTIME_HELPER`
+
+The helper executable is run with a different working directory to the orignal executable.
+It is run in a temporary directory created by the dcc executable which contains the source
+to the original executable and dcc infrastructure files.
+
+These environment variable are supplied to the helper script. They may be empty.
+
+- `DCC_PWD` - the original directory where the executable was run
+- `DCC_HELPER_FILENAME` - source filename where error occurred
+- `DCC_HELPER_LINE_NUMBER` - source line number where error occurred
+- `DCC_HELPER_COLUMN`  - source column where error occurred
+- `DCC_HELPER_SOURCE` - source lines surrounding error
+- `DCC_HELPER_CALL_STACK` - function call stack 
+- `DCC_HELPER_VARIABLES` - current values of variables near the error location
+- `DCC_HELPER_JSON` - above variables encoded as JSON
+
+# Compile Helper Script
+
+After reporting a compiler message `dcc`  can optionally run an external program.
+
+After reporting a compiler message `dcc`  checks if an executable
+named **dcc-compiler-helper** exists in `$PATH` and if so runs it.
+
+An alternate name for the executable file can be supplied in the environment variable `DCC_COMPILE_HELPER`
+
+These environment variable are supplied to the helper script. They may be empty.
+
+- `DCC_HELPER_COMPILER_MESSAGE` - compiler message
+- `DCC_HELPER_MESSAGE_TYPE` - message type (e.g warning)
+- `DCC_HELPER_FILENAME` - source filename where error occurred
+- `DCC_HELPER_LINE_NUMBER` - source line number where error occurred
+- `DCC_HELPER_COLUMN`  - source column where error occurred
+- `DCC_HELPER_EXPLANATION` - dcc text explaining error
+- `DCC_HELPER_JSON` - above variables encoded as JSON
+
 # Output checking
 
 dcc can check a program's output is correct.  If a program outputs an incorrect line, the program is stopped.  A description of why the output is incorrect is printed.  The current execution location is shown with the current values of variables & expressions.
@@ -188,15 +231,15 @@ int main(void) {
 * Deb-based Systems including Debian, Ubuntu, Mint and Windows Subsystem for Linux
 
 	```bash
-	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.12/dcc_2.12_all.deb -o /tmp/dcc_2.12_all.deb
-	sudo apt install /tmp/dcc_2.12_all.deb
+	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.15/dcc_2.15_all.deb -o /tmp/dcc_2.15_all.deb
+	sudo apt install /tmp/dcc_2.15_all.deb
 	```
 
 	or
 
 	```bash
 	sudo apt install  clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.12/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.15/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 
@@ -212,7 +255,7 @@ int main(void) {
 
 	```bash
 	sudo pacman -S clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.12/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.15/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 
@@ -220,7 +263,7 @@ int main(void) {
 
 	```bash
 	sudo yum install clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.12/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.15/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 
@@ -228,7 +271,7 @@ int main(void) {
 
 	```bash
 	sudo zypper install clang gcc gdb valgrind python3 curl
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.12/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.15/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
 	```
 	
@@ -243,7 +286,7 @@ int main(void) {
 	Note: It is usually not a good idea to blindly run remote bash scripts in your terminal, you can inspect the file by opening the URL and reading to see what it does yourself.
 
     ```bash
-	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.12/dcc -o /usr/local/bin/dcc
+	sudo curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.15/dcc -o /usr/local/bin/dcc
 	sudo chmod o+rx  /usr/local/bin/dcc
     ```
 	
@@ -252,12 +295,12 @@ int main(void) {
 
 # C++ Support
 
-There is experimental support for C++ programs if `dcc` is invoked as `dcc++`.
+There is experimental support for C++ programs if `dcc` is invoked as `d++` or `dcc++`.
 
 Install by creating a symbolic link, e.g.:
 
 ```bash
-sudo ln  -sf dcc /usr/local/bin/dcc++
+sudo ln  -sf dcc /usr/local/bin/d++
 ```
 
 

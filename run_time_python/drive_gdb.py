@@ -1,7 +1,9 @@
-import collections, os, platform, re, sys, signal, traceback
-from explain_output_difference import explain_output_difference
+import collections, os, platform, re, sys, signal, subprocess, traceback
 import colors
-from util import explanation_url
+from explain_output_difference import explain_output_difference
+import util
+
+RUNTIME_HELPER_BASENAME = "dcc-runtime-helper"
 
 #
 # Code below is executed from gdb.
@@ -14,6 +16,10 @@ hash_define = collections.defaultdict(dict)
 source = {}
 debug_level = 0
 debug_stream = sys.stderr
+
+# workaround - avoid warning message from analysers
+if 0:
+    gdb = None
 
 
 def drive_gdb():
@@ -84,23 +90,27 @@ def explain_error(output_stream, color):
     stack = gdb_set_frame()
     loc = stack[0] if stack else None
     signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
-
+    explanation = ""
     if signal_number != signal.SIGABRT:
-        print(explain_signal(signal_number), file=output_stream)
+        explanation = explain_signal(signal_number)
     elif "DCC_ASAN_ERROR" in os.environ:
-        explain_asan_error(loc, output_stream, color)
+        explanation = explain_asan_error(loc, color)
     elif "DCC_UBSAN_ERROR_KIND" in os.environ:
-        explain_ubsan_error(loc, output_stream, color)
+        explanation, loc = explain_ubsan_error(loc, color)
     elif "DCC_OUTPUT_ERROR" in os.environ:
-        explain_output_difference(output_stream, color)
+        explanation = explain_output_difference(color)
     elif os.environ.get("DCC_SANITIZER", "") == "MEMORY":
-        if loc:
-            print(f"{loc.filename}:{loc.line_number}", end=" ", file=output_stream)
-        print(
-            "runtime error",
-            color("uninitialized variable used", "red"),
-            file=output_stream,
-        )
+        explanation = "runtime error " + color("uninitialized variable used", "red")
+
+    if explanation:
+        # loc may be improved above so we wait to here to use it
+        if loc and loc.column:
+            explanation = (
+                f"{loc.filename}:{loc.line_number}:{loc.column} " + explanation
+            )
+        elif loc:
+            explanation = f"{loc.filename}:{loc.line_number} " + explanation
+        print(explanation, file=output_stream)
 
     if loc:
         print(explain_location(loc, color), end="", file=output_stream)
@@ -112,7 +122,7 @@ def explain_error(output_stream, color):
 
     if len(stack) > 1:
         print(color("\nFunction Call Traceback", "cyan"), file=output_stream)
-        for (frame, caller) in zip(stack, stack[1:]):
+        for frame, caller in zip(stack, stack[1:]):
             print(
                 frame.function_call(color),
                 "called at line",
@@ -122,6 +132,11 @@ def explain_error(output_stream, color):
                 file=output_stream,
             )
         print(stack[-1].function_call(color), file=output_stream)
+ 
+    if not explanation:
+    	explanation = os.environ.get("DCC_VALGRIND_ERROR", "")
+
+    run_runtime_helper(loc, explanation, stack, output_stream)
 
     output_stream.flush()
     gdb.flush(gdb.STDOUT)
@@ -136,12 +151,12 @@ def explain_error(output_stream, color):
 # which would be more helpful to novice programmers
 
 
-def explain_ubsan_error(loc, output_stream, color):
+def explain_ubsan_error(loc, color):
     # kind = os.environ.get('DCC_UBSAN_ERROR_KIND', '')
     message = os.environ.get("DCC_UBSAN_ERROR_MESSAGE", "")
     filename = os.environ.get("DCC_UBSAN_ERROR_FILENAME", "")
     try:
-        line_number = os.environ.get("DCC_UBSAN_ERROR_LINE", 0)
+        line_number = int(os.environ.get("DCC_UBSAN_ERROR_LINE", 0))
     except ValueError:
         line_number = 0
     try:
@@ -150,13 +165,13 @@ def explain_ubsan_error(loc, output_stream, color):
         column = 0
     # memoryaddr = os.environ.get('DCC_UBSAN_ERROR_MEMORYADDR', '')
 
-    if (
-        filename
-        and line_number
-        and (not loc or (loc.filename != filename or loc.line_number != line_number))
-    ):
+    if loc:
+        if filename and line_number:
+            loc.filename = filename
+            loc.line_number = line_number
+    else:
         loc = Location(filename, line_number)
-    if loc and column:
+    if column:
         loc.column = column
 
     source = ""
@@ -165,7 +180,6 @@ def explain_ubsan_error(loc, output_stream, color):
 
     dprint(3, "source", source)
     explanation = None
-    prefix = "\n" + color("dcc explanation:", "cyan")
 
     if message:
         message = message[0].lower() + message[1:]
@@ -251,82 +265,59 @@ def explain_ubsan_error(loc, output_stream, color):
     if not message:
         message = "undefined operation"
 
-    if loc:
-        print(f"{loc.filename}:{loc.line_number}", end="", file=output_stream)
-        if loc.column:
-            print(f":{loc.column}", end="", file=output_stream)
-    print(": runtime error -", color(message, "red"), file=output_stream)
+    report = "runtime error - " + color(message, "red")
     if explanation:
-        print(prefix, explanation, file=output_stream)
+        report += "\n"
+        report += color("dcc explanation:", "cyan")
+        report += explanation
+    return report, loc
 
 
-def explain_asan_error(loc, output_stream, color):
-    if loc:
-        print(f"{loc.filename}:{loc.line_number}", end=" ", file=output_stream)
-    report = os.environ.get("DCC_ASAN_ERROR")
-    if report:
-        report = report.replace("-", " ")
-        report = report.replace("heap", "malloc")
-        report = report.replace("null deref", "NULL pointer dereferenced")
+def explain_asan_error(loc, color):
+    asan_error = os.environ.get("DCC_ASAN_ERROR")
+    if asan_error:
+        asan_error = asan_error.replace("-", " ")
+        asan_error = asan_error.replace("heap", "malloc")
+        asan_error = asan_error.replace("null deref", "NULL pointer dereferenced")
     else:
-        report = "illegal array, pointer or other operation"
-    print("runtime error -", color(report, "red"), file=output_stream)
+        asan_error = "illegal array, pointer or other operation"
+    report = "runtime error - " + color(asan_error, "red")
+    for substring, explanation in ASAN_EXPLANATIONS:
+        if substring in report.lower():
+            report += "\n"
+            report += color("dcc explanation: ", "cyan")
+            report += explanation
+            break
+    return report
 
-    prefix = "\n" + color("dcc explanation:", "cyan")
-    if "malloc buffer overflow" in report:
-        print(
-            prefix,
-            """access past the end of malloc'ed memory.
+
+ASAN_EXPLANATIONS = [
+    (
+        "malloc buffer overflow",
+        f"""access past the end of malloc'ed memory.
   Make sure you have allocated enough memory for the size of your struct/array.
   A common error is to use the size of a pointer instead of the size of the struct or array.
+
+  For more information see: {util.explanation_url("malloc_sizeof")}
 """,
-            file=output_stream,
-        )
-        print(
-            "For more information see:",
-            explanation_url("malloc_sizeof"),
-            file=output_stream,
-        )
-    if "stack buffer overflow" in report:
-        print(
-            prefix,
-            """access past the end of a local variable.
+    ),
+    (
+        "stack buffer overflow",
+        """access past the end of a local variable.
   Make sure the size of your array is correct.
-  Make sure your array indices are correct.
-""",
-            file=output_stream,
-        )
-    elif "use after return" in report:
-        print(
-            prefix,
-            """You have used a pointer to a local variable that no longer exists.
+  Make sure your array indices are correct.""",
+    ),
+    (
+        "use after return",
+        f"""You have used a pointer to a local variable that no longer exists.
   When a function returns its local variables are destroyed.
-""",
-            file=output_stream,
-        )
-        print(
-            "For more information see:",
-            explanation_url("stack_use_after_return"),
-            file=output_stream,
-        )
-    elif "use after" in report:
-        print(
-            prefix,
-            "access to memory that has already been freed.\n",
-            file=output_stream,
-        )
-    elif "double free" in report:
-        print(
-            prefix,
-            "attempt to free memory that has already been freed.\n",
-            file=output_stream,
-        )
-    elif "null" in report.lower():
-        print(
-            prefix,
-            "attempt to access value using a pointer which is NULL.\n",
-            file=output_stream,
-        )
+
+  For more information see: {util.explanation_url("stack_use_after_return")}""",
+    ),
+    ("use after", """access to memory that has already been freed."""),
+    ("double free", """attempt to free memory that has already been freed."""),
+    ("null", """attempt to access value using a pointer which is NULL."""),
+]
 
 
 def explain_signal(signal_number):
@@ -340,6 +331,45 @@ def explain_signal(signal_number):
         return "Execution stopped because too much data written."
     else:
         return f"Execution terminated by signal {signal_number}"
+
+
+def run_runtime_helper(loc, explanation, stack, output_stream):
+    color = lambda text, color_name: text
+    helper = os.environ.get("DCC_RUNTIME_HELPER", "")
+    if not helper:
+        helper = util.search_path(
+            RUNTIME_HELPER_BASENAME, cwd=os.environ.get("DCC_PWD", ".")
+        )
+    dprint(2, f"run_helper helper='{helper}'")
+    if not helper:
+        return
+
+    explanation = colors.strip_color(explanation)
+
+    source = "".join(loc.surrounding_source(color))
+
+    call_stack = ""
+    if len(stack) > 1:
+        for frame, caller in zip(stack, stack[1:]):
+            call_stack += f"{frame.function_call(color)} called at line {caller.line_number} of{caller.filename}\n"
+        call_stack += stack[-1].function_call(color) + "\n"
+
+    variables = relevant_variables(
+        loc.surrounding_source(color, clean=True), color, include_title=False
+    )
+
+    os.environ["DCC_HELPER_FILENAME"] = loc.filename if loc else ""
+    os.environ["DCC_HELPER_LINE_NUMBER"] = str(loc.line_number) if loc else ""
+    os.environ["DCC_HELPER_COLUMN"] = str(loc.column) if loc else ""
+    os.environ["DCC_HELPER_EXPLANATION"] = explanation
+    os.environ["DCC_HELPER_SOURCE"] = source
+    os.environ["DCC_HELPER_CALL_STACK"] = call_stack
+    os.environ["DCC_HELPER_VARIABLES"] = variables
+    dprint(2, f"running {helper}")
+    try:
+        subprocess.run([helper], stdout=output_stream, stderr=output_stream)
+    except OSError as e:
+        dprint(1, e)
 
 
 class Location:
@@ -550,7 +580,7 @@ def gdb_set_frame():
         return None
 
 
-def relevant_variables(c_source_lines, color):
+def relevant_variables(c_source_lines, color, include_title=True):
     expressions = []
     for line in c_source_lines:
         expressions += extract_expressions(line)
@@ -589,7 +619,7 @@ def relevant_variables(c_source_lines, color):
                     explanation += f"{expression} = {expression_value}\n"
         except RuntimeError as e:
             dprint(2, "print_variables_expressions: RuntimeError", e)
-    if explanation:
+    if explanation and include_title:
         prefix = color("\nValues when execution stopped:", "cyan")
         explanation = prefix + "\n\n" + explanation
     return explanation

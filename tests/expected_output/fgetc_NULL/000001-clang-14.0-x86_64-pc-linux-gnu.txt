@@ -1,0 +1,12 @@
+
+tests/run_time_errors/fgetc_NULL.c:5 Execution terminated by signal 11
+Execution stopped in main() in tests/run_time_errors/fgetc_NULL.c at line 5:
+
+int main(void) {
+	FILE *f = NULL;
+-->	fgetc(f);
+}
+
+Values when execution stopped:
+
+f = NULL

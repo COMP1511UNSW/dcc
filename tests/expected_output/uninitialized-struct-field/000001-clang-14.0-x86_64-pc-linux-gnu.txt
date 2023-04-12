@@ -1,0 +1,15 @@
+
+tests/run_time_errors/uninitialized-struct-field.c:4:15 runtime error - member access within misaligned address 0x000000000005 for type 'struct b', which requires 4 byte align
+Execution stopped in main() in tests/run_time_errors/uninitialized-struct-field.c at line 4:
+
+int main(void) {
+	struct b {int a;};
+    struct b *s = (struct b *)0x5;
+--> return s->a;
+}
+
+Values when execution stopped:
+
+a = {i = {0, 1045149306}, x = 1.2904777690891933e-08, d = 1.2904777690891933e-08}
+b = {i = {0, 1068498944}, x = 0.0625, d = 0.0625}
+s = (struct b *) 0x5
