@@ -1,4 +1,5 @@
-import io, os, pkgutil, platform, re, subprocess, sys, tarfile, tempfile
+import io, json, os, pkgutil, platform, re, subprocess, sys, tarfile, tempfile
+import colors
 
 from version import VERSION
 from options import get_options
@@ -34,12 +35,23 @@ def main():
     options = get_options()
     with tempfile.TemporaryDirectory(prefix="dcc") as d:
         options.temporary_directory = d
-        compile_user_program(options)
+        p = compile_user_program(options)
+        explanation_labels = []
+        if p.stdout:
+            if options.explanations:
+                explanations = explain_compiler_output(p.stdout, options)
+                explanation_labels = [e.label for e in explanations if e and e.label]
+            else:
+                print(p.stdout, end="", file=sys.stderr)
+        if p:
+            run_compile_time_logger(p, explanation_labels, options)
+            sys.exit(p.returncode)
+        else:
+            sys.exit(1)
 
 
 def compile_user_program(options):
     wrapper_source, tar_source, wrapper_cpp_source = get_wrapper_code(options)
-    compiler_stdout = ""
     executable_source = ""
 
     if options.debug > 1:
@@ -62,7 +74,7 @@ def compile_user_program(options):
         try:
             # can't use tempfile.NamedTemporaryFile because may be multiple opens of file
             executable = tempfile.mkstemp(prefix="dcc_sanitizer2")[1]
-            compiler_stdout = execute_compiler(
+            p = execute_compiler(
                 options.c_compiler,
                 options.dcc_supplied_compiler_args
                 + sanitizer2_sanitizer_args
@@ -72,6 +84,8 @@ def compile_user_program(options):
                 wrapper_cpp_source=wrapper_cpp_source,
                 debug_C_wrapper_file="tmp_dcc_sanitizer2.c",
             )
+            if p.returncode != 0:
+                return p
             with open(executable, "rb") as f:
                 (
                     executable_n_bytes,
@@ -80,7 +94,7 @@ def compile_user_program(options):
             os.unlink(executable)
         except OSError:
             # compiler may unlink temporary file resulting in this exception
-            sys.exit(1)
+            return None
 
     # leave leak checking to valgrind if it is running
     # because it currently gives better errors
@@ -98,7 +112,7 @@ def compile_user_program(options):
         if options.object_pathname != "a.out":
             command += ["-o", options.object_pathname]
         options.debug_print("incremental compilation, running: ", " ".join(command))
-        sys.exit(subprocess.call(command))
+        return subprocess.run(command)
 
     if executable_source:
         wrapper_source = wrapper_source.replace(
@@ -111,7 +125,7 @@ def compile_user_program(options):
         "#undef _GNU_SOURCE\n#define _GNU_SOURCE 1\n#include <stdint.h>\n"
         + wrapper_source
     )
-    compiler_stdout = execute_compiler(
+    p = execute_compiler(
         options.c_compiler,
         options.dcc_supplied_compiler_args
         + sanitizer_args
@@ -119,29 +133,28 @@ def compile_user_program(options):
         options,
         wrapper_C_source=wrapper_source,
         wrapper_cpp_source=wrapper_cpp_source,
-        print_stdout=not compiler_stdout,
     )
+    if p.returncode != 0 or p.stdout:
+        return p
 
     # gcc picks up some errors at compile-time that clang doesn't, e.g
     # int main(void) {int a[1]; return a[0];}
     # so run gcc as well if available
 
     if (
-        not compiler_stdout
-        and options.also_run_gcc
+        options.also_run_gcc
         and "gcc" not in options.c_compiler
         and not options.object_files_being_linked
     ):
         options.debug_print("compiling with gcc for extra checking")
-        execute_compiler(
+        return execute_compiler(
             "g++" if options.cpp_mode else "gcc",
             options.gcc_args,
             options,
             rename_functions=False,
-            checking_only=True,
         )
 
-    sys.exit(0)
+    return p
 
 
 # customize wrapper source for a particular sanitizer
@@ -198,8 +211,6 @@ def execute_compiler(
     wrapper_C_source="",
     debug_C_wrapper_file="tmp_dcc_sanitizer1.c",
     rename_functions=True,
-    print_stdout=True,
-    checking_only=False,
     wrapper_cpp_source="",
     debug_cpp_wrapper_file="tmp_dcc_sanitizer1.cpp",
 ):
@@ -236,38 +247,17 @@ def execute_compiler(
             + options.dcc_supplied_linker_args
         )
         append_debug_compile(debug_command)
-    process = run(command, options)
-    stdout = process.stdout
-    if checking_only:
-        # we are running gcc as an extra checking phase
-        # and options don't match the gcc version so give up silently
-        if (
-            "command line" in stdout
-            or "option" in stdout
-            or "/dev/null" in stdout
-            or "undefined reference" in stdout
-        ):
-            options.debug_print(stdout)
-            return ""
-
-        # checking is run after we have already successfully generated an executable with clang
-        # so if we can get an error, unlink the executable
-        if process.returncode:
-            try:
-                os.unlink(options.object_pathname)
-            except OSError as e:
-                if options.debug:
-                    print(e)
+    p = run(command, options)
 
     # avoid a confusing mess of linker errors
-    if "undefined reference to `main" in stdout:
-        options.die(
-            "error: your program does not contain a main function - a C program must contain a main function"
-        )
+    if "undefined reference to `main" in p.stdout:
+        p.stdout = "error: your program does not contain a main function - a C program must contain a main function"
+        p.returncode = 1
+        return p
 
     # workaround for  https://github.com/android-ndk/ndk/issues/184
     # when not triggered earlier
-    if "undefined reference to `__mul" in stdout and not checking_only:
+    if "undefined reference to `__mul" in p.stdout:
         command = [
             c
             for c in command
@@ -276,17 +266,12 @@ def execute_compiler(
         ]
         options.debug_print("undefined reference to `__mulodi4'")
         options.debug_print("recompiling", " ".join(command))
-        process = run(command, options)
-        stdout = process.stdout
+        p = run(command, options)
 
     # a user call to a renamed unistd.h function appears to be undefined
     # so recompile without renames
 
-    if (
-        rename_functions
-        and "undefined reference to `__renamed_" in stdout
-        and not checking_only
-    ):
+    if rename_functions and "undefined reference to `__renamed_" in p.stdout:
         options.debug_print(
             "undefined reference to `__renamed_' recompiling without -D renames"
         )
@@ -296,22 +281,11 @@ def execute_compiler(
             options,
             rename_functions=False,
             wrapper_C_source=wrapper_C_source,
-            print_stdout=print_stdout,
             debug_C_wrapper_file=debug_C_wrapper_file,
             wrapper_cpp_source=wrapper_cpp_source,
             debug_cpp_wrapper_file=debug_cpp_wrapper_file,
         )
-
-    if stdout and print_stdout:
-        if options.explanations:
-            explain_compiler_output(stdout, options)
-        else:
-            print(stdout, end="", file=sys.stderr)
-
-    if process.returncode:
-        sys.exit(process.returncode)
-
-    return stdout
+    return p
 
 
 def compile_wrapper_source(
@@ -499,12 +473,14 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 
 def embeded_environment_variables(options):
     ev = options.embedded_environment_variables
-    assignments = [f'setenvd({c_repr(k)}, {c_repr(v)});' for (k, v) in ev]
+    assignments = [f"setenvd({c_repr(k)}, {c_repr(v)});" for (k, v) in ev]
     return "\n".join(assignments)
 
 
 def c_repr(str):
-	return '"' + str.replace('\\', r'\\').replace(r'"', r'\"').replace('\n', r'\n') + '"'
+    return (
+        '"' + str.replace("\\", r"\\").replace(r'"', r"\"").replace("\n", r"\n") + '"'
+    )
 
 
 def run(
@@ -607,3 +583,34 @@ def add_tar_file(tar, pathname, contents):
     file_info = tarfile.TarInfo(pathname)
     file_info.size = len(contents)
     tar.addfile(file_info, file_buffer)
+
+
+def run_compile_time_logger(process, explanation_labels, options):
+    """
+    run a script to log compiles
+    """
+    if not options.compile_logger:
+        return
+    stdout = process.stdout or ""
+    stdout_first_line = colors.strip_color("".join(stdout.splitlines()[:1]))
+    logger_info = {
+        "argv": sys.argv[1:],
+        "returncode": process.returncode,
+        "stdout_first_line": stdout_first_line,
+        "explanation_labels": explanation_labels,
+    }
+
+    if options.debug:
+        print(f"compile_logger logger='{options.compile_logger} info='{logger_info}'")
+
+    for k, v in logger_info.items():
+        os.environ["DCC_LOGGER_" + k.upper()] = str(v)
+    os.environ["DCC_LOGGER_JSON"] = json.dumps(logger_info, separators=(",", ":"))
+
+    if options.debug:
+        print(f"running {options.compile_logger}")
+    try:
+        subprocess.run([options.compile_logger])
+    except OSError as e:
+        if options.debug:
+            print(e)

@@ -33,6 +33,8 @@ IMPLICIT_LINKER_ARGS = "-lm".split()
 
 COMPILE_HELPER_BASENAME = "dcc-compile-helper"
 
+COMPILE_LOGGER_BASENAME = "dcc-compile-logger"
+
 
 # gcc detects some typical novice programmer mistakes that clang doesn't
 # We run gcc has an extra checking pass with several warnings options enabled
@@ -156,7 +158,12 @@ class Options:
         self.threads_used = False
         self.treat_warnings_as_errors = False
         self.user_supplied_compiler_args = []
-        self.compile_helper = search_path(COMPILE_HELPER_BASENAME)
+        self.compile_helper = os.environ.get("DCC_COMPILE_HELPER", "") or search_path(
+            COMPILE_HELPER_BASENAME
+        )
+        self.compile_logger = os.environ.get("DCC_COMPILE_LOGGER", "") or search_path(
+            COMPILE_LOGGER_BASENAME
+        )
         self.embedded_environment_variables = []
 
     def die(self, *args, **kwargs):
@@ -356,6 +363,8 @@ def parse_arg(arg, remaining_args, options):
             options.die(f"{options.c_compiler} not found")
     elif arg.startswith("--compile_helper="):
         options.compile_helper = arg[len("--compile_helper=") :]
+    elif arg.startswith("--compile_logger="):
+        options.compile_logger = arg[len("--compile_logger=") :]
     elif arg.startswith("--embedded_environment_variable="):
         name_value = arg[len("--embedded_environment_variable=") :]
         name = name_value.split("=")[0]

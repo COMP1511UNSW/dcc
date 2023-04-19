@@ -151,9 +151,24 @@ These environment variable are supplied to the helper script. They may be empty.
 After reporting a compiler message `dcc`  can optionally run an external program.
 
 After reporting a compiler message `dcc`  checks if an executable
-named **dcc-compiler-helper** exists in `$PATH` and if so runs it.
+named **dcc-compile-helper** exists in `$PATH` and if so runs it.
 
 An alternate name for the executable file can be supplied in the environment variable `DCC_COMPILE_HELPER`
+
+These environment variable are supplied to the helper script. They may be empty.
+
+- `DCC_LOGGER_ARGV` - compiler command-line arguments
+- `DCC_LOGGER_RETURNCODE` - compiler exit status
+- `DCC_LOGGER_JSON` - above variables encoded as JSON
+
+# Compile Logger Script
+
+After completing a compilation message `dcc`  can optionally log the details.
+
+After reporting a compiler message `dcc`  checks if an executable
+named **dcc-compile-logger** exists in `$PATH` and if so runs it.
+
+An alternate name for the executable file can be supplied in the environment variable `DCC_COMPILE_LOGGER`
 
 These environment variable are supplied to the helper script. They may be empty.
 

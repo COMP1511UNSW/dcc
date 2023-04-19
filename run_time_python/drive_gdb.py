@@ -1,4 +1,4 @@
-import collections, os, platform, re, sys, signal, subprocess, traceback
+import collections, json, os, platform, re, sys, signal, subprocess, traceback
 import colors
 from explain_output_difference import explain_output_difference
 import util
@@ -132,9 +132,9 @@ def explain_error(output_stream, color):
                 file=output_stream,
             )
         print(stack[-1].function_call(color), file=output_stream)
- 
+
     if not explanation:
-    	explanation = os.environ.get("DCC_VALGRIND_ERROR", "")
+        explanation = os.environ.get("DCC_VALGRIND_ERROR", "")
 
     run_runtime_helper(loc, explanation, stack, output_stream)
 
@@ -340,7 +340,6 @@ def run_runtime_helper(loc, explanation, stack, output_stream):
         helper = util.search_path(
             RUNTIME_HELPER_BASENAME, cwd=os.environ.get("DCC_PWD", ".")
         )
-    dprint(2, f"run_helper helper='{helper}'")
     if not helper:
         return
 
@@ -358,13 +357,21 @@ def run_runtime_helper(loc, explanation, stack, output_stream):
         loc.surrounding_source(color, clean=True), color, include_title=False
     )
 
-    os.environ["DCC_HELPER_FILENAME"] = loc.filename if loc else ""
-    os.environ["DCC_HELPER_LINE_NUMBER"] = str(loc.line_number) if loc else ""
-    os.environ["DCC_HELPER_COLUMN"] = str(loc.column) if loc else ""
-    os.environ["DCC_HELPER_EXPLANATION"] = explanation
-    os.environ["DCC_HELPER_SOURCE"] = source
-    os.environ["DCC_HELPER_CALL_STACK"] = call_stack
-    os.environ["DCC_HELPER_VARIABLES"] = variables
+    helper_info = {
+        "filename": loc.filename if loc else "",
+        "line_number": str(loc.line_number) if loc else "",
+        "column": str(loc.column) if loc else "",
+        "explanation": explanation,
+        "source": source,
+        "call_stack": call_stack,
+        "variables": variables,
+    }
+
+    dprint(2, f"run_helper helper='{helper}' info='{helper_info}'")
+    for k, v in helper_info.items():
+        os.environ["DCC_HELPER_" + k.upper()] = v
+    os.environ["DCC_HELPER_JSON"] = json.dumps(helper_info, separators=(",", ":"))
+
     dprint(2, f"running {helper}")
     try:
         subprocess.run([helper], stdout=output_stream, stderr=output_stream)
