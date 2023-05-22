@@ -585,6 +585,9 @@ def add_tar_file(tar, pathname, contents):
     tar.addfile(file_info, file_buffer)
 
 
+MAX_BYTES_LOG_SOURCE_FILE = 20480
+
+
 def run_compile_time_logger(process, explanation_labels, options):
     """
     run a script to log compiles
@@ -595,10 +598,20 @@ def run_compile_time_logger(process, explanation_labels, options):
     stdout_first_line = colors.strip_color("".join(stdout.splitlines()[:1]))
     logger_info = {
         "argv": sys.argv[1:],
-        "returncode": process.returncode,
-        "stdout_first_line": stdout_first_line,
-        "explanation_labels": explanation_labels,
+        "exit": process.returncode,
+        "first_line": stdout_first_line,
+        "labels": explanation_labels,
     }
+    source_file = stdout_first_line.split(":")[0]
+    try:
+        if (
+            source_file.endswith(".c")
+            and os.path.getsize(source_file) < MAX_BYTES_LOG_SOURCE_FILE
+        ):
+            with open(source_file) as f:
+                logger_info["source"] = f.read(MAX_BYTES_LOG_SOURCE_FILE)
+    except OSerror:
+        pass
 
     if options.debug:
         print(f"compile_logger logger='{options.compile_logger} info='{logger_info}'")

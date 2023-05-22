@@ -1,5 +1,5 @@
 import json, os, re, subprocess, sys
-import colors
+import colors, util
 from compiler_explanations import get_explanation
 
 ANSI_DEFAULT = "\033[0m"
@@ -246,15 +246,21 @@ def run_compile_time_helper(message, args):
     explanation = get_explanation(message, lambda text, color_name: text)
     explanation_text = explanation.text.rstrip("\n") if explanation else ""
     explanation_label = explanation.label if explanation else ""
+    loc = util.Location(message.file, message.line_number)
+    color = lambda text, color_name: text
+    source = "".join(
+        loc.surrounding_source(color, radius=10, clean=False, markMiddle=False)
+    )
 
     helper_info = {
         "compiler_message": message_text,
-        "message_type": message.type,
-        "filename": message.file,
-        "line_number": str(message.line_number),
-        "column": str(message.column),
+        "type": message.type,
+        "file": message.file,
+        "line": str(message.line_number),
+        "col": str(message.column),
         "explanation": explanation_text,
-        "explanation_label": explanation_label,
+        "label": explanation_label,
+        "source": source,
     }
 
     if args.debug:

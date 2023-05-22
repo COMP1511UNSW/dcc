@@ -110,6 +110,7 @@ class Explanation:
         f_string = self.explanation
         f_string = re.sub(r'\*\*\{(.*?)\}\*\*', r"{emphasize(\1)}", f_string)
         f_string = re.sub(r'\*\*(.*?)\*\*', r"{emphasize('\1')}", f_string)
+        print('f:', f_string)
         f_string = 'f"""' + f_string + '"""'
 
         return eval(f_string, globals(), parameters)
@@ -143,7 +144,7 @@ int main(void) {
 #include <stdio.h>
 
 int main(void) {
-    int i;
+    int i = 0;
     scanf("%d", i);
 }
 """,
@@ -196,6 +197,7 @@ int main(int argc, char *argv[]) {
         reproduce="""\
 int main(int argc, char *argv[]) {
     int i = 6.7;
+    return i;
 }
 """,
     ),
@@ -257,6 +259,7 @@ Perhaps you are trying to call the function and have forgotten the round bracket
         reproduce="""\
 int main(int argc, char *argv[]) {
     int a = main;
+    return a;
 }
 """,
     ),
@@ -981,7 +984,7 @@ def extract_argument_variable(string, argument_number, emphasize):
         except (ValueError, IndexError):
             pass
     if re.match(r"^[_a-z]\w*$", variable_name):
-        return f"the variable **{variable_name}** which always contains NULL"
+        return f"the variable {emphasize(variable_name)} which always contains NULL"
     return "a NULL value"
 
 

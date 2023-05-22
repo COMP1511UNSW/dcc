@@ -1,4 +1,4 @@
-import collections, json, os, platform, re, sys, signal, subprocess, traceback
+import json, os, platform, re, sys, signal, subprocess, traceback
 import colors
 from explain_output_difference import explain_output_difference
 import util
@@ -12,8 +12,6 @@ RUNTIME_HELPER_BASENAME = "dcc-runtime-helper"
 #
 
 
-hash_define = collections.defaultdict(dict)
-source = {}
 debug_level = 0
 debug_stream = sys.stderr
 
@@ -170,13 +168,13 @@ def explain_ubsan_error(loc, color):
             loc.filename = filename
             loc.line_number = line_number
     else:
-        loc = Location(filename, line_number)
+        loc = util.Location(filename, line_number)
     if column:
         loc.column = column
 
     source = ""
     if loc:
-        source = clean_c_source(loc.source_line())
+        source = util.clean_c_source(loc.source_line())
 
     dprint(3, "source", source)
     explanation = None
@@ -345,7 +343,9 @@ def run_runtime_helper(loc, explanation, stack, output_stream):
 
     explanation = colors.strip_color(explanation)
 
-    source = "".join(loc.surrounding_source(color))
+    source = "".join(
+        loc.surrounding_source(color, radius=10, clean=False, markMiddle=False)
+    )
 
     call_stack = ""
     if len(stack) > 1:
@@ -358,9 +358,9 @@ def run_runtime_helper(loc, explanation, stack, output_stream):
     )
 
     helper_info = {
-        "filename": loc.filename if loc else "",
-        "line_number": str(loc.line_number) if loc else "",
-        "column": str(loc.column) if loc else "",
+        "file": loc.filename if loc else "",
+        "line": str(loc.line_number) if loc else "",
+        "col": str(loc.column) if loc else "",
         "explanation": explanation,
         "source": source,
         "call_stack": call_stack,
@@ -377,124 +377,6 @@ def run_runtime_helper(loc, explanation, stack, output_stream):
         subprocess.run([helper], stdout=output_stream, stderr=output_stream)
     except OSError as e:
         dprint(1, e)
-
-
-class Location:
-    def __init__(
-        self,
-        filename,
-        line_number,
-        column="",
-        function="",
-        params="",
-        variable="",
-        frame_number="",
-    ):
-        self.filename = filename
-        self.line_number = int(line_number)
-        self.column = column
-        self.function = function
-        self.params = params
-        self.variable = variable
-        self.frame_number = frame_number
-
-    def __str__(self):
-        return f"Location({self.filename},{self.line_number},column={self.column},function={self.function},params={self.params},variable={self.variable})"
-
-    def function_call(self, color):
-        params = clarify_values(self.params, color)
-        if self.function == "main" and params.startswith("argc=1,"):
-            params = ""
-        return self.function + "(" + params + ")"
-
-    def location(self, color):
-        return (
-            color(self.filename, "red")
-            + " at "
-            + color("line " + str(self.line_number), "red")
-        )
-
-    def short_description(self, color):
-        return self.function_call(color) + " in " + self.location(color)
-
-    def long_description(self, color):
-        where = "in " + self.short_description(color)
-        source_lines = self.surrounding_source(color, markMiddle=True)
-        source = "".join(source_lines).rstrip("\n") + "\n"
-        if source:
-            where += ":\n\n" + source
-        return where
-
-    def source_line(self):
-        return fileline(self.filename, self.line_number)
-
-    def surrounding_source(self, color, radius=2, clean=False, markMiddle=False):
-        lines = []
-        marked_line = None
-        for offset in range(-3 * radius, 2 * radius):
-            line = fileline(self.filename, self.line_number + offset)
-
-            if re.match(r"^\S", line) and offset < 0:
-                lines = []
-
-            if markMiddle and offset == 0 and line:
-                marked_line = line
-                line = color(re.sub(r"^ {0,3}", "-->", line), "red")
-
-            lines.append(clean_c_source(line) if clean else line)
-
-            if re.match(r"^\S", line) and offset > 0:
-                break
-
-        while lines and re.match(r"^[\s}]*$", lines[0]):
-            lines.pop(0)
-
-        while lines and re.match(r"^[\s{]*$", lines[-1]):
-            lines.pop()
-
-        if len(lines) == 1 and not marked_line:
-            return ""
-
-        return lines
-
-    def is_user_location(self):
-        if not re.match(r"^[a-zA-Z]", self.function):
-            return False
-        if re.match(r"^/(usr|build)/", self.filename):
-            return False
-        if re.match(r"^\?", self.filename):
-            return False
-        return True
-
-
-def fileline(filename, line_number):
-    line_number = int(line_number)
-    try:
-        if filename in source:
-            return source[filename][line_number - 1]
-        with open(filename, encoding="utf-8", errors="replace") as f:
-            source[filename] = f.readlines()
-            for line in source[filename]:
-                m = re.match(r"^\s*#\s*define\s*(\w+)\s*(.*\S)", line)
-                if m:
-                    hash_define[filename][m.group(1)] = (line.rstrip(), m.group(2))
-        return source[filename][line_number - 1].rstrip() + "\n"
-    except IOError:
-        dprint(2, f"fileline error can not open: {filename}")
-    except IndexError:
-        dprint(2, f"fileline error can not find {line_number} in {filename}")
-    return ""
-
-
-# remove comments and truncate strings & character constants to zero-length
-def clean_c_source(c_source, leave_white_space=False):
-    c_source = re.sub("\\[\"']", "", c_source)
-    c_source = re.sub(r'".*?"', "", c_source)
-    c_source = re.sub(r"'.*?'", "", c_source)
-    c_source = re.sub(r"/[/\*].*", "", c_source)
-    if leave_white_space:
-        return c_source
-    return c_source.strip() + "\n"
 
 
 def gdb_evaluate(expression):
@@ -548,7 +430,7 @@ def parse_gdb_stack_frame(line):
             m = None
         dprint(3, f"parse_gdb_stack_frame filename='{filename}' m={m}")
     if m:
-        return Location(
+        return util.Location(
             m.group("filename"),
             m.group("line_number"),
             function=m.group("function"),
@@ -687,59 +569,7 @@ def clarify_expression_value(expression_value, expression_type, color):
                 expression_value = "0 = '\\0'"
             else:
                 expression_value = f"{m.group(1)} = '{m.group(2)}'"
-    return clarify_values(expression_value, color)
-
-
-# transform value into something a novice programmer more likely to understand
-def clarify_values(values, color):
-    # novices will understand 0x0 better as NULL if it is a pointer
-    values = re.sub(r"\b0x0\b", "NULL", values)
-
-    # strip type cast from strings
-    values = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', values)
-
-    # strip type cast from NULL pointers
-    values = re.sub(r"^\([^()]+\s+\*\)\s*NULL\b", "NULL", values)
-
-    # strip type cast from uninitialized valuess
-    values = re.sub(r"^\([^()]+\s+\*\)\s*0xbebebebe(\w+)", r"0xbebebebe\1", values)
-
-    values = re.sub(r"'\000'", r"'\\0'", values)
-
-    warning_text = color("<uninitialized value>", "red")
-
-    for value in [
-        "-1094795586",
-        "-1.8325506472120096e-06",
-        "-0.372548997",
-        "-66 (not valid ASCII)",
-        "0xbebebebe",
-        "0xbebebebebebebebe",
-    ]:
-        values = re.sub(
-            r"(^|\D)" + re.escape(value) + r"($|\W)",
-            r"\1" + warning_text + r"\2",
-            values,
-        )
-
-    values = re.sub(
-        r"'\\276' <repeats (\d+) times>",
-        color("<\\1 uninitialized values>", "red"),
-        values,
-    )
-
-    # convert "\276\276\276" ->  <3 uninitialized values>
-    values = re.sub(
-        r'"((\\276)+)"',
-        lambda m: color(f"<{len(m.group(1)) // 4} uninitialized values>", "red"),
-        values,
-    )
-
-    # make display of arrays more concise
-    if values and values[0] == "{" and len(values) > 128:
-        values = re.sub(r"\{(.{100}.*?),.*\}", r"{\1, ...}", values)
-
-    return values
+    return util.clarify_values(expression_value, color)
 
 
 def balance_bracket(s, depth=0):
@@ -811,7 +641,7 @@ def extract_expressions(c_source):
 
 
 def explain_location(loc, color):
-    if not isinstance(loc, Location):
+    if not isinstance(loc, util.Location):
         return f"Execution stopped at '{loc}'"
     else:
         return "Execution stopped " + loc.long_description(color)
