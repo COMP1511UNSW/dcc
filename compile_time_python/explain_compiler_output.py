@@ -127,7 +127,7 @@ def explain_compiler_output(output, args):
     #
     # if we didn't explain any messages, just pass through all compiler output
     #
-    if not errors_explained:
+    if not errors_explained and lines:
         print("\n".join(lines), file=sys.stderr)
 
     return explanations
@@ -275,6 +275,8 @@ def run_compile_time_helper(message, args):
     if args.debug:
         print(f"running {args.compile_helper}")
     try:
+        sys.stdout.flush()
+        sys.stderr.flush()
         p = subprocess.run([args.compile_helper])
         return p.returncode == 0
     except OSError as e:

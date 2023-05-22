@@ -1,0 +1,7 @@
+tests/extracted_compile_time_errors/assign_function_to_int.c:2:9: warning: incompatible pointer to integer conversion initializing 'int' with an expression of type 'int (int, char **)' [-Wint-conversion]
+    int a = main;
+        ^   ~~~~
+dcc explanation: you are attempting to assign main which is a function to an int variable.
+Perhaps you are trying to call the function and have forgotten the round brackets and any parameter values.
+
+  See more information here: https://comp1511unsw.github.io/dcc/assign_function_to_int.html
