@@ -110,7 +110,6 @@ class Explanation:
         f_string = self.explanation
         f_string = re.sub(r'\*\*\{(.*?)\}\*\*', r"{emphasize(\1)}", f_string)
         f_string = re.sub(r'\*\*(.*?)\*\*', r"{emphasize('\1')}", f_string)
-        print('f:', f_string)
         f_string = 'f"""' + f_string + '"""'
 
         return eval(f_string, globals(), parameters)
