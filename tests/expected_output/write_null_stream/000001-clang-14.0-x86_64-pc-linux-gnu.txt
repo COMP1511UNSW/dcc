@@ -4,11 +4,3 @@ tests/run_time_errors/write_null_stream.c:4:9: warning: argument 1 null where no
       |         ^~~~~~~
 dcc explanation: you are passing a NULL value as argument 1 to 'fprintf'.
 Argument 1 to 'fprintf' should never be NULL.
-In file included from tests/run_time_errors/write_null_stream.c:1:
-/usr/include/stdio.h:350:12: note: in a call to function ‘fprintf’ declared ‘nonnull’
-  350 | extern int fprintf (FILE *__restrict __stream,
-      |            ^~~~~~~
-tests/run_time_errors/write_null_stream.c:4:9: warning: argument 4 null where non-null expected [-Wnonnull]
-    4 |         fprintf(NULL, "Hello world\n");
-      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-tests/run_time_errors/write_null_stream.c:4:9: note: in a call to built-in function ‘__builtin_fwrite’

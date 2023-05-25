@@ -106,7 +106,7 @@ def explain_compiler_output(output, args):
         if explanation:
             explanations.append(explanation)
 
-        if run_compile_time_helper(message, args):
+        if explanation and run_compile_time_helper(message, args):
             break
 
         if not explanation_text:
@@ -127,8 +127,10 @@ def explain_compiler_output(output, args):
     #
     # if we didn't explain any messages, just pass through all compiler output
     #
-    if not errors_explained and lines:
-        print("\n".join(lines), file=sys.stderr)
+    if not explanations and lines:
+        message = "\n".join(lines)
+        print(message, file=sys.stderr)
+        run_compile_time_helper(message, args)
 
     return explanations
 
