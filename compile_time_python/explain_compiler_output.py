@@ -127,10 +127,8 @@ def explain_compiler_output(output, args):
     #
     # if we didn't explain any messages, just pass through all compiler output
     #
-    if not explanations and lines:
-        message = "\n".join(lines)
-        print(message, file=sys.stderr)
-        run_compile_time_helper(message, args)
+    if not explanations and messages:
+        run_compile_time_helper(messages[0], args)
 
     return explanations
 
