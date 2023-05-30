@@ -187,11 +187,11 @@ def clarify_values(values, color):
 
     # convert "\276\276\276" ->  <3 uninitialized values>
     values = re.sub(
-        r'"((\\276)+)"',
+        r"((\\276)+)",
         lambda m: color(f"<{len(m.group(1)) // 4} uninitialized values>", "red"),
         values,
     )
-
+    values = re.sub('<1 uninitialized values>', '<uninitialized value>', values)
     # make display of arrays more concise
     if values and values[0] == "{" and len(values) > 128:
         values = re.sub(r"\{(.{100}.*?),.*\}", r"{\1, ...}", values)

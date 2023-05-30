@@ -367,6 +367,11 @@ def run_runtime_helper(loc, explanation, stack, output_stream):
         "variables": variables,
     }
 
+# needed?
+#    signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
+#    if signal_number != signal.SIGABRT:
+#        helper_info["signal"] = signal.Signals(signal_number).name
+
     dprint(2, f"run_helper helper='{helper}' info='{helper_info}'")
     for k, v in helper_info.items():
         os.environ["DCC_HELPER_" + k.upper()] = v

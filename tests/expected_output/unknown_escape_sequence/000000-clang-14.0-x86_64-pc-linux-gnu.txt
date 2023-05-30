@@ -1,0 +1,4 @@
+tests/extracted_compile_time_errors/unknown_escape_sequence.c:2:17: warning: unknown escape sequence '\_' [-Wunknown-escape-sequence]
+   return (int)"\_/";
+                ^~
+dcc explanation: if you want an actual backslash in your string use \\ 

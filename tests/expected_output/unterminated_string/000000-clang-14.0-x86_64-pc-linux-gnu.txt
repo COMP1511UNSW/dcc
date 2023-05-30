@@ -1,0 +1,21 @@
+=================================================================
+
+tests/run_time_errors/unterminated_string.c:7 runtime error - stack buffer overflow
+dcc explanation: access past the end of a local variable.
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+Execution stopped in main() in tests/run_time_errors/unterminated_string.c at line 7:
+
+int main(void) {
+    char str[10];
+    str[0] = 'H';
+    str[1] = 'i';
+--> printf("%s", str);
+    return 0;
+}
+
+Values when execution stopped:
+
+str = "Hi<8 uninitialized values>"
+str[0] = 72 = 'H'
+str[1] = 105 = 'i'

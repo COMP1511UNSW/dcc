@@ -93,7 +93,7 @@ Your program produced all the expected output, except the last newline ('\n') wa
 
 For more information go to https://comp1511unsw.github.io/dcc/missing_newline.html
 
-tests/check_output/check_birds.sh: line 13: 2320177 Killed                  ./a.out > /dev/null
+tests/check_output/check_birds.sh: line 13: 3946722 Killed                  ./a.out > /dev/null
 bird-no-output.c
 
 Execution failed because program produced no output.
@@ -101,7 +101,7 @@ Execution failed because program produced no output.
 The first expected line was:
   ___
 
-tests/check_output/check_birds.sh: line 13: 2320238 Killed                  ./a.out > /dev/null
+tests/check_output/check_birds.sh: line 13: 3946784 Killed                  ./a.out > /dev/null
 bird-truncated.c
 
 Execution failed because of missing output lines.
@@ -109,7 +109,7 @@ Your program printed 3 lines of correct output but stopped before printing all t
 The next expected line was:
 ((___))
 
-tests/check_output/check_birds.sh: line 13: 2320301 Killed                  ./a.out > /dev/null
+tests/check_output/check_birds.sh: line 13: 3946845 Killed                  ./a.out > /dev/null
 bird-zero-byte.c
 
 /home/andrewt/w/dcc/src/tests/check_output/birds/bird-zero-byte.c:10 Execution failed because a zero byte ('\0') was printed.

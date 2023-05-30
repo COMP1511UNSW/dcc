@@ -4,6 +4,8 @@ import copy, math, re, sys
 import colors
 from util import explanation_url
 
+BACKSLASH = "\\"
+
 
 def get_explanation(message, colorize_output):
     for e in explanations:
@@ -53,7 +55,7 @@ class Explanation:
         long_explanation=False,
         long_explanation_url="",
     ):
-        self.label = label if label else re.sub('\W+', '_', regex).strip('_')
+        self.label = label if label else re.sub(r"\W+", "_", regex).strip("_")
         self.precondition = precondition
         self.regex = regex
         self.explanation = explanation
@@ -108,8 +110,8 @@ class Explanation:
         parameters["info"] = lambda text: color(text, "cyan", style="bold")
 
         f_string = self.explanation
-        f_string = re.sub(r'\*\*\{(.*?)\}\*\*', r"{emphasize(\1)}", f_string)
-        f_string = re.sub(r'\*\*(.*?)\*\*', r"{emphasize('\1')}", f_string)
+        f_string = re.sub(r"\*\*\{(.*?)\}\*\*", r"{emphasize(\1)}", f_string)
+        f_string = re.sub(r"\*\*(.*?)\*\*", r"{emphasize('\1')}", f_string)
         f_string = 'f"""' + f_string + '"""'
 
         return eval(f_string, globals(), parameters)
@@ -570,7 +572,7 @@ int main(void) {
         label="non_void_function_does_not_return_a_value_in_all_control_paths",
         regex=r"non-void function does not return a value in all control paths",
         explanation="""\
-You function contains a **return** but it is possible for execution
+Your function contains a **return** but it is possible for execution
 to reach the end of the function without a **return** statment being executed.
 """,
         reproduce="""\
@@ -653,7 +655,8 @@ int main(int argc, char *argv[]) {
     ),
     Explanation(
         regex=r"extra tokens at end of #include directive",
-        precondition=lambda message, match: ';' in ''.join(message.text_without_ansi_codes),
+        precondition=lambda message, match: ";"
+        in "".join(message.text_without_ansi_codes),
         explanation="""\
 you have unnecessary characters on your #include statement.
 Remember #include statements don't need a '**;**'.
@@ -690,14 +693,15 @@ int main(void) {
     ),
     Explanation(
         regex=r"has empty body",
-        precondition=lambda message, match: ';' in ''.join(message.text_without_ansi_codes),
+        precondition=lambda message, match: ";"
+        in "".join(message.text_without_ansi_codes),
         explanation="""\
 you may have an extra '**;**' that you should remove.
 """,
         reproduce="""\
 int main(int argc, char *argv[]) {
-	if (argc); {
-	}
+    if (argc); {
+    }
 }
 """,
     ),
@@ -710,7 +714,7 @@ Did you mean to assign it to a variable?
         reproduce="""\
 #include <stdlib.h>
 int main(int argc, char *argv[]) {
-	atoi(argv[0]);
+    atoi(argv[0]);
 }
 """,
     ),
@@ -724,7 +728,7 @@ Did you mean to assign it to a variable?
         reproduce="""\
 #include <stdlib.h>
 int main(int argc, char *argv[]) {
-	atoi(argv[0]);
+    atoi(argv[0]);
 }
 """,
     ),
@@ -736,7 +740,7 @@ remember '**=**' is used to assign a value to a variable, '**==**' is used to co
 """,
         reproduce="""\
 int main(void) {
-	int i == 0;
+    int i == 0;
 }
 """,
     ),
@@ -768,7 +772,7 @@ void main(void) {
 you are changing a variable multiple times in the one statement. 
 **`++`** and **`--`** change the variable, there is no need to also assign the result to the variable.
 """,
-       reproduce="""\
+        reproduce="""\
 int main(int argc, char *argv[]) {
     argc = argc--;
 }
@@ -780,19 +784,20 @@ int main(int argc, char *argv[]) {
 your declaration of '**main**' is incorrect.
 Try either '**int main(void)**' or '**int main(int argc, char *argv[])**'
 """,
-       reproduce="""\
+        reproduce="""\
 int main(int argc) {
 }
 """,
     ),
     Explanation(
         regex=r"relational comparison result unused",
-        precondition=lambda message, match: ',' in ''.join(message.text_without_ansi_codes),
+        precondition=lambda message, match: ","
+        in "".join(message.text_without_ansi_codes),
         explanation="""\
 you appear to be combining combining comparison incorrectly. 
 Perhaps you are using '**,**' instead of '**&&**' or '**||**'.
 """,
-       reproduce="""\
+        reproduce="""\
 int main(int argc, char *argv[]) {
     return argc < 0, argc < 23;
 }
@@ -804,7 +809,7 @@ int main(int argc, char *argv[]) {
 you can not compare strings with '<', '>' etc.
 'string.h' has functions which can compare strings, e.g. '**strcmp**'
 """,
-       reproduce="""\
+        reproduce="""\
 int main(int argc, char *argv[]) {
     return argv[0] < "";
 }
@@ -815,7 +820,7 @@ int main(int argc, char *argv[]) {
         explanation="""\
 you appear to be incorrectly trying to use **{underlined_word}** as an array .
 """,
-       reproduce="""\
+        reproduce="""\
 int main(int argc, char *argv[]) {
     return argc[0];
 }
@@ -827,7 +832,7 @@ int main(int argc, char *argv[]) {
 you appear to have forgotten the return type on a function.
 You must specify the return type of a function just before its name.
 """,
-       reproduce="""\
+        reproduce="""\
 square (int x) {
     return 1;
 }
@@ -838,12 +843,13 @@ int main(void) {
     ),
     Explanation(
         regex=r" warning: unknown escape sequence '\\ '",
-        precondition=lambda message, match: '\\ n' in ''.join(message.text_without_ansi_codes),
+        precondition=lambda message, match: "\\ n"
+        in "".join(message.text_without_ansi_codes),
         explanation="""\
 you have a space after a backslash which is not permitted. 
 Did you mean '\\\\n'?
 """,
-       reproduce="""\
+        reproduce="""\
 int main(void) {
     return "\\ n"[0];
 }
@@ -854,7 +860,7 @@ int main(void) {
         explanation="""\
 you have a space after a backslash which is not permitted. 
 """,
-       reproduce="""\
+        reproduce="""\
 int main(void) {
     return "\\ "[0];
 }
@@ -865,7 +871,7 @@ int main(void) {
         explanation="""\
 you use '**=**' to assign to a variable, you use '**==**' to compare values.
 """,
-       reproduce="""\
+        reproduce="""\
 int main(int argc, char *argv[]) {
     if (argc = 4) {
         return 1;
@@ -880,7 +886,7 @@ int main(int argc, char *argv[]) {
 If you meant to use '**{highlighted_word}**' as a variable, check you have declared it by specifying its type
 Also  check you have spelled '**{highlighted_word}**' correctly everwhere.
 """,
-       reproduce="""\
+        reproduce="""\
 int main(void) {
     return x;
 }
@@ -892,7 +898,7 @@ int main(void) {
 you appear to have left out a '#'.
 Use #**define** to define a constant, for example: #define PI 3.14159
 """,
-       reproduce="""\
+        reproduce="""\
 define X 42
 int main(void) {
 }
@@ -904,7 +910,7 @@ int main(void) {
 you appear to have left out a '#'.
 Use #**include** to include a file, for example: #include <stdio.h>
 """,
-       reproduce="""\
+        reproduce="""\
 define X 42
 int main(void) {
 }
@@ -916,7 +922,7 @@ int main(void) {
 you are using variable '**{highlighted_word}**' before it has been assigned a value.
 Be sure to assign a value to '**{highlighted_word}**' before trying to use its value.
 """,
-       reproduce="""\
+        reproduce="""\
 int main(void) {
     int x;
 }
@@ -928,7 +934,7 @@ int main(void) {
 you are using variable '**{highlighted_word}**' as part of its own initialization.
 You can not use a variable to initialize itself.
 """,
-       reproduce="""\
+        reproduce="""\
 int main(void) {
     int x;
 }
@@ -940,7 +946,7 @@ int main(void) {
 you are trying to **return** a value from function **{match.group(1)}** which is of type **void**.
 You need to change the return type of **{match.group(1)}** or change the **return** statement.
 """,
-       reproduce="""\
+        reproduce="""\
 void f(void) {
     return 1;
 }
@@ -954,7 +960,7 @@ int main(void) {
 you are trying to **return** a value from function **{match.group(1)}** which is of type **void**.
 You need to change the return type of **{match.group(1)}** or change the **return** statement.
 """,
-       reproduce="""\
+        reproduce="""\
 void f(void) {
     return 1;
 }
@@ -962,7 +968,48 @@ int main(void) {
 }
 """,
     ),
+    Explanation(
+        regex=r"too many arguments to function call, expected (\d+), have (\d+)",
+        explanation="""\
+function **{underlined_word+"()"}** takes **{match.group(1)}** arguments but you have given it **{match.group(2)}** arguments.
+""",
+        reproduce="""\
+#include <stdio.h>
+int main(void) {
+    return getchar(0, 0, 0);
+}
+""",
+    ),
+    Explanation(
+        precondition=lambda message, match: message.underlined_word.startswith(
+            "fgets("
+        ),
+        regex=r"comparison between pointer and integer \('char \*' and 'int'\)",
+        explanation="""\
+**fgets** returns a pointer. Compare it to **NULL** to detect **fgets** being unable to read a line. 
+""",
+        reproduce="""\
+#include <stdio.h>
+int main(void) {
+   char a[16];
+   return fgets(a, sizeof a, stdin) == EOF;
+}
+""",
+    ),
+    Explanation(
+        regex=r"unknown escape sequence '\\(.)'",
+        explanation="""\
+if you want an actual backslash in your string use **{BACKSLASH * 2}** 
+""",
+        reproduce="""\
+int main(void) {
+   return (int)"\_/";
+}
+""",
+    ),
 ]
+
+#
 
 
 def extract_function_name(string):
