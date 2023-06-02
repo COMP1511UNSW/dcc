@@ -138,13 +138,13 @@ to the original executable and dcc infrastructure files.
 These environment variable are supplied to the helper script. They may be empty.
 
 - `DCC_PWD` - the original directory where the executable was run
-- `DCC_HELPER_FILENAME` - source filename where error occurred
-- `DCC_HELPER_LINE_NUMBER` - source line number where error occurred
-- `DCC_HELPER_COLUMN`  - source column where error occurred
-- `DCC_HELPER_SOURCE` - source lines surrounding error
-- `DCC_HELPER_CALL_STACK` - function call stack 
-- `DCC_HELPER_VARIABLES` - current values of variables near the error location
-- `DCC_HELPER_JSON` - above variables encoded as JSON
+- `HELPER_FILENAME` - source filename where error occurred
+- `HELPER_LINE_NUMBER` - source line number where error occurred
+- `HELPER_COLUMN`  - source column where error occurred
+- `HELPER_SOURCE` - source lines surrounding error
+- `HELPER_CALL_STACK` - function call stack 
+- `HELPER_VARIABLES` - current values of variables near the error location
+- `HELPER_JSON` - above variables encoded as JSON
 
 # Compile Helper Script
 
@@ -157,9 +157,9 @@ An alternate name for the executable file can be supplied in the environment var
 
 These environment variable are supplied to the helper script. They may be empty.
 
-- `DCC_LOGGER_ARGV` - compiler command-line arguments
-- `DCC_LOGGER_RETURNCODE` - compiler exit status
-- `DCC_LOGGER_JSON` - above variables encoded as JSON
+- `LOGGER_ARGV` - compiler command-line arguments
+- `LOGGER_RETURNCODE` - compiler exit status
+- `LOGGER_JSON` - above variables encoded as JSON
 
 # Compile Logger Script
 
@@ -172,13 +172,13 @@ An alternate name for the executable file can be supplied in the environment var
 
 These environment variable are supplied to the helper script. They may be empty.
 
-- `DCC_HELPER_COMPILER_MESSAGE` - compiler message
-- `DCC_HELPER_MESSAGE_TYPE` - message type (e.g warning)
-- `DCC_HELPER_FILENAME` - source filename where error occurred
-- `DCC_HELPER_LINE_NUMBER` - source line number where error occurred
-- `DCC_HELPER_COLUMN`  - source column where error occurred
-- `DCC_HELPER_EXPLANATION` - dcc text explaining error
-- `DCC_HELPER_JSON` - above variables encoded as JSON
+- `HELPER_COMPILER_MESSAGE` - compiler message
+- `HELPER_MESSAGE_TYPE` - message type (e.g warning)
+- `HELPER_FILENAME` - source filename where error occurred
+- `HELPER_LINE_NUMBER` - source line number where error occurred
+- `HELPER_COLUMN`  - source column where error occurred
+- `HELPER_EXPLANATION` - dcc text explaining error
+- `HELPER_JSON` - above variables encoded as JSON
 
 # Output checking
 

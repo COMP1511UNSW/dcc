@@ -385,8 +385,8 @@ def run_runtime_helper(loc, explanation, stack, output_stream):
 
     dprint(2, f"run_helper helper='{helper}' info='{helper_info}'")
     for k, v in helper_info.items():
-        os.environ["DCC_HELPER_" + k.upper()] = v
-    os.environ["DCC_HELPER_JSON"] = json.dumps(helper_info, separators=(",", ":"))
+        os.environ["HELPER_" + k.upper()] = v
+    os.environ["HELPER_JSON"] = json.dumps(helper_info, separators=(",", ":"))
 
     dprint(2, f"running {helper}")
     try:
