@@ -986,7 +986,7 @@ int main(void) {
         ),
         regex=r"comparison between pointer and integer \('char \*' and 'int'\)",
         explanation="""\
-**fgets** returns a pointer. Compare it to **NULL** to detect **fgets** being unable to read a line. 
+**fgets** returns a pointer. Compare it to **NULL** to detect **fgets** being unable to read a line.
 """,
         reproduce="""\
 #include <stdio.h>
@@ -999,7 +999,7 @@ int main(void) {
     Explanation(
         regex=r"unknown escape sequence '\\(.)'",
         explanation="""\
-if you want an actual backslash in your string use **{BACKSLASH * 2}** 
+if you want an actual backslash in your string use **{BACKSLASH * 2}**
 """,
         reproduce="""\
 int main(void) {

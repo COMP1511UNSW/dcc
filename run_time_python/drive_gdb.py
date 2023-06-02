@@ -227,6 +227,18 @@ def explain_ubsan_error(loc, color):
             f"A common error is to evaluate {what} when y == 0 which is undefined.\n"
         )
 
+    if not explanation:
+        for value in [
+            "-1094795586",
+            "-1.8325506472120096e-06",
+            "-0.372548997",
+            "0xbe",
+        ]:
+            if value in message:
+                explanation = f"""Your program looks to be using an uninitialized value.
+  {color(value, "red")} is probably actually an uninitialized value.\n"""
+            break
+
     # FIXME make this more specific
     if not explanation and ("overflow" in message or "underflow" in message):
         explanation = """There are limits in the range of values that can be represented in all types.
@@ -244,8 +256,7 @@ def explain_ubsan_error(loc, color):
                 f'{color("0", "red")}..{color(str(int(m.group(2)) - 1), "red")}'
             )
             explanation = f"""You are using an illegal array index: {index}
-  Valid indices for an array of size {size} are {index_range}
-"""
+  Valid indices for an array of size {size} are {index_range}\n"""
 
     if not explanation:
         m = re.search(r"index (-?\d+) out of bounds", message)
@@ -367,10 +378,10 @@ def run_runtime_helper(loc, explanation, stack, output_stream):
         "variables": variables,
     }
 
-# needed?
-#    signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
-#    if signal_number != signal.SIGABRT:
-#        helper_info["signal"] = signal.Signals(signal_number).name
+    # needed?
+    #    signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
+    #    if signal_number != signal.SIGABRT:
+    #        helper_info["signal"] = signal.Signals(signal_number).name
 
     dprint(2, f"run_helper helper='{helper}' info='{helper_info}'")
     for k, v in helper_info.items():
