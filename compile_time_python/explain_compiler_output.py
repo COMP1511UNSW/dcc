@@ -234,6 +234,7 @@ def convert_smart_quotes_to_dumb_quotes(string):
     return string
 
 
+
 def run_compile_time_helper(message, args):
     """
     run a helper script to handle a compiler message
@@ -248,9 +249,19 @@ def run_compile_time_helper(message, args):
     explanation_label = explanation.label if explanation else ""
     loc = util.Location(message.file, message.line_number)
     color = lambda text, color_name: text
-    source = "".join(
-        loc.surrounding_source(color, radius=10, clean=False, markMiddle=False)
-    )
+
+    source = ""
+    try:
+        if os.path.getsize(message.file) < util.MAX_FILE_SIZE_PASSED_TO_HELPER:
+            with open(message.file) as f:
+                source = f.read(util.MAX_FILE_SIZE_PASSED_TO_HELPER)
+    except OSError:
+        pass
+
+    if not source:
+        source = "".join(
+            loc.surrounding_source(color, radius=10, clean=False, markMiddle=False)
+        )
 
     helper_info = {
         "compiler_message": message_text,

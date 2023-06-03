@@ -3,6 +3,7 @@
 import os, re
 
 EXPLANATION_BASE_URL = "https://comp1511unsw.github.io/dcc/"
+MAX_FILE_SIZE_PASSED_TO_HELPER = 8192
 
 
 def explanation_url(page):

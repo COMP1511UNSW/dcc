@@ -354,9 +354,18 @@ def run_runtime_helper(loc, explanation, stack, output_stream):
 
     explanation = colors.strip_color(explanation)
 
-    source = "".join(
-        loc.surrounding_source(color, radius=10, clean=False, markMiddle=False)
-    )
+    source = ""
+    try:
+        if os.path.getsize(loc.filename) < util.MAX_FILE_SIZE_PASSED_TO_HELPER:
+            with open(loc.filename) as f:
+                source = f.read(util.MAX_FILE_SIZE_PASSED_TO_HELPER)
+    except OSError:
+        pass
+
+    if not source:
+        source = "".join(
+            loc.surrounding_source(color, radius=10, clean=False, markMiddle=False)
+        )
 
     call_stack = ""
     if len(stack) > 1:
