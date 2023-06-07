@@ -338,6 +338,8 @@ def explain_signal(signal_number):
         return "Execution stopped by a CPU time limit."
     elif signal_number == signal.SIGXFSZ:
         return "Execution stopped because too much data written."
+    elif signal_number == signal.SIGSEGV:
+        return "Execution stopped because of an invalid pointer or string."
     else:
         return f"Execution terminated by signal {signal_number}"
 
