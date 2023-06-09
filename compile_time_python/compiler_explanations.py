@@ -884,7 +884,7 @@ int main(int argc, char *argv[]) {
         explanation="""\
  you have used the name '**{highlighted_word}**' on line {line_number} of {file} without previously declaring it.
 If you meant to use '**{highlighted_word}**' as a variable, check you have declared it by specifying its type
-Also  check you have spelled '**{highlighted_word}**' correctly everwhere.
+Also  check you have spelled '**{highlighted_word}**' correctly everywhere.
 """,
         reproduce="""\
 int main(void) {
