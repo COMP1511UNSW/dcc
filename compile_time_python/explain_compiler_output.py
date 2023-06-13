@@ -89,6 +89,7 @@ def explain_compiler_output(output, args):
         text = "\n".join(message_lines)
         if message.has_ansi_codes():
             text += ANSI_DEFAULT
+
         print(text, file=sys.stderr)
 
         # remove any reference to specific line and check if we've already made this explanation
@@ -106,7 +107,7 @@ def explain_compiler_output(output, args):
         if explanation:
             explanations.append(explanation)
 
-        if explanation and run_compile_time_helper(message, args):
+        if message.type == "error":
             break
 
         if not explanation_text:
@@ -119,31 +120,24 @@ def explain_compiler_output(output, args):
                 )
             break
 
-    if lines and lines[-1].endswith(" generated."):
-        lines[-1] = re.sub(r"\d .*", "", lines[-1])
-
-    # if we explained 1 or more errors, don't output any remaining compiler output
-    # as often it is confusing parasitic errors
-    #
-    # if we didn't explain any messages, just pass through all compiler output
-    #
-    if not explanations and messages:
-        run_compile_time_helper(messages[0], args)
+    if messages:
+        run_compile_time_helper(messages[-1], args)
 
     return explanations
 
 
 class Message:
-    file = ""
-    line_number = ""
-    column = ""
-    type = ""
-    text = []
-    text_without_ansi_codes = []
-    note = []
-    note_without_ansi_codes = []
-    highlighted_word = ""
-    underlined_word = ""
+    def __init__(self):
+        self.file = ""
+        self.line_number = ""
+        self.column = ""
+        self.type = ""
+        self.text = []
+        self.text_without_ansi_codes = []
+        self.note = []
+        self.note_without_ansi_codes = []
+        self.highlighted_word = ""
+        self.underlined_word = ""
 
     def is_same_line(self, message):
         return message and (message.file, message.line_number) == (
@@ -161,7 +155,8 @@ class Message:
         t = self.text_without_ansi_codes
         h = self.highlighted_word
         u = self.underlined_word
-        return f"Message(text_without_ansi_codes='{t}', highlighted_word='{h}', underlined_word='{u}')"
+        n = self.note_without_ansi_codes
+        return f"Message(note_without_ansi_codes='{t}', highlighted_word='{h}', underlined_word='{u}',  note_without_ansi_codes='{n}')"
 
 
 def get_next_message(lines):
@@ -232,7 +227,6 @@ def convert_smart_quotes_to_dumb_quotes(string):
     string = string.replace("\u201C", '"')
     string = string.replace("\u201D", '"')
     return string
-
 
 
 def run_compile_time_helper(message, args):

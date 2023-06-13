@@ -1,5 +1,5 @@
 
-tests/run_time_errors/fgetc_uninitialized.c:6 Execution terminated by signal 11
+tests/run_time_errors/fgetc_uninitialized.c:6 Execution stopped because of an invalid pointer or string.
 Execution stopped in main() in tests/run_time_errors/fgetc_uninitialized.c at line 6:
 
 int main(int argc, char *argv[]) {
