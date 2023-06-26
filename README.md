@@ -374,6 +374,25 @@ Assumes the default option of AddressSanitizer + valgrind run in parallel.
 
 [Foundations First: Improving C's Viability in Introductory Programming Courses with the Debugging C Compiler. In Proceedings of the 54th ACM Technical Symposium on Computer Science Education V. 1 (SIGCSE 2023).](https://dl.acm.org/doi/10.1145/3545945.3569768)
 
+If you have used DCC in your teaching or research, please cite the paper:
+```
+@inproceedings{10.1145/3545945.3569768,
+author = {Taylor, Andrew and Renzella, Jake and Vassar, Alexandra},
+title = {Foundations First: Improving C's Viability in Introductory Programming Courses with the Debugging C Compiler},
+year = {2023},
+isbn = {9781450394314},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3545945.3569768},
+doi = {10.1145/3545945.3569768},
+pages = {346–352},
+numpages = {7},
+keywords = {educational compiler, c in cs1, cs1 programming languages},
+location = {Toronto ON, Canada},
+series = {SIGCSE 2023}
+}
+```
+
 # Dependencies
 
 clang, python3, gdb, valgrind
