@@ -7,7 +7,7 @@
 
 
 import os, re, sys, signal
-from start_gdb import start_gdb, kill_sanitizer2, kill_all
+from start_gdb import start_gdb, kill_all, kill
 from util import explanation_url
 import colors
 
@@ -46,13 +46,18 @@ def read_line(color, debug_level):
 
 def process_line(line, color, debug_level):
     error = None
-    action = start_gdb
+    call_start_gdb = True
+
+    valgrind_pid = None
+    m = re.match(r"^=+(\d+)", line)
+    if m:
+        valgrind_pid = int(m.group(1))
 
     if "fatal signal" in line:
         # avoid a signal e.g. SIGNALXCPU during valgrind startup
         # being interpreted as a runtime error
         error = ""
-        action = kill_sanitizer2
+        call_start_gdb = False
     elif "vgdb me" in line:
         error = "Runtime error: " + color("uninitialized variable accessed.", "red")
 
@@ -63,7 +68,7 @@ Main is returning an uninitialized value or exit has been passed an uninitialize
 """
         # too late to start gdb as the program is exiting
         # we kill sanitizer2 as it is waiting for gdb
-        action = kill_sanitizer2
+        call_start_gdb = False
 
     elif "clone.S" in line:
         error = f"""Runtime error: {color('invalid parameters to process creation', 'red')}
@@ -73,8 +78,8 @@ This is likely an invalid argument to posix_spawn, posix_spawnp or clone.
 Check all arguments are initialized.
 
 """
-        # too late to start gdb as the program is exiting
-        action = kill_all
+        # too late to start gdb as the program has cloned
+        call_start_gdb = False
 
     elif "below stack pointer" in line:
         error = f"""Runtime error: {color('access to function variables after function has returned', 'red')}
@@ -122,16 +127,21 @@ A common cause of this error is infinite recursion.
             error += "."
         else:
             error = "Error: memory allocated not de-allocated."
-        action = kill_sanitizer2
+        call_start_gdb = False
 
-    if error is not None:
-        if error:
-            os.environ["DCC_VALGRIND_ERROR"] = error
-            print("\n" + error, file=sys.stderr)
-            sys.stderr.flush()
-        action()
-        return 0
-    return 1
+    if error is None:
+        return 1
+
+    if error:
+        os.environ["DCC_VALGRIND_ERROR"] = error
+        print("\n" + error, file=sys.stderr, flush=True)
+    if call_start_gdb:
+        start_gdb()
+    else:
+        if valgrind_pid:
+            kill(valgrind_pid)
+        kill_all()
+    return 0
 
 
 if __name__ == "__main__":

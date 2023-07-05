@@ -115,7 +115,7 @@ def kill_env(environment_variable_name, which_signal=None):
 
 
 def kill(pid, which_signal=None):
-    # 	print('killing', pid)
+    #print('killing', pid)
     try:
         if which_signal is None:
             # in some circumstance SIGPIPE can avoid killed message
