@@ -458,7 +458,7 @@ def add_constants_to_source_code(src, options):
 
 def add_embedded_tarfile_handling_to_source_code(src, options):
     tar_n_bytes, tar_source = source_for_embedded_tarfile(options)
-    watcher = rf"python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
+    watcher = rf"exec python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
  buffer = io.BytesIO(sys.stdin.buffer.raw.read({tar_n_bytes}))\n\
  if len(buffer.getbuffer()) == {tar_n_bytes}:\n\
