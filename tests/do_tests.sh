@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 unset CDPATH
+PATH=/bin:/usr/bin
 
 for var in $(env|egrep -v 'PATH|LOCALE|LC_|LANG'|grep '^[a-zA-Z0-9_]*='|cut -d= -f1)
 do
@@ -34,6 +35,7 @@ REMOVE_NON_DETERMINATE_VALUES='
 	s?^\([^: ]*\):[0-9]*:[0-9]*:?\1?
 	s? called at line [0-9]* of ? called at line ?
 	s? at line [0-9]*:? at line:?
+	s?: [0-9]* Killed?Killed?
 '
 
 export dcc="${1:-./dcc}"

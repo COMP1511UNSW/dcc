@@ -145,5 +145,8 @@ A common cause of this error is infinite recursion.
 
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(1))
-    watch_valgrind()
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        watch_valgrind()
+    except Exception:
+        kill_all()
