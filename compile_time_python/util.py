@@ -195,6 +195,6 @@ def clarify_values(values, color):
     values = re.sub('<1 uninitialized values>', '<uninitialized value>', values)
     # make display of arrays more concise
     if values and values[0] == "{" and len(values) > 128:
-        values = re.sub(r"\{(.{100}.*?),.*\}", r"{\1, ...}", values)
+        values = re.sub(r"\{([^=]{100}.*?),.*\}", r"{\1, ...}", values)
 
     return values
