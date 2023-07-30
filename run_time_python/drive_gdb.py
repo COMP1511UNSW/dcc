@@ -555,6 +555,7 @@ def evaluate_expression(expression, color):
         return None
 
     expression_value = gdb_evaluate(expression)
+    #dprint(3, 'info', expression_value, gdb_execute(f"info symbol {expression_value.split(' ')[-1]}"))
 
     if (
         expression_value == ""
@@ -619,14 +620,16 @@ def extract_expressions(c_source):
         return []
     dprint(3, "extract_expressions c_source=", c_source)
 
-    # match declaration
+    # match declaration of array (with false positives)
+    # if declaration is e.g int f[2]; do not want to add f[2] as expression
+    # printing its value would confuse novice
     m = re.match(
-        r"([a-z][a-zA-Z0-9_]*|FILE)\s+\**\s*[a-z][a-zA-Z0-9_]*\s*\[(.*)",
+        r"([a-z][a-zA-Z0-9_]*|FILE)\s+\**\s*([a-z][a-zA-Z0-9_]*)\s*\[(.*)",
         c_source,
         re.DOTALL,
     )
     if m:
-        return extract_expressions(m.group(1))
+        return extract_expressions(m.group(1)) + extract_expressions(m.group(2))
 
     m = re.match(r"([a-z][a-zA-Z0-9_]*)\s*\[(.*)", c_source, re.DOTALL)
     if m:
