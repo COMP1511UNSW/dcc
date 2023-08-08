@@ -121,7 +121,8 @@ def explain_compiler_output(output, args):
             break
 
     if messages:
-        run_compile_time_helper(messages[-1], args)
+        m = messages[-1] if messages[-1].type == "error" else messages[0]
+        run_compile_time_helper(m, args)
 
     return explanations
 
