@@ -1,4 +1,4 @@
-import os, re, sys, signal, subprocess
+import os, re, sys, signal, subprocess, time
 import colors
 
 
@@ -119,7 +119,11 @@ def kill(pid, which_signal=None):
     try:
         if which_signal is None:
             # in some circumstance SIGPIPE can avoid killed message
+            # also allows cleanup of temporaries
             os.kill(pid, signal.SIGPIPE)
+            # allow process hopefully enough time to handle SIGPIPE
+            # then send SIGKILL to make sure process terminates 
+            time.sleep(0.25)
             os.kill(pid, signal.SIGKILL)
         else:
             os.kill(pid, which_signal)

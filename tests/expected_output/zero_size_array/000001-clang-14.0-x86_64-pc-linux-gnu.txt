@@ -10,3 +10,7 @@ int main(void) {
 	int a[0];
 -->return a[0];
 }
+
+Values when execution stopped:
+
+a = 0x7fff6e7c9be8

@@ -13,6 +13,7 @@ int f3(int *a) {
 Values when execution stopped:
 
 a = NULL
+b = {0}
 
 Function Call Traceback
 f3(a=NULL) called at line 8 of tests/run_time_errors/call_stack_null.c
