@@ -291,8 +291,9 @@ int main(int argc, char *argv[]) {
         label="missing_library_include",
         regex=r"implicitly declaring library function '(\w+)'",
         explanation="""\
-you are calling the function **{match.group(1)}** on line {line_number} of {file} but dcc does not recognize **{match.group(1)}** as a function
-because you have forgotten to {emphasize('#include <' + extract_system_include_file(note) + '>')}
+you are calling **{match.group(1)}** on line {line_number} of {file} but
+dcc does not recognize **{match.group(1)}** as a function.
+Do you have {emphasize('#include <' + extract_system_include_file(note) + '>')} at the top of your file?
 """,
         show_note=False,
         reproduce="""\
@@ -827,9 +828,13 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
+    	label="missing_function_return_type",
         regex=r"type specifier missing, defaults to 'int'",
+        precondition=lambda message, _: re.search(
+            rf"\b{message.highlighted_word}\s*\(", "".join(message.text_without_ansi_codes)
+        ),
         explanation="""\
-you appear to have forgotten the return type on a function.
+have you given a return type for **{highlighted_word}**?
 You must specify the return type of a function just before its name.
 """,
         reproduce="""\
@@ -838,6 +843,25 @@ square (int x) {
 }
 int main(void) {
     return square(0);
+}
+""",
+    ),
+    Explanation(
+    	label="missing_parameter_type",
+        regex=r"type specifier missing, defaults to 'int'",
+        precondition=lambda message, _: not re.search(
+            rf"\b{message.highlighted_word}\s*\(", "".join(message.text_without_ansi_codes)
+        ),
+        explanation="""\
+have you given a type for **{highlighted_word}**?
+You must specify the type of each function parameter.
+""",
+        reproduce="""\
+int add(int b, c) {
+    return 1;
+}
+int main(void) {
+    return add(1, 2);
 }
 """,
     ),
