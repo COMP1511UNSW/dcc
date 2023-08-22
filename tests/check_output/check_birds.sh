@@ -2,7 +2,7 @@
 
 dcc=${dcc:-./dcc}
 
-bird_directory=$(dirname $(readlink -f "$0"))/birds
+bird_directory=$tests_dir/check_output/birds
 
 export DCC_EXPECTED_STDOUT="  ___
  ('v')
