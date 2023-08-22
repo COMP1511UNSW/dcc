@@ -9,7 +9,7 @@ done
 
 export tests_dir=$(dirname $(readlink -f $0))
 cd "$tests_dir"
-
+rm -f */a.out
 export dcc="${1:-$(readlink -f ../dcc)}"
 export dcc_cpp="${dcc}++"
 export c_compiler="${2:-clang}"
