@@ -605,7 +605,7 @@ int main(int argc, char *argv[]) {
     Explanation(
         regex=r"data argument not used by format string",
         explanation="""\
-your printf has more argument values than % codes in the format string.
+you have more argument values than % codes in the format string.
 You need to change the format string or change the number of arguments.
 """,
         reproduce="""\
@@ -619,7 +619,7 @@ int main(void) {
     Explanation(
         regex=r"more '%' conversions than data arguments",
         explanation="""\
-your printf has less argument values than % codes in the format string.
+you have less argument values than % codes in the format string.
 You need to change the format string or change the number of arguments.
 """,
         reproduce="""\

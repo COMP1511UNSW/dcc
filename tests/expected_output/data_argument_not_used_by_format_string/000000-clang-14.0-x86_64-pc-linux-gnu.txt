@@ -1,0 +1,5 @@
+data_argument_not_used_by_format_string.c:4:29: warning: data argument not used by format string [-Wformat-extra-args]
+    printf("%d %d", 27, 28, 29);
+           ~~~~~~~          ^
+dcc explanation: you have more argument values than % codes in the format string.
+You need to change the format string or change the number of arguments.
