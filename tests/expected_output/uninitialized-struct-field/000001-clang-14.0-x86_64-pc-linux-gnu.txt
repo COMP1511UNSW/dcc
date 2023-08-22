@@ -10,6 +10,5 @@ int main(void) {
 
 Values when execution stopped:
 
-a = {i = {0, 1045149306}, x = 1.2904777690891933e-08, d = 1.2904777690891933e-08}
-b = {i = {0, 1068498944}, x = 0.0625, d = 0.0625}
-s = (struct b *) 0x5
+s = 0x5
+

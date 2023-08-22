@@ -1,0 +1,19 @@
+
+tests/run_time_errors/enum0.c:10:18 runtime error - division by zero
+dcc explanation: A common error is to evaluate x / y when y == 0 which is undefined.
+
+Execution stopped in main() in tests/run_time_errors/enum0.c at line 10:
+
+int main(int argc, char *argv[]) { 
+	enum a i = A;
+	if (argc == 0) {
+		i = B;
+	}
+-->	printf("%d\n", 2/i);
+}
+
+Values when execution stopped:
+
+argc = 1
+i = A
+

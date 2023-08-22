@@ -6,12 +6,15 @@ from options import get_options
 from explain_compiler_output import explain_compiler_output
 
 FILES_EMBEDDED_IN_BINARY = [
-    "start_gdb.py",
     "drive_gdb.py",
-    "watch_valgrind.py",
     "colors.py",
+    "gdb_interface.py",
+    "explain_context.py",
+    "explain_error.py",
     "explain_output_difference.py",
+    "start_gdb.py",
     "util.py",
+    "watch_valgrind.py",
 ]
 
 # its possible  -g -fno-omit-frame-pointer could be needed here

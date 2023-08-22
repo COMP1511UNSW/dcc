@@ -1,0 +1,5 @@
+tests/extracted_compile_time_errors/missing_function_return_type.c:1:1: warning: type specifier missing, defaults to 'int' [-Wimplicit-int]
+square (int x) {
+^
+dcc explanation: have you given a return type for square?
+You must specify the return type of a function just before its name.

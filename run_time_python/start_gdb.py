@@ -1,9 +1,8 @@
-import os, re, sys, signal, subprocess, time
-import colors
+import os, sys, signal, subprocess, time
 
 
 def start_gdb(gdb_driver_file="drive_gdb.py"):
-    signal.signal(signal.SIGINT, handler)
+    signal.signal(signal.SIGINT, lambda *_: kill_all())
     debug_level = int(os.environ.get("DCC_DEBUG", "0"))
 
     #
@@ -81,7 +80,10 @@ def start_gdb(gdb_driver_file="drive_gdb.py"):
             )
         p.communicate()
     except OSError:
-        print("\ngdb not available to print program location and variable values\n", file=sys.stderr)
+        print(
+            "\ngdb not available to print program location and variable values\n",
+            file=sys.stderr,
+        )
     if debug_level > 1:
         print("kill_all()")
     kill_all()
@@ -115,14 +117,14 @@ def kill_env(environment_variable_name, which_signal=None):
 
 
 def kill(pid, which_signal=None):
-    #print('killing', pid)
+    # print('killing', pid)
     try:
         if which_signal is None:
             # in some circumstance SIGPIPE can avoid killed message
             # also allows cleanup of temporaries
             os.kill(pid, signal.SIGPIPE)
             # allow process hopefully enough time to handle SIGPIPE
-            # then send SIGKILL to make sure process terminates 
+            # then send SIGKILL to make sure process terminates
             time.sleep(0.25)
             os.kill(pid, signal.SIGKILL)
         else:
@@ -139,66 +141,5 @@ def unlink_sanitizer2_executable():
             pass
 
 
-def handler(signum, frame):
-    # pylint: disable=unused-argument
-    kill_all()
-
-
-# valgrind is being used - we have been invoked via the binary to watch for valgrind errors
-# which have been directed to our stdin
-def watch_stdin_for_valgrind_errors():
-    colorize_output = sys.stderr.isatty() or os.environ.get(
-        "DCC_COLORIZE_OUTPUT", False
-    )
-    if colorize_output:
-        color = colors.color
-    else:
-        color = lambda text, color_name: text
-    debug_level = int(os.environ.get("DCC_DEBUG", "0"))
-    while True:
-        line = sys.stdin.readline()
-        if not line:
-            break
-        if debug_level > 1:
-            print("valgrind: ", line, file=sys.stderr)
-        if "vgdb me" in line:
-            error = (
-                "Runtime error: "
-                + color("uninitialized variable accessed", "red")
-                + "."
-            )
-            os.environ["DCC_VALGRIND_ERROR"] = error
-            print("\n" + error, file=sys.stderr)
-            sys.stderr.flush()
-            start_gdb()
-            sys.exit(0)
-        elif "loss record" in line:
-            line = sys.stdin.readline()
-            if "malloc" in line:
-                line = sys.stdin.readline()
-                m = re.search(r"(\S+)\s*\((.+):(\d+)", line)
-                if m:
-                    print(
-                        "Error: free not called for memory allocated with malloc in function",
-                        m.group(1),
-                        "in",
-                        m.group(2),
-                        "at line",
-                        m.group(3),
-                        file=sys.stderr,
-                    )
-                else:
-                    print(
-                        "Error: free not called for memory allocated with malloc.",
-                        file=sys.stderr,
-                    )
-            else:
-                print("Error: memory allocated not de-allocated.", file=sys.stderr)
-            sys.exit(0)
-
-
 if __name__ == "__main__":
-    if sys.argv[1:] == ["--watch-stdin-for-valgrind-errors"]:
-        watch_stdin_for_valgrind_errors()
-    else:
-        start_gdb()
+    start_gdb()

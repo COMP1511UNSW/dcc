@@ -13,8 +13,10 @@ Values when execution stopped:
 
 a = <uninitialized value>
 
-Function Call Traceback
+Function call traceback:
+
 f3(a=<uninitialized value>) called at line 7 of tests/run_time_errors/call_stack_uninitialized.c
 f2(a=<uninitialized value>) called at line 11 of tests/run_time_errors/call_stack_uninitialized.c
 f1(a=<uninitialized value>) called at line 17 of tests/run_time_errors/call_stack_uninitialized.c
 main()
+

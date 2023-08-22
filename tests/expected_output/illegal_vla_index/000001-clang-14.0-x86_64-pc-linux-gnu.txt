@@ -1,6 +1,6 @@
 
 tests/run_time_errors/illegal_vla_index.c:3:2 runtime error - index 1000 out of bounds for type 'int[600 + argc]'
-dcc explanation:You are using an illegal array index: 1000
+dcc explanation: You are using an illegal array index: 1000
   Make sure the size of your array is correct.
   Make sure your array indices are correct.
 
@@ -16,4 +16,5 @@ Values when execution stopped:
 
 a = {<uninitialized value> <repeats 601 times>}
 argc = 1
-a[1000] = 0
+a[1000] = 1852128581
+

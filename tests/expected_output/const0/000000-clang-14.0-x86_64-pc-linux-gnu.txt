@@ -1,0 +1,21 @@
+
+tests/run_time_errors/const0.c:9:18 runtime error - division by zero
+dcc explanation: A common error is to evaluate x / y when y == 0 which is undefined.
+
+Execution stopped in main() in tests/run_time_errors/const0.c at line 9:
+
+int main(int argc, char *argv[]) { 
+	int i = 0;
+	const int j = 2;
+	if (argc == 0) {
+		i = 1;
+	}
+-->	printf("%d\n", j/i);
+}
+
+Values when execution stopped:
+
+argc = 1
+i = 0
+j = 2
+

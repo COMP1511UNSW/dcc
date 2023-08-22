@@ -1,0 +1,19 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in f(k=main:&j[0]) in tests/run_time_errors/display_pointer_value1.c at line 5:
+
+void f(int k[2][3]) {
+-->	printf("%d\n", k[0][0]);
+}
+
+Values when execution stopped:
+
+k = main:&j[0]
+k[0][0] = <uninitialized value>
+
+Function call traceback:
+
+f(k=main:&j[0]) called at line 13 of tests/run_time_errors/display_pointer_value1.c
+main()
+

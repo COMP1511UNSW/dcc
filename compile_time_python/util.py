@@ -1,6 +1,6 @@
 # miscellaneous code used at both compile & run-time
 
-import os, re
+import os, re, sys
 
 EXPLANATION_BASE_URL = "https://comp1511unsw.github.io/dcc/"
 MAX_FILE_SIZE_PASSED_TO_HELPER = 8192
@@ -50,29 +50,12 @@ class Location:
     def __str__(self):
         return f"Location({self.filename},{self.line_number},column={self.column},function={self.function},params={self.params},variable={self.variable})"
 
-    def function_call(self, color):
-        params = clarify_values(self.params, color)
-        if self.function == "main" and params.startswith("argc=1,"):
-            params = ""
-        return self.function + "(" + params + ")"
-
     def location(self, color):
         return (
             color(self.filename, "red")
             + " at "
             + color("line " + str(self.line_number), "red")
         )
-
-    def short_description(self, color):
-        return self.function_call(color) + " in " + self.location(color)
-
-    def long_description(self, color):
-        where = "in " + self.short_description(color)
-        source_lines = self.surrounding_source(color, markMiddle=True)
-        source = "".join(source_lines).rstrip("\n") + "\n"
-        if source:
-            where += ":\n\n" + source
-        return where
 
     def source_line(self):
         return fileline(self.filename, self.line_number)
@@ -148,53 +131,26 @@ def clean_c_source(c_source, leave_white_space=False):
     return c_source.strip() + "\n"
 
 
-# transform value into something a novice programmer more likely to understand
-def clarify_values(values, color):
-    # novices will understand 0x0 better as NULL if it is a pointer
-    values = re.sub(r"\b0x0\b", "NULL", values)
+debug_level = 0
+debug_stream = sys.stderr
 
-    # strip type cast from strings
-    values = re.sub(r'^0x[0-9a-f]+\s*(<.str>)?\s*"', '"', values)
 
-    # strip type cast from NULL pointers
-    values = re.sub(r"^\([^()]+\s+\*\)\s*NULL\b", "NULL", values)
+def set_debug_level(level=int(os.environ.get("DCC_DEBUG", "0"))):
+    global debug_level
+    debug_level = level
 
-    # strip type cast from uninitialized valuess
-    values = re.sub(r"^\([^()]+\s+\*\)\s*0xbebebebe(\w+)", r"0xbebebebe\1", values)
 
-    values = re.sub(r"'\000'", r"'\\0'", values)
+def get_debug_level():
+    global debug_level
+    return debug_level
 
-    warning_text = color("<uninitialized value>", "red")
 
-    for value in [
-        "-1094795586",
-        "-1.8325506472120096e-06",
-        "-0.372548997",
-        "-66 (not valid ASCII)",
-        "0xbebebebe",
-        "0xbebebebebebebebe",
-    ]:
-        values = re.sub(
-            r"(^|\D)" + re.escape(value) + r"($|\W)",
-            r"\1" + warning_text + r"\2",
-            values,
-        )
+def set_debug_stream(stream=sys.stderr):
+    global debug_stream
+    debug_stream = sys.stderr
 
-    values = re.sub(
-        r"'\\276' <repeats (\d+) times>",
-        color("<\\1 uninitialized values>", "red"),
-        values,
-    )
 
-    # convert "\276\276\276" ->  <3 uninitialized values>
-    values = re.sub(
-        r"((\\276)+)",
-        lambda m: color(f"<{len(m.group(1)) // 4} uninitialized values>", "red"),
-        values,
-    )
-    values = re.sub('<1 uninitialized values>', '<uninitialized value>', values)
-    # make display of arrays more concise
-    if values and values[0] == "{" and len(values) > 128:
-        values = re.sub(r"\{([^=]{100}.*?),.*\}", r"{\1, ...}", values)
-
-    return values
+def dprint(level, *args, **kwargs):
+    if debug_level >= level:
+        kwargs["file"] = debug_stream
+        print(*args, **kwargs)

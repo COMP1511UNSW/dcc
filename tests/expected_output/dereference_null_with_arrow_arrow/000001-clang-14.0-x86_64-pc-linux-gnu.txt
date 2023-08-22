@@ -13,5 +13,6 @@ int main(void) {
 
 Values when execution stopped:
 
+a = &s
 s = {next = NULL, data = 0}
 a->next = NULL

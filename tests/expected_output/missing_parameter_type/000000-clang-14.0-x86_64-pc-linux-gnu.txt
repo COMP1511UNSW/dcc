@@ -1,0 +1,4 @@
+tests/extracted_compile_time_errors/missing_parameter_type.c:1:16: warning: type specifier missing, defaults to 'int' [-Wimplicit-int]
+int add(int b, c) {
+               ^
+dcc explanation: you appear to have forgotten to give a type for c.

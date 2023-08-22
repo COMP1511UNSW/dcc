@@ -1,0 +1,19 @@
+
+tests/run_time_errors/uninitialized-overflow.c:5:30 runtime error - signed integer overflow: -1094795587 * 8 cannot be represented in type 'int'
+dcc explanation: Arithmetic on an an uninitialized value has produced a value that can not be represented.
+
+Execution stopped in main() in tests/run_time_errors/uninitialized-overflow.c at line 5:
+
+int main(int argc, char **argv) {
+    int x[2];
+    x[argc] = 1;
+--> printf("%d\n", (x[0] - 1)* 8);
+}
+
+Values when execution stopped:
+
+argc = 1
+x = {<uninitialized value>, 1}
+x[0] = <uninitialized value>
+x[argc] = 1
+

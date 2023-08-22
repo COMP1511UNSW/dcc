@@ -1,0 +1,6 @@
+tests/extracted_compile_time_errors/missing_library_include.c:2:5: warning: implicitly declaring library function 'printf' with type 'int (const char *, ...)' [-Wimplicit-function-declaration]
+    printf("hello");
+    ^
+dcc explanation: you are calling printf on line 2 of tests/extracted_compile_time_errors/missing_library_include.c but
+dcc does not recognize printf as a function.
+Do you have #include <stdio.h> at the top of your file?

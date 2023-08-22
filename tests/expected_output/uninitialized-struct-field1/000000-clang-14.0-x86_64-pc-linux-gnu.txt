@@ -1,0 +1,21 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in print_car_space(car_space=...) in tests/run_time_errors/uninitialized-struct-field1.c at line 16:
+
+void print_car_space(struct car_space car_space) {
+--> if (car_space.parking_rate == NORMAL) {
+        printf("N");
+    }
+}
+
+Values when execution stopped:
+
+car_space = {<uninitialized values>}
+car_space.parking_rate = <uninitialized value>
+
+Function call traceback:
+
+print_car_space(car_space=...) called at line 24 of tests/run_time_errors/uninitialized-struct-field1.c
+main()
+

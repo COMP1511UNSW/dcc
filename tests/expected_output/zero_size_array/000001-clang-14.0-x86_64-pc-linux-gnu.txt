@@ -1,6 +1,6 @@
 
 tests/run_time_errors/zero_size_array.c:3:8 runtime error - index 0 out of bounds for type 'int[0]'
-dcc explanation:You have created a array of size 0 which is illegal.
+dcc explanation: You have created a array of size 0 which is illegal.
   Make sure the size of your array is correct.
   Make sure your array indices are correct.
 
@@ -11,6 +11,3 @@ int main(void) {
 -->return a[0];
 }
 
-Values when execution stopped:
-
-a = 0x7fff6e7c9be8

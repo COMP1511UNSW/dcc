@@ -15,8 +15,10 @@ Values when execution stopped:
 a = NULL
 b = {0}
 
-Function Call Traceback
+Function call traceback:
+
 f3(a=NULL) called at line 8 of tests/run_time_errors/call_stack_null.c
 f2(a=NULL) called at line 12 of tests/run_time_errors/call_stack_null.c
 f1(a=NULL) called at line 16 of tests/run_time_errors/call_stack_null.c
 main()
+
