@@ -345,6 +345,11 @@ def clarify_values(values, color, variable_addresses):
         r"'\\276' <repeats (\d+) times>", r"<\1 uninitialized values>", values
     )
 
+    values = values.replace(
+        "<uninitialized value> <error: Cannot access memory at address <uninitialized value>>",
+        "<uninitialized value>",
+    )
+
     values = re.sub(
         r"\{\w+ = <uninitialized value>(, \w+ = <uninitialized value>)*\}",
         "{<uninitialized values>}",
@@ -356,7 +361,7 @@ def clarify_values(values, color, variable_addresses):
         lambda m: f"<{len(m.group(1)) // 4} uninitialized values>",
         values,
     )
-    values = re.sub("<1 uninitialized values>", "<uninitialized value>", values)
+    values = values.replace("<1 uninitialized values>", "<uninitialized value>")
 
     values = re.sub(
         r"(<\d*\s*uninitialized values?>)", lambda m: color(m.group(1), "red"), values
