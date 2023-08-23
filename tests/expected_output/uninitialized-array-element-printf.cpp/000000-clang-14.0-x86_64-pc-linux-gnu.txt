@@ -1,12 +1,12 @@
 
 Runtime error: uninitialized variable accessed.
 
-Execution stopped in main() in tests/run_time_errors/uninitialized-array-element-printf.cpp at line 6:
+Execution stopped in main() in uninitialized-array-element-printf.cpp at line 6:
 
-int main(int argc, char **argv) { 
-	int a[1000];
-  	a[42] = 42;
--->	std::cout << a[argc] << "\n";
+int main(int argc, char **argv) {
+    int a[1000];
+    a[42] = 42;
+--> std::cout << a[argc] << "\n";
 }
 
 Values when execution stopped:
@@ -15,3 +15,4 @@ a = {<uninitialized value> <repeats 42 times>, 42, <uninitialized value> <repeat
 argc = 1
 a[42] = 42
 a[argc] = <uninitialized value>
+

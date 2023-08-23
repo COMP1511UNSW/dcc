@@ -6,7 +6,7 @@ enum space_type {
 };
 
 struct car_space {
-	enum space_type type;
+    enum space_type type;
     int parking_rate;
     int licence_plate;
     int occupied_since;

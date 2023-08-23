@@ -9,6 +9,7 @@
 import os, re, sys, signal
 from start_gdb import start_gdb, kill_all, kill
 from util import explanation_url
+from explain_error import runtime_error_prefix
 import colors
 
 
@@ -45,9 +46,9 @@ def read_line(color, debug_level):
 
 
 def process_line(line, color, debug_level):
-    error = None
+    runtime_error = ""
+    error_text = ""
     call_start_gdb = True
-
     valgrind_pid = None
     m = re.match(r"^=+(\d+)", line)
     if m:
@@ -56,58 +57,54 @@ def process_line(line, color, debug_level):
     if "fatal signal" in line:
         # avoid a signal e.g. SIGNALXCPU during valgrind startup
         # being interpreted as a runtime error
-        error = ""
         call_start_gdb = False
     elif "vgdb me" in line:
-        error = "Runtime error: " + color("uninitialized variable accessed.", "red")
-
+        runtime_error = "uninitialized variable accessed."
     elif "exit_group(status)" in line:
-        error = f"""Runtime error: {color('exit value is uninitialized', 'red')}
-
+        runtime_error = "exit value is uninitialized"
+        error_text = """
 Main is returning an uninitialized value or exit has been passed an uninitialized value.
 """
         # too late to start gdb as the program is exiting
         # we kill sanitizer2 as it is waiting for gdb
         call_start_gdb = False
-
     elif "clone.S" in line:
-        error = f"""Runtime error: {color('invalid parameters to process creation', 'red')}
-
+        runtime_error = "invalid parameters to process creation"
+        error_text = """
 An error has occurred in process creation.
 This is likely an invalid argument to posix_spawn, posix_spawnp or clone.
 Check all arguments are initialized.
-
 """
         # too late to start gdb as the program has cloned
         call_start_gdb = False
-
     elif "below stack pointer" in line:
-        error = f"""Runtime error: {color('access to function variables after function has returned', 'red')}
+        runtime_error = "access to function variables after function has returned"
+        error_text = f"""
 You have used a pointer to a local variable that no longer exists.
 When a function returns its local variables are destroyed.
 
-For more information see: {explanation_url("stack_use_after_return")}'
+For more information see: {explanation_url("stack_use_after_return")}
 """
-
     elif "Invalid write of size" in line:
-        error = f"""Runtime error: {color('invalid assignment.', 'red')}
+        runtime_error = "invalid assignment"
+        error_text = """
 A huge local array can produce this error.
 """
-
     elif "Invalid read of size" in line:
-        error = f"""Runtime error: {color('invalid memory access.', 'red')}
+        runtime_error = "invalid memory access"
+        error_text = """
 A common cause of this error is use of an invalid FILE * pointer.
 """
-
     elif "Stack overflow" in line:
-        error = f"""Runtime error: {color('stack overflow.', 'red')}
+        runtime_error = "stack overflow"
+        error_text = """
 A common cause of this error is infinite recursion.
 """
     elif "loss record" in line:
         line = sys.stdin.readline()
         if debug_level > 1:
             print("valgrind: ", line, file=sys.stderr, end="")
-
+        runtime_error = ""
         if "malloc" in line:
             line = sys.stdin.readline()
             if debug_level > 1:
@@ -119,22 +116,22 @@ A common cause of this error is infinite recursion.
                 return 1
 
             m = re.search(r"(\S+)\s*\((.+):(\d+)", line)
-            error = "Error: free not called for memory allocated with malloc"
+            error_text = "Error: free not called for memory allocated with malloc"
             if m:
-                error += (
+                error_text += (
                     f" in function {m.group(1)} in {m.group(2)} at line {m.group(3)}"
                 )
-            error += "."
+            error_text += "."
         else:
-            error = "Error: memory allocated not de-allocated."
+            error_text = "Error: memory allocated not de-allocated."
         call_start_gdb = False
-
-    if error is None:
+    else:
         return 1
 
-    if error:
-        os.environ["DCC_VALGRIND_ERROR"] = error
-        print("\n" + error, file=sys.stderr, flush=True)
+    full_error = runtime_error_prefix(runtime_error, color) + error_text
+    if full_error:
+        os.environ["DCC_VALGRIND_ERROR"] = full_error
+        print("\n" + full_error, file=sys.stderr, flush=True)
     if call_start_gdb:
         start_gdb()
     else:

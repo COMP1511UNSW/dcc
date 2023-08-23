@@ -1,4 +1,4 @@
-tests/extracted_compile_time_errors/comparison_between_pointer_and_integer_char_and_int.c:4:37: warning: comparison between pointer and integer ('char *' and 'int') [-Wpointer-integer-compare]
+comparison_between_pointer_and_integer_char_and_int.c:4:37: warning: comparison between pointer and integer ('char *' and 'int') [-Wpointer-integer-compare]
    return fgets(a, sizeof a, stdin) == EOF;
           ~~~~~~~~~~~~~~~~~~~~~~~~~ ^  ~~~
-dcc explanation: fgets returns a pointer. Compare it to NULL to detect fgets being unable to read a line. 
+dcc explanation: fgets returns a pointer. Compare it to NULL to detect fgets being unable to read a line.

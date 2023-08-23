@@ -1,0 +1,5 @@
+indirection-requires-pointer-operand.c:2:12: error: indirection requires pointer operand ('int' invalid)
+    return *argc;
+           ^~~~~
+dcc explanation: you are trying to use 'argc' as a pointer.
+You can not do this because 'argc' is of type int.

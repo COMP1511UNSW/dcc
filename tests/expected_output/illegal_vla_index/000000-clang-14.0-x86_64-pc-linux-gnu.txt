@@ -1,0 +1,20 @@
+
+Runtime error: index 1000 out of bounds for type 'int[600 + argc]'
+dcc explanation: You are using an illegal array index: 1000
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in main() in illegal_vla_index.c at line 3:
+
+int main(int argc, char **argv) {
+    int a[600 + argc];
+--> a[1000] = argc;
+    return a[1000];
+}
+
+Values when execution stopped:
+
+a = {<uninitialized value> <repeats 601 times>}
+argc = 1
+a[1000] = 0
+

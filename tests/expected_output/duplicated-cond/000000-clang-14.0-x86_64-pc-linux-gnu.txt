@@ -1,0 +1,10 @@
+duplicated-cond.c: In function ‘main’:
+duplicated-cond.c:4:19: warning: duplicated ‘if’ condition [-Wduplicated-cond]
+    4 |     else if (argc == 1)
+      |              ~~~~~^~~~
+duplicated-cond.c:2:14: note: previously used here
+    2 |     if (argc == 1)
+      |         ~~~~~^~~~[0m
+dcc explanation: you have repeated the same condition in a chain of if statements.
+Only the first if statement using the condition can be executed.
+The others can never be executed.

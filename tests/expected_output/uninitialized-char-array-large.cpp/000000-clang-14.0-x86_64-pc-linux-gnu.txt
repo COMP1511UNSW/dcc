@@ -1,17 +1,18 @@
 
 Runtime error: uninitialized variable accessed.
 
-Execution stopped in main() in tests/run_time_errors/uninitialized-char-array-large.cpp at line 7:
+Execution stopped in main() in uninitialized-char-array-large.cpp at line 7:
 
 int main(int argc, char *argv[]) {
-	char input[8192];
+    char input[8192];
     input[argc] = 0;
--->	std::cout << input[0];
+--> std::cout << input[0];
 }
 
 Values when execution stopped:
 
 argc = 1
-input = "\276\000", <8190 uninitialized values>
+input = "<uninitialized value>\000", <8190 uninitialized values>
 input[0] = <uninitialized value>
 input[argc] = 0 = '\0'
+

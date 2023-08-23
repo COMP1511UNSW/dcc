@@ -1,0 +1,11 @@
+
+Runtime error: invalid memory access
+A common cause of this error is use of an invalid FILE * pointer.
+
+
+Execution stopped in main() in use_after_return.c at line 25:
+
+int main(void) {
+--> printf("%d\n", *f(50));
+}
+

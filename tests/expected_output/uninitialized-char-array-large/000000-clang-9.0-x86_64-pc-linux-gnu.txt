@@ -1,6 +1,0 @@
-tests/run_time_errors/uninitialized-char-array-large.c: In function ‘main’:
-tests/run_time_errors/uninitialized-char-array-large.c:6:20: warning: ‘input[0]’ is used uninitialized in this function [-Wuninitialized]
-    6 |  printf("%c", input[0]);
-      |               ~~~~~^~~[0m
-dcc explanation: You are using the value of the variable input[0] before assigning a value to input[0].
-

@@ -1,5 +1,0 @@
-tests/extracted_compile_time_errors/break_statement_not_in_loop.c:2:5: error: 'break' statement not in loop or switch statement
-    break;
-    ^
-dcc explanation: break statements can only be used inside a while loop, for loop or switch.
-Check the braces {} are correct on nearby statements.

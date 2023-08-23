@@ -1,6 +1,0 @@
-tests/extracted_compile_time_errors/parameter_o_main.c:1:5: warning: only one parameter on 'main' declaration [-Wmain]
-int main(int argc) {
-    ^
-dcc explanation: your declaration of 'main' is incorrect.
-Try either 'int main(void)' or 'int main(int argc, char *argv[])'
-

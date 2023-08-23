@@ -1,0 +1,22 @@
+
+Runtime error: accessing a value via a uninitialized pointer
+dcc explanation: You are using a pointer which has not been initialized
+  A common error is accessing *p without first assigning a value to p.
+
+Execution stopped in f3(a=<uninitialized value>) in call_stack_uninitialized.c at line 4:
+
+int f3(int *a) {
+--> return *a;
+}
+
+Values when execution stopped:
+
+a = <uninitialized value>
+
+Function call traceback:
+
+f3(a=<uninitialized value>) called at line 7 of call_stack_uninitialized.c
+f2(a=<uninitialized value>) called at line 11 of call_stack_uninitialized.c
+f1(a=<uninitialized value>) called at line 17 of call_stack_uninitialized.c
+main()
+

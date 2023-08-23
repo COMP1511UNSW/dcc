@@ -1,0 +1,5 @@
+multiple_unsequenced_modifications.c:2:16: warning: multiple unsequenced modifications to 'argc' [-Wunsequenced]
+    argc = argc--;
+         ~     ^
+dcc explanation: you are changing a variable multiple times in the one statement. 
+`++` and `--` change the variable, there is no need to also assign the result to the variable.

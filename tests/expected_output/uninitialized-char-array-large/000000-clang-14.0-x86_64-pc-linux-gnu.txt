@@ -1,0 +1,18 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in uninitialized-char-array-large.c at line 7:
+
+int main(int argc, char *argv[]) {
+    char input[8192];
+    input[argc] = 0;
+--> printf("%c", input[0]);
+}
+
+Values when execution stopped:
+
+argc = 1
+input = "<uninitialized value>\000", <8190 uninitialized values>
+input[0] = <uninitialized value>
+input[argc] = 0 = '\0'
+

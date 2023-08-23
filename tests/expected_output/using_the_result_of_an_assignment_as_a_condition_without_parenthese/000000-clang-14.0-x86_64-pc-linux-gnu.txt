@@ -1,0 +1,12 @@
+using_the_result_of_an_assignment_as_a_condition_without_parenthese.c:2:14: warning: using the result of an assignment as a condition without parentheses [-Wparentheses]
+    if (argc = 4) {
+        ~~~~~^~~
+using_the_result_of_an_assignment_as_a_condition_without_parenthese.c:2:14: note: place parentheses around the assignment to silence this warning
+    if (argc = 4) {
+             ^
+        (       )
+using_the_result_of_an_assignment_as_a_condition_without_parenthese.c:2:14: note: use '==' to turn this assignment into an equality comparison
+    if (argc = 4) {
+             ^
+             ==[0m
+dcc explanation: you use '=' to assign to a variable, you use '==' to compare values.

@@ -1,8 +1,0 @@
-
-Execution terminated by signal 11
-Execution stopped in main() in tests/run_time_errors/dereference_uninitialized_char_star_with_asterisk.c at line 4:
-
-int main(void) { 
-    char **a = malloc(sizeof *a);
---> return **a;
-}

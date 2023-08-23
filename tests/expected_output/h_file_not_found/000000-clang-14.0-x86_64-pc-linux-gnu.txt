@@ -1,0 +1,5 @@
+h_file_not_found.c:1:10: fatal error: 'studio.h' file not found
+#include <studio.h>
+         ^~~~~~~~~~
+dcc explanation: you are attempting to #include a file which does not exist.
+Did you mean: '#include <stdio.h>'

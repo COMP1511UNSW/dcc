@@ -1,0 +1,13 @@
+
+Execution stopped because of an invalid pointer or string.
+Execution stopped in main() in illegal_argv_index.c at line 4:
+
+int main(int argc, char **argv) {
+--> printf("%s\n", argv[-1]);
+}
+
+Values when execution stopped:
+
+argc = 1
+argv[-1] = 0x1 <error: Cannot access memory at address 0x1>
+

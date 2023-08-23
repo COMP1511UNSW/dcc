@@ -1,0 +1,16 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in braces_before_error.c at line 18:
+
+    a[42] = 42;
+--> printf("%d\n", a[argc]);
+}
+
+Values when execution stopped:
+
+a = {<uninitialized value> <repeats 42 times>, 42, <uninitialized value> <repeats 957 times>}
+argc = 1
+a[42] = 42
+a[argc] = <uninitialized value>
+

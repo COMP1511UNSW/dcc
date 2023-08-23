@@ -1,4 +1,4 @@
-tests/extracted_compile_time_errors/too_many_arguments_to_function_call_expected_d_have_d.c:3:20: error: too many arguments to function call, expected 0, have 3
+too_many_arguments_to_function_call_expected_d_have_d.c:3:20: error: too many arguments to function call, expected 0, have 3
     return getchar(0, 0, 0);
            ~~~~~~~ ^~~~~~~
 /usr/include/stdio.h:520:12: note: 'getchar' declared here

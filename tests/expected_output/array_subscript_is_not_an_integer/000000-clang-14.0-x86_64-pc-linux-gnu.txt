@@ -1,0 +1,4 @@
+array_subscript_is_not_an_integer.c:3:13: error: array subscript is not an integer
+    return a["0"];
+            ^~~~
+dcc explanation: you are using a string as an array index. An array index has to be an integer.

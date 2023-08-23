@@ -1,0 +1,5 @@
+misspelt_printf.c:3:5: warning: implicit declaration of function 'print' is invalid in C99 [-Wimplicit-function-declaration]
+    print("hello");
+    ^
+dcc explanation: you are calling a function named print on line 3 of misspelt_printf.c but dcc does not recognize print as a function.
+Maybe you meant printf?

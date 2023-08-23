@@ -1,9 +1,8 @@
-int main (void) {
-  int b;
-  int a;
-  if  (a = b) {
+int main(void) {
+    int b;
+    int a;
+    if (a = b) {
+    }
 
-  }
-
-  a = c;
+    a = c;
 }

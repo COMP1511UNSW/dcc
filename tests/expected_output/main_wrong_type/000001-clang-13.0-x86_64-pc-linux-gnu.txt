@@ -1,5 +1,0 @@
-tests/compile_time_errors/main_wrong_type.c:1:5: error: second parameter of 'main' (argument array) must be of type 'char **'
-int main(int argc, int argv[]) {
-    ^
-dcc explanation: your declaration of 'main' is incorrect.
-Try either 'int main(void)' or 'int main(int argc, char *argv[])'

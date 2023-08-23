@@ -1,6 +1,0 @@
-tests/extracted_compile_time_errors/ignoring_return_value_of_function.c:3:2: warning: ignoring return value of function declared with pure attribute [-Wunused-value]
-        atoi(argv[0]);
-        ^~~~ ~~~~~~~
-dcc explanation: you are not using the value returned by function atoi .
-Did you mean to assign it to a variable?
-

@@ -1,6 +1,0 @@
-tests/compile_time_errors/printf_int_string_mismatch.c:4:17: warning: format specifies type 'int' but the argument has type 'char *' [-Wformat]
-        printf("%d\n", "hello!");
-                ~~     ^~~~~~~~
-                %s
-dcc explanation: make sure you are using the correct format code (e.g., `%d` for integers, `%lf` for floating-point values) in your format string on line 4 of tests/compile_time_errors/printf_int_string_mismatch.c.
-

@@ -4,8 +4,8 @@
 
 #include <stdlib.h>
 
-int main(int argc, char **argv) { 
-	int *a = (int *)malloc(1000 * sizeof (int));
-	a[999 + argc] = 42;
-	return 0;
+int main(int argc, char **argv) {
+    int *a = (int *)malloc(1000 * sizeof(int));
+    a[999 + argc] = 42;
+    return 0;
 }

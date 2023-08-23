@@ -1,0 +1,5 @@
+relational_expression_with_comma.c:2:14: warning: relational comparison result unused [-Wunused-comparison]
+    if (argc < 1, argc < 2) {
+        ~~~~~^~~
+dcc explanation: you appear to be combining combining comparison incorrectly. 
+Perhaps you are using ',' instead of '&&' or '||'.

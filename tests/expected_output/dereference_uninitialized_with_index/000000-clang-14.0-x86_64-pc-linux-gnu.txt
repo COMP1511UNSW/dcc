@@ -1,0 +1,18 @@
+
+Runtime error: accessing a value via a uninitialized pointer
+dcc explanation: You are using a pointer which has not been initialized
+  A common error is accessing p[index] without first assigning a value to p.
+
+Execution stopped in main() in dereference_uninitialized_with_index.c at line 5:
+
+int main(int argc, char *argv[]) {
+    int **a = (int **)malloc(2 * sizeof *a);
+    a[argc] = NULL;
+--> return a[0][0];
+}
+
+Values when execution stopped:
+
+argc = 1
+a[argc] = NULL
+

@@ -16,7 +16,6 @@ def drive_gdb():
     output_stream = os.fdopen(3, "w", encoding="utf-8", errors="replace")
     util.set_debug_level()
     util.set_debug_stream(output_stream)
-    print("hello", output_stream)
     windows_subsystem_for_linux = "microsoft" in platform.uname()[3].lower()
     colorize_output = output_stream.isatty() or os.environ.get(
         "DCC_COLORIZE_OUTPUT", False

@@ -1,0 +1,12 @@
+
+Runtime error: invalid memory access
+A common cause of this error is use of an invalid FILE * pointer.
+
+
+Execution stopped in main() in fgetc_after_close.c at line 5:
+
+int main(void) {
+    fclose(stdin);
+--> fgetc(stdin);
+}
+

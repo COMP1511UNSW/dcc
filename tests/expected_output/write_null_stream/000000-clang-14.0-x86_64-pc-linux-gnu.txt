@@ -1,0 +1,16 @@
+write_null_stream.c: In function ‘main’:
+write_null_stream.c:4:5: warning: argument 1 null where non-null expected [-Wnonnull]
+    4 |     fprintf(NULL, "Hello world\n");
+      |     ^~~~~~~
+dcc explanation: you are passing a NULL value as argument 1 to 'fprintf'.
+Argument 1 to 'fprintf' should never be NULL.
+In file included from write_null_stream.c:1:
+/usr/include/stdio.h:350:12: note: in a call to function ‘fprintf’ declared ‘nonnull’
+  350 | extern int fprintf (FILE *__restrict __stream,
+      |            ^~~~~~~[0m
+write_null_stream.c:4:5: warning: argument 4 null where non-null expected [-Wnonnull]
+    4 |     fprintf(NULL, "Hello world\n");
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+write_null_stream.c:4:5: note: in a call to built-in function ‘__builtin_fwrite’[0m
+dcc explanation: you are passing a NULL value as argument 4 to 'fprintf'.
+Argument 4 to 'fprintf' should never be NULL.

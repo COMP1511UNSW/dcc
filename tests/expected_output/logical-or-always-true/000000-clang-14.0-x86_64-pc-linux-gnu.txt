@@ -1,0 +1,5 @@
+logical-or-always-true.c:3:18: warning: overlapping comparisons always evaluate to true [-Wtautological-overlap-compare]
+    if (argc > 1 || argc < 3)
+        ~~~~~~~~~^~~~~~~~~~~
+dcc explanation: Your '||' expression is always true, no matter what value variables have.
+Perhaps you meant to use '&&' ?

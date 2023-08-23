@@ -1,6 +1,0 @@
-tests/extracted_compile_time_errors/has_empty_body.c:2:11: warning: if statement has empty body [-Wempty-body]
-        if (argc); {
-                 ^
-tests/extracted_compile_time_errors/has_empty_body.c:2:11: note: put the semicolon on a separate line to silence this warning[0m
-dcc explanation: you may have an extra ';' that you should remove.
-

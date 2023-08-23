@@ -1,21 +1,22 @@
 
 Runtime error: uninitialized variable accessed.
 
-Execution stopped in g(p=0x1fff0009ac, q=0x1fff000984, r=0x1fff000924, s=0x1fff00095c) in tests/run_time_errors/display_pointer_value0.c at line 4:
+Execution stopped in g(p=main:&i, q=main:&j[1], r=f:&j[1], s=f:&i) in display_pointer_value0.c at line 4:
 
 void g(int *p, int *q, int *r, int *s) {
--->	printf("%d %d %d %d\n", *p, *q, *r, *s);
+--> printf("%d %d %d %d\n", *p, *q, *r, *s);
 }
 
 Values when execution stopped:
 
-p = &main:i
-q = &main:j[1]
-r = &f:j[1]
-s = &f:i
+p = main:&i
+q = main:&j[1]
+r = f:&j[1]
+s = f:&i
 
-Function Call Traceback
-g(p=0x1fff0009ac, q=0x1fff000984, r=0x1fff000924, s=0x1fff00095c) called at line 9 of tests/run_time_errors/display_pointer_value0.c
-f(i=1, p=0x1fff0009ac, q=0x1fff000984) called at line 21 of tests/run_time_errors/display_pointer_value0.c
+Function call traceback:
+
+g(p=main:&i, q=main:&j[1], r=f:&j[1], s=f:&i) called at line 9 of display_pointer_value0.c
+f(i=1, p=main:&i, q=main:&j[1]) called at line 21 of display_pointer_value0.c
 main()
 

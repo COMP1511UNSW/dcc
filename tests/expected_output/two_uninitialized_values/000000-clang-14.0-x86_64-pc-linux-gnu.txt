@@ -1,9 +1,9 @@
 
-tests/run_time_errors/two_uninitialized_values.c:4:17 runtime error - signed integer overflow: -1094795586 + -1094795586 cannot be represented in type 'int'
-dcc explanation:Your program looks to be using an uninitialized value.
+Runtime error: signed integer overflow: -1094795586 + -1094795586 cannot be represented in type 'int'
+dcc explanation: Your program looks to be using an uninitialized value.
   -1094795586 is probably actually an uninitialized value.
 
-Execution stopped in main() in tests/run_time_errors/two_uninitialized_values.c at line 4:
+Execution stopped in main() in two_uninitialized_values.c at line 4:
 
 int main(int argc, char *argv[]) {
     int a[2];
@@ -16,3 +16,4 @@ Values when execution stopped:
 a = {<uninitialized value>, 1}
 argc = 1
 a[argc] = 1
+

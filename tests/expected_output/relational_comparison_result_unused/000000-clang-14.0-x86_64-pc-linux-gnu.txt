@@ -1,0 +1,5 @@
+relational_comparison_result_unused.c:2:17: warning: relational comparison result unused [-Wunused-comparison]
+    return argc < 0, argc < 23;
+           ~~~~~^~~
+dcc explanation: you appear to be combining combining comparison incorrectly. 
+Perhaps you are using ',' instead of '&&' or '||'.

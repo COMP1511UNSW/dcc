@@ -1,6 +1,0 @@
-tests/extracted_compile_time_errors/type_specifier_missing_defaults_to_int.c:1:1: warning: type specifier missing, defaults to 'int' [-Wimplicit-int]
-square (int x) {
-^
-dcc explanation: you appear to have forgotten the return type on a function.
-You must specify the return type of a function just before its name.
-

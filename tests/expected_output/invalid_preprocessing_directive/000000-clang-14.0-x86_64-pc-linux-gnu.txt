@@ -1,0 +1,5 @@
+invalid_preprocessing_directive.c:1:2: error: invalid preprocessing directive
+#inclde <stdio.h>
+ ^
+dcc explanation: you have an invalid line begining with '#'.
+Did you mean #include or #define  ? 

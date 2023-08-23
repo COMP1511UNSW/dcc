@@ -1,0 +1,5 @@
+format_type_mismatch.c:4:18: warning: format specifies type 'int' but the argument has type 'char *' [-Wformat]
+    printf("%d", "hello!");
+            ~~   ^~~~~~~~
+            %s
+dcc explanation: make sure you are using the correct format code (e.g., `%d` for integers, `%lf` for floating-point values) in your format string on line 4 of format_type_mismatch.c.

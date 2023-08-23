@@ -1,0 +1,4 @@
+array_string_index.c:3:6: error: array subscript is not an integer
+    a["0"] = 0;
+     ^~~~
+dcc explanation: you are using a string as an array index. An array index has to be an integer.

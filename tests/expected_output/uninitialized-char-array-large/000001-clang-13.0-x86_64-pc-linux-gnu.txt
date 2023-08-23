@@ -1,8 +1,0 @@
-tests/run_time_errors/uninitialized-char-array-large.c: In function ‘main’:
-tests/run_time_errors/uninitialized-char-array-large.c:6:27: warning: ‘input’ is used uninitialized [-Wuninitialized]
-    6 |         printf("%c", input[0]);
-      |                      ~~~~~^~~
-tests/run_time_errors/uninitialized-char-array-large.c:5:14: note: ‘input’ declared here
-    5 |         char input[8192];
-      |              ^~~~~[0m
-

@@ -1,0 +1,5 @@
+non_void_function_does_not_return_a_value.c:2:1: warning: non-void function does not return a value [-Wreturn-type]
+}
+^
+dcc explanation: your function has no return statement.
+Unless a function is of type void, it must return a value using a return statement.

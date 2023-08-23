@@ -1,4 +1,4 @@
 #include <stdio.h>
 int main(void) {
-	pclose(popen("echo popen", "w"));
+    pclose(popen("echo popen", "w"));
 }

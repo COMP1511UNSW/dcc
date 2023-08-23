@@ -1,0 +1,9 @@
+indexing_one_too_far.c:3:12: warning: array index 42 is past the end of the array (which contains 42 elements) [-Warray-bounds]
+    return a[42];
+           ^ ~~
+indexing_one_too_far.c:2:5: note: array 'a' declared here
+    int a[42] = { 0 };
+    ^[0m
+dcc explanation: remember arrays indices start at zero.
+The valid array indices for an array of size n are 0..n-1.
+For example, for an array of size 10 you can use 0..9 as indices.

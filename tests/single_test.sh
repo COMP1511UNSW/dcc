@@ -38,6 +38,7 @@ REMOVE_NON_DETERMINATE_VALUES='
 	s? called at line [0-9]* of ? called at line ?
 	s? at line [0-9]*:? at line:?
 	s?: [0-9]* Killed?Killed?
+	s?/[^ ]*/?/?
 	s?tests.*/??
 '
 
@@ -99,7 +100,7 @@ do
 		fi
 		actual_output_file=tmp.actual_stderr
 	esac
-	sed -e "$REMOVE_NON_DETERMINATE_VALUES" $actual_output_file >tmp.corrected_output
+	sed -e "$REMOVE_NON_DETERMINATE_VALUES" "$actual_output_file" >tmp.corrected_output
 	
 	expected_output_dir="$tests_dir/expected_output/$expected_output_basename"
 	mkdir -p "$expected_output_dir"
@@ -133,7 +134,7 @@ do
 	passed=
 	for expected_output_version in $expected_output_dir/*.txt
 	do
-		sed -e "$REMOVE_NON_DETERMINATE_VALUES" $expected_output_version >tmp.expected_output
+		sed -e "$REMOVE_NON_DETERMINATE_VALUES" "$expected_output_version" >tmp.expected_output
 		if diff -iBw tmp.expected_output tmp.corrected_output >/dev/null
 		then
 			echo Passed: dcc $dcc_flags $original_src_file

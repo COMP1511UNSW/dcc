@@ -7,27 +7,33 @@ do
 	unset $var
 done
 
-export tests_dir=$(dirname $(readlink -f $0))
-cd "$tests_dir"
-rm -f */a.out
-export dcc="${1:-$(readlink -f ../dcc)}"
+export tests_dir="$(dirname $(readlink -f $0))"
+export dcc="$(readlink -f ${1:-"./dcc)"})"
 export dcc_cpp="${dcc}++"
 export c_compiler="${2:-clang}"
 export cpp_compiler="${3:-clang++}"
 
-mkdir -p extracted_compile_time_errors
-cd extracted_compile_time_errors || exit
-rm -f *.c
-python3 ../../compile_time_python/compiler_explanations.py --create_test_files
-cd ..
+e="$tests_dir/extracted_compile_time_errors"
+mkdir -p "$e"
+(
+	cd "$e" || exit
+	rm -f *.c
+	python3 ../../compile_time_python/compiler_explanations.py --create_test_files
+)
 
 export clang_version=$($c_compiler -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
 export platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
 
-n_cores=$(getconf _NPROCESSORS_ONLN)
 initial_run=$(
-	ls run_time_errors/*.* extracted_compile_time_errors/*.c compile_time_errors/*.c run_time_no_errors/*.* check_output/*.sh|
-	xargs -P$(getconf _NPROCESSORS_ONLN) -n1 ./single_test.sh --quick
+	{
+		ls "$tests_dir"/run_time_errors/*.*
+		ls "$tests_dir"/extracted_compile_time_errors/*.c
+		ls "$tests_dir"/compile_time_errors/*.c
+		ls "$tests_dir"/run_time_no_errors/*.*
+		ls "$tests_dir"/check_output/*.sh
+	}|
+	grep -E '\.(sh|c|cpp)$'|
+	xargs -P12 -n1 "$tests_dir"/single_test.sh --quick
 	)
 	
 echo "$initial_run"|grep '^Passed'|sort
@@ -45,7 +51,7 @@ second_run=$(
 tests_failed=0
 for src_file in $second_run
 do
-	./single_test.sh "$src_file"
+	"$tests_dir"/single_test.sh "$src_file"
 	test_result="$?"
 	test "$test_result" = 0 && 
 		continue

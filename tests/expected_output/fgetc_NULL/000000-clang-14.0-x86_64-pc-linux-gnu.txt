@@ -1,0 +1,13 @@
+
+Execution stopped because of an invalid pointer or string.
+Execution stopped in main() in fgetc_NULL.c at line 5:
+
+int main(void) {
+    FILE *f = NULL;
+--> fgetc(f);
+}
+
+Values when execution stopped:
+
+f = NULL
+

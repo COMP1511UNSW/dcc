@@ -1,6 +1,0 @@
-tests/extracted_compile_time_errors/function_definition_is_not_allowed_here.c:4:16: error: function definition is not allowed here
-int main(void) {
-               ^
-dcc explanation: there is likely a closing brace (curly bracket) missing before line 4 of tests/extracted_compile_time_errors/function_definition_is_not_allowed_here.c.
-Is a } missing in the previous function?
-  See more information here: https://comp1511unsw.github.io/dcc/function_definition_is_not_allowed_here.html

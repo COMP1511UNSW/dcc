@@ -5,6 +5,6 @@ int main(void) {
     fseek(f, -10, SEEK_END);
     int c;
     while ((c = fgetc(f)) != EOF) {
-    	putchar(c);
+        putchar(c);
     }
 }

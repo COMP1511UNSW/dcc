@@ -1,0 +1,5 @@
+expression_result_unused.c:2:5: warning: expression result unused [-Wunused-value]
+    argc;
+    ^~~~
+dcc explanation: you are doing nothing with a value on line 2 of expression_result_unused.c.
+Did you mean to assign it to a varable?

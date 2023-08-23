@@ -1,0 +1,4 @@
+subscripted_value_is_not_an_array.c:2:16: error: subscripted value is not an array, pointer, or vector
+    return argc[0];
+           ~~~~^~
+dcc explanation: you appear to be incorrectly trying to use argc as an array .

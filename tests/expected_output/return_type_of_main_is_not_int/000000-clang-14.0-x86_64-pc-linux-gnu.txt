@@ -1,0 +1,8 @@
+return_type_of_main_is_not_int.c:1:1: warning: return type of 'main' is not 'int' [-Wmain-return-type]
+void main(void) {
+^
+return_type_of_main_is_not_int.c:1:1: note: change return type to 'int'
+void main(void) {
+^~~~
+int[0m
+dcc explanation: 'main' must always have return type int.

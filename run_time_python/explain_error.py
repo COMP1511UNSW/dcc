@@ -23,18 +23,17 @@ def explain_error(output_stream, color):
         explanation, location = explain_ubsan_error(location, color)
     elif "DCC_OUTPUT_ERROR" in os.environ:
         explanation = explain_output_difference(color)
+    elif "DCC_VALGRIND_ERROR" in os.environ:
+        # explanation already printed
+        explanation = os.environ.get("DCC_VALGRIND_ERROR", "")
     elif os.environ.get("DCC_SANITIZER", "") == "MEMORY":
-        explanation = "runtime error " + color("uninitialized variable used", "red")
+        explanation = runtime_error_prefix("uninitialized variable used", color)
+    else:
+        explanation = runtime_error_prefix(
+            "illegal array, pointer or other operation", color
+        )
 
-    if explanation:
-        # location may be improved above so we wait to here to use it
-        if location and location.column:
-            explanation = (
-                f"{location.filename}:{location.line_number}:{location.column} "
-                + explanation
-            )
-        elif location:
-            explanation = f"{location.filename}:{location.line_number} " + explanation
+    if not "DCC_VALGRIND_ERROR" in os.environ:
         print(explanation, file=output_stream)
 
     variable_addresses = explain_context.get_variable_addresses(stack)
@@ -58,9 +57,6 @@ def explain_error(output_stream, color):
         print(call_stack, file=output_stream)
     else:
         print(file=output_stream)
-
-    if not explanation:
-        explanation = os.environ.get("DCC_VALGRIND_ERROR", "")
 
     run_runtime_helper(location, explanation, variables, call_stack, output_stream)
 
@@ -204,7 +200,7 @@ def explain_ubsan_error(loc, color):
     if not message:
         message = "undefined operation"
 
-    report = "runtime error - " + color(message, "red")
+    report = runtime_error_prefix(message, color)
     if explanation:
         report += "\n"
         report += color("dcc explanation: ", "cyan")
@@ -220,7 +216,7 @@ def explain_asan_error(loc, color):
         asan_error = asan_error.replace("null deref", "NULL pointer dereferenced")
     else:
         asan_error = "illegal array, pointer or other operation"
-    report = "runtime error - " + color(asan_error, "red")
+    report = runtime_error_prefix(asan_error, color)
     for substring, explanation in ASAN_EXPLANATIONS:
         if substring in report.lower():
             report += "\n"
@@ -389,3 +385,7 @@ def parse_gdb_stack_frame(line):
             frame_number=m.group("frame_number"),
         )
     return None
+
+
+def runtime_error_prefix(error, color):
+    return color("Runtime error: " + error, "red") if error else ""

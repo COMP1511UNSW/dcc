@@ -1,5 +1,0 @@
-tests/extracted_compile_time_errors/continue_statement_not_in_loop.c:2:5: error: 'continue' statement not in loop statement
-    continue;
-    ^
-dcc explanation: continue statements can only be used inside a while or for loop.
-Check the braces {} are correct on nearby statements.

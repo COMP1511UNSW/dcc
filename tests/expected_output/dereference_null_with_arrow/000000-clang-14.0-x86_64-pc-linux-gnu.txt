@@ -1,0 +1,16 @@
+
+Runtime error: accessing a field via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is  using p->field when p == NULL.
+
+Execution stopped in main() in dereference_null_with_arrow.c at line 8:
+
+int main(void) {
+    struct list_node *a = NULL;
+--> a->data = 42;
+}
+
+Values when execution stopped:
+
+a = NULL
+

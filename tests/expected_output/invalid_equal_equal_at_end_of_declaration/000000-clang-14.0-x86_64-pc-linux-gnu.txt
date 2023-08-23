@@ -1,0 +1,5 @@
+invalid_equal_equal_at_end_of_declaration.c:2:11: error: invalid '==' at end of declaration; did you mean '='?
+    int i == 0;
+          ^~
+          =
+dcc explanation: remember '=' is used to assign a value to a variable, '==' is used to compare values, 

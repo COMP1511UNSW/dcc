@@ -1,0 +1,17 @@
+
+Runtime error: signed integer overflow: 2147483647 + 1 cannot be represented in type 'int'
+dcc explanation: There are limits in the range of values that can be represented in all types.
+  Your program has produced a value outside that range.
+
+Execution stopped in main() in int_overflow.c at line 5:
+
+int main(int argc, char **argv) {
+    int k = INT_MAX;
+--> k += argc;
+}
+
+Values when execution stopped:
+
+argc = 1
+k = 2147483647
+

@@ -1,5 +1,0 @@
-/bin/ld: /tmp/two_main_functions-65bb86.o: in function `main':
-/home/andrewt/w/dcc/src/tests/extracted_compile_time_errors/two_main_functions.c:4: multiple definition of `main'; /tmp/two_main_functions-8e34eb.o:/home/andrewt/w/dcc/src/tests/extracted_compile_time_errors/two_main_functions.c:4: first defined here
-clang: error: linker command failed with exit code 1 (use -v to see invocation)
-dcc explanation: Your program contains more than one main function - a C program can only contain one main function.
-

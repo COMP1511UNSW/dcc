@@ -1,0 +1,17 @@
+
+Execution stopped because of an invalid pointer or string.
+Execution stopped in main() in fgetc_uninitialized.c at line 6:
+
+int main(int argc, char *argv[]) {
+    FILE *f[2];
+    f[0] = NULL;
+--> fgetc(f[argc]);
+}
+
+Values when execution stopped:
+
+argc = 1
+f = {NULL, <uninitialized value>}
+f[0] = NULL
+f[argc] = <uninitialized value>
+

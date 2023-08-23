@@ -1,0 +1,5 @@
+variable_used_in_own_initialization.c:2:13: warning: variable 'x' is uninitialized when used within its own initialization [-Wuninitialized]
+    int x = x + 1;
+        ~   ^
+dcc explanation: you are using variable 'x' as part of its own initialization.
+You can not use a variable to initialize itself.

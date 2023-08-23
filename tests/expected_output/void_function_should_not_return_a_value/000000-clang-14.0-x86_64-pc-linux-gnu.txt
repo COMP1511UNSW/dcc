@@ -1,0 +1,5 @@
+void_function_should_not_return_a_value.c:2:5: error: void function 'f' should not return a value [-Wreturn-type]
+    return 1;
+    ^      ~
+dcc explanation: you are trying to return a value from function f which is of type void.
+You need to change the return type of f or change the return statement.

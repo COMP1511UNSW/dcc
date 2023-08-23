@@ -1,16 +1,18 @@
-tests/run_time_errors/error_after_warning.c:4:10: warning: using the result of an assignment as a condition without parentheses [-Wparentheses]
-  if  (a = b) {
-       ~~^~~
-tests/run_time_errors/error_after_warning.c:4:10: note: place parentheses around the assignment to silence this warning
-  if  (a = b) {
-         ^
-       (    )
-tests/run_time_errors/error_after_warning.c:4:10: note: use '==' to turn this assignment into an equality comparison
-  if  (a = b) {
-         ^
-         ==[0m
+error_after_warning.c:4:11: warning: using the result of an assignment as a condition without parentheses [-Wparentheses]
+    if (a = b) {
+        ~~^~~
+error_after_warning.c:4:11: note: place parentheses around the assignment to silence this warning
+    if (a = b) {
+          ^
+        (    )
+error_after_warning.c:4:11: note: use '==' to turn this assignment into an equality comparison
+    if (a = b) {
+          ^
+          ==[0m
 dcc explanation: you use '=' to assign to a variable, you use '==' to compare values.
-tests/run_time_errors/error_after_warning.c:8:7: error: use of undeclared identifier 'c'
-  a = c;
-      ^
-mkdir: cannot create directory ‘/.cache’: Permission denied
+error_after_warning.c:7:9: error: use of undeclared identifier 'c'
+    a = c;
+        ^
+dcc explanation:  you have used the name 'c' on line 7 of error_after_warning.c without previously declaring it.
+If you meant to use 'c' as a variable, check you have declared it by specifying its type
+Also  check you have spelled 'c' correctly everywhere.

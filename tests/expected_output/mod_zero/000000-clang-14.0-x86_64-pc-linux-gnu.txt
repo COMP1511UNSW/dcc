@@ -1,0 +1,14 @@
+
+Runtime error: division by zero
+dcc explanation: A common error is to evaluate x % y when y == 0 which is undefined.
+
+Execution stopped in main() in mod_zero.c at line 7:
+
+int main(int argc, char **argv) {
+--> printf("%d\n", 42 % (argc - 1));
+}
+
+Values when execution stopped:
+
+argc = 1
+
