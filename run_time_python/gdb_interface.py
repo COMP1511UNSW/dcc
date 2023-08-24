@@ -19,19 +19,35 @@ def gdb_attach():
 
 
 def gdb_evaluate(expression):
-    dprint(
-        3,
-        "gdb_evaluate:",
-        expression,
-    )
+    dprint(3, "gdb_evaluate:", expression)
     value = gdb_execute(f"print {expression}")
     value = re.sub(r"^[^=]*=\s*", "", value).strip()
-    dprint(
-        3,
-        "->",
-        value,
-    )
+    dprint(3, "->", value)
     return value.strip()
+
+
+def gdb_eval(expression):
+    dprint(3, "gdb_eval:", expression)
+    try:
+        value = gdb.parse_and_eval(expression)
+    except gdb.error as e:
+        dprint(3, e)
+        value = None
+    dprint(3, "->", value)
+    return value
+
+
+def gdb_set_frame(level):
+    gdb_execute(f"frame {level}")
+
+
+def gdb_get_frame():
+    dprint(3, "gdb.get_frame")
+    try:
+        return gdb.selected_frame().level()
+    except gdb.error as e:
+        dprint(3, "gdb.get_frame", e)
+        return 0
 
 
 def gdb_execute(command):

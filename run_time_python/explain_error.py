@@ -11,7 +11,7 @@ def explain_error(output_stream, color):
     # file descriptor 3 is a dup of stderr (see below)
     # stdout & stderr have been diverted to /dev/null
     print(file=output_stream)
-    stack = gdb_set_frame()
+    stack = parse_stack()
     location = stack[0] if stack else None
     signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
     explanation = ""
@@ -50,15 +50,19 @@ def explain_error(output_stream, color):
             print(color("\nValues when execution stopped:", "cyan"), file=output_stream)
             print("\n" + variables, end="", file=output_stream)
 
-    call_stack = ""
+    stack_explanation = ""
     if len(stack) > 1:
-        call_stack = explain_context.explain_stack(stack, variable_addresses, color)
+        stack_explanation = explain_context.explain_stack(
+            stack, variable_addresses, color
+        )
         print(color("\nFunction call traceback:\n", "cyan"), file=output_stream)
-        print(call_stack, file=output_stream)
+        print(stack_explanation, file=output_stream)
     else:
         print(file=output_stream)
 
-    run_runtime_helper(location, explanation, variables, call_stack, output_stream)
+    run_runtime_helper(
+        location, explanation, variables, stack_explanation, stack, output_stream
+    )
 
     output_stream.flush()
     gdb_interface.gdb_flush()
@@ -270,7 +274,9 @@ def explain_signal(signal_number):
         return f"Execution terminated by signal {signal_number}"
 
 
-def run_runtime_helper(loc, explanation, variables, call_stack, output_stream):
+def run_runtime_helper(
+    loc, explanation, variables, stack_explanation, stack, output_stream
+):
     color = lambda text, _: text
     helper = os.environ.get("DCC_RUNTIME_HELPER", "")
     if not helper:
@@ -281,8 +287,9 @@ def run_runtime_helper(loc, explanation, variables, call_stack, output_stream):
         return
 
     explanation = colors.strip_color(explanation)
-    call_stack = colors.strip_color(call_stack)
+    stack_explanation = colors.strip_color(stack_explanation)
     variables = colors.strip_color(variables)
+    argv = parse_argv(stack)
 
     source = ""
     try:
@@ -303,9 +310,17 @@ def run_runtime_helper(loc, explanation, variables, call_stack, output_stream):
         "col": str(loc.column) if loc else "",
         "explanation": explanation,
         "source": source,
-        "call_stack": call_stack,
+        "call_stack": stack_explanation,
         "variables": variables,
+        "argv": argv,
     }
+
+    saved_stdin_as_utf8, buffer_overflow = get_saved_stdin()
+
+    # print('saved_stdin_as_utf8', saved_stdin_as_utf8, file=output_stream)
+    if saved_stdin_as_utf8 is not None:
+        helper_info["stdin"] = saved_stdin_as_utf8
+        helper_info["stdin_truncated"] = str(buffer_overflow)
 
     # needed?
     #    signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
@@ -314,7 +329,7 @@ def run_runtime_helper(loc, explanation, variables, call_stack, output_stream):
 
     dprint(2, f"run_helper helper='{helper}' info='{helper_info}'")
     for k, v in helper_info.items():
-        os.environ["HELPER_" + k.upper()] = v
+        os.environ["HELPER_" + k.upper()] = str(v)
     os.environ["HELPER_JSON"] = json.dumps(helper_info, separators=(",", ":"))
 
     dprint(2, f"running {helper}")
@@ -324,7 +339,54 @@ def run_runtime_helper(loc, explanation, variables, call_stack, output_stream):
         dprint(1, e)
 
 
-def gdb_set_frame():
+def get_saved_stdin():
+    try:
+        buffer_size = int(gdb_interface.gdb_evaluate("__dcc_save_stdin_buffer_size"))
+        n_bytes_seen = int(gdb_interface.gdb_evaluate("__dcc_save_stdin_n_bytes_seen"))
+    except ValueError:
+        return None, None
+    if n_bytes_seen == 0:
+        return "", False
+    n = min(n_bytes_seen, buffer_size)
+    buffer = gdb_get_byte_array("__dcc_save_stdin_buffer", n)
+    if n_bytes_seen > buffer_size:
+        cut_point = n_bytes_seen % buffer_size
+        buffer = buffer[cut_point:] + buffer[:cut_point]
+    try:
+        utf = buffer.decode("utf8")
+    except UnicodeDecodeError:
+        return None, None
+    return utf, n_bytes_seen > buffer_size
+
+
+def gdb_get_byte_array(array, length):
+    gdb_output = gdb_interface.gdb_execute(f"x/{length}b {array}")
+    gdb_output = re.sub(r"^.*: *", "", gdb_output, flags=re.M)
+    return bytes(int(b) for b in re.findall(r"\d+", gdb_output)[:length])
+
+
+def parse_argv(stack):
+    current_level = gdb_interface.gdb_get_frame()
+    try:
+        gdb_interface.gdb_set_frame(stack[0].frame_number)
+        params = stack[0].params.split(", ")
+        argc = int(params[0].split("=")[1])
+        argv_variable = params[1].split("=")[0]
+        argv = [
+            gdb_interface.gdb_eval(f"{argv_variable}[{i}]").string()
+            for i in range(argc)
+        ]
+
+    except (IndexError, ValueError):
+        argv = []
+    gdb_interface.gdb_set_frame(current_level)
+    return argv
+
+
+# this code could use gdb.Frame objects
+
+
+def parse_stack():
     try:
         stack = gdb_interface.gdb_execute("where")
         dprint(3, "\nStack:\n", stack, "\n")
@@ -343,7 +405,7 @@ def gdb_set_frame():
             if frame is not None:
                 frames = [frame]
         if frames:
-            gdb_interface.gdb_execute(f"frame {frames[0].frame_number}")
+            gdb_interface.gdb_set_frame(frames[0].frame_number)
         else:
             dprint(3, "gdb_set_frame no frame number")
         return frames

@@ -217,11 +217,11 @@ def get_variable_addresses(stack):
         return []
     addresses = []
     get_variables("", addresses)
+    current_level = gdb_interface.gdb_get_frame()
     for frame in stack[1:]:
-        gdb_interface.gdb_execute(f"frame {frame.frame_number}")
+        gdb_interface.gdb_set_frame(frame.frame_number)
         get_variables(frame.function, addresses)
-    if stack[1:]:
-        gdb_interface.gdb_execute(f"frame {stack[0].frame_number}")
+    gdb_interface.gdb_set_frame(current_level)
     return addresses
 
 

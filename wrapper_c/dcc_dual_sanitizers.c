@@ -1,22 +1,12 @@
-#if !__CHECK_OUTPUT__ && __N_SANITIZERS__ == 1
-
-static void init_cookies(void) {
-}
-
-#else
-
-#if __I_AM_SANITIZER1__
 struct cookie {
 	FILE *stream;
 	FILE *cookie_stream;
 	int fd;
 };
-#endif
 static void synchronization_failed(void);
 static FILE *open_cookie(void *cookie, const char *mode);
 
 
-#if __I_AM_SANITIZER1__
 static struct cookie file_cookies[FOPEN_MAX];
 
 static FILE *get_cookie(FILE *f, const char *mode) {
@@ -38,19 +28,11 @@ static FILE *get_cookie(FILE *f, const char *mode) {
 	return f;
 }
 
-#else
-static FILE *get_cookie(FILE *f, const char *mode) {
-	(void)f; // avoid unused parameter warning
-	return open_cookie(NULL, mode);
-}
-#endif
-
 static int init_check_output(void);
 static void init_cookies(void) {
 	setbuf(stderr, NULL);
 	debug_stream = stderr;
 
-#if __N_SANITIZERS__ > 1
 	init_check_output();
 	stdin = get_cookie(stdin, "r");
 	stdout = get_cookie(stdout, "w");
@@ -67,17 +49,6 @@ static void init_cookies(void) {
 	__dcc_replace_cout(stdout);
 	__dcc_replace_cerr(stderr);
 #endif
-
-#else
-	if (init_check_output()) {
-		stdout = get_cookie(stdout, "w");
-#if __CPP_MODE__
-		extern void __dcc_replace_cout(FILE *stream);
-		__dcc_replace_cout(stdout);
-#endif
-
-	}
-#endif
 }
 
 #if __USE_FUNOPEN__
@@ -92,11 +63,7 @@ static off_t __dcc_cookie_seek(void *v, off_t offset, int whence);
 static int __dcc_cookie_close(void *v);
 
 FILE *open_cookie(void *cookie, const char *mode) {	
-#if __N_SANITIZERS__ > 1
 	return funopen(cookie, __dcc_cookie_read, __dcc_cookie_write, __dcc_cookie_seek, __dcc_cookie_close);
-#else
-	return funopen(cookie, NULL, __dcc_cookie_write, NULL, __dcc_cookie_close);
-#endif
 }
 
 #else
@@ -110,10 +77,8 @@ FILE *open_cookie(void *cookie, const char *mode) {
 	return fopencookie(cookie, mode, (cookie_io_functions_t) {
 				.write = __dcc_cookie_write,
 				.close = __dcc_cookie_close,
-#if __N_SANITIZERS__ > 1
 				.read = __dcc_cookie_read,
 				.seek = __dcc_cookie_seek,
-#endif
 				});
 }
 
@@ -382,6 +347,7 @@ static int64_t synchronize_system_call_result(enum which_system_call which
 
 #endif
 
+static void __dcc_save_stdin(const char *buf, size_t size);
 
 #if __USE_FUNOPEN__
 static int __dcc_cookie_read(void *v, char *buf, int size) {
@@ -419,6 +385,10 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 		}
 	}
 #endif
+    debug_printf(5, "__dcc_save_stdin %x\n", v);
+    if (v != NULL && ((struct cookie *)v)->fd == 0) {
+	    __dcc_save_stdin(buf, n_bytes_read);
+	}
 	quick_clear_stack();
 	return n_bytes_read;
 }
@@ -437,7 +407,6 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 	size_t n_bytes_written = write(cookie->fd, buf, size);
 
 	__dcc_check_output(cookie->fd, buf, size);
-
 	(void)synchronize_system_call_result(sc_write, n_bytes_written);
 #else
 	(void)v; // avoid unused parameter warning
@@ -709,5 +678,4 @@ static void unlink_sanitizer2_executable(void) {
 		unlink_done = 1;
 	}
 }
-#endif
 #endif

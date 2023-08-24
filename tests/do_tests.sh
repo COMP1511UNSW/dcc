@@ -23,7 +23,7 @@ mkdir -p "$e"
 
 export clang_version=$($c_compiler -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
 export platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
-
+n_processes=$(($(getconf _NPROCESSORS_ONLN) / 2 + 1))
 initial_run=$(
 	{
 		ls "$tests_dir"/run_time_errors/*.*
@@ -33,7 +33,9 @@ initial_run=$(
 		ls "$tests_dir"/check_output/*.sh
 	}|
 	grep -E '\.(sh|c|cpp)$'|
-	xargs -P12 -n1 "$tests_dir"/single_test.sh --quick
+	shuf|
+	xargs -P$n_processes -n1 "$tests_dir"/single_test.sh --quick|
+	sort
 	)
 	
 echo "$initial_run"|grep '^Passed'|sort

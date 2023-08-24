@@ -416,6 +416,7 @@ def get_wrapper_code(options):
             "dcc_dual_sanitizers.c",
             "dcc_util.c",
             "dcc_check_output.c",
+            "dcc_save_stdin.c",
         ]
     )
     wrapper_source = add_constants_to_source_code(wrapper_source, options)
@@ -443,6 +444,7 @@ def add_constants_to_source_code(src, options):
         "__STACK_USE_AFTER_RETURN__", "1" if options.stack_use_after_return else "0"
     )
     src = src.replace("__CHECK_OUTPUT__", "1" if options.check_output else "0")
+    src = src.replace("__SAVE_STDIN_BUFFER_SIZE__", str(options.save_stdin_buffer_size))
     src = src.replace("__CPP_MODE__", "1" if options.cpp_mode else "0")
     src = src.replace(
         "__WRAP_POSIX_SPAWN__", "1" if options.valgrind_fix_posix_spawn else "0"

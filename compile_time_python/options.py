@@ -63,6 +63,7 @@ class Options:
         self.cpp_mode = self.basename.endswith("++")
         self.code_suffix = "cpp" if self.cpp_mode else "c"
         self.check_output = True
+        self.save_stdin_buffer_size = 10240
         self.valgrind_fix_posix_spawn = None
 
         self.dcc_supplied_compiler_args = COMMON_COMPILER_ARGS
