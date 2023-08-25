@@ -8,8 +8,9 @@ def set_interface(interface):
 
 
 def gdb_attach():
+    gdb.execute("set exec-file-mismatch off")
     pid = int(os.environ.get("DCC_PID"))
-    if "DCC_VALGRIND_ERROR" in os.environ:
+    if "DCC_VALGRIND_ERROR" in os.environ or "DCC_VALGRIND_RUNNING" in os.environ  :
         dprint(2, "attaching gdb to valgrind", pid)
         gdb.execute(f"target remote | vgdb --pid={pid}")
     else:
@@ -18,6 +19,7 @@ def gdb_attach():
     dprint(3, "gdb_attach() returning")
 
 
+# most uses can be replaced by gdb_eval
 def gdb_evaluate(expression):
     dprint(3, "gdb_evaluate:", expression)
     value = gdb_execute(f"print {expression}")
@@ -30,10 +32,10 @@ def gdb_eval(expression):
     dprint(3, "gdb_eval:", expression)
     try:
         value = gdb.parse_and_eval(expression)
+        dprint(3, "->", value)
     except gdb.error as e:
         dprint(3, e)
         value = None
-    dprint(3, "->", value)
     return value
 
 
@@ -65,3 +67,11 @@ def gdb_flush():
     dprint(3, "gdb.flush")
     gdb.flush(gdb.STDOUT)
     gdb.flush(gdb.STDERR)
+
+
+def gdb_get_byte_array(array, length):
+    try:
+        gdb_array = gdb_eval(array)
+        return bytearray((256 + int(gdb_array[i])) % 256 for i in range(length))
+    except (IndexError, ValueError, TypeError, gdb.error):
+        return b''

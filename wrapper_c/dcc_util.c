@@ -33,7 +33,8 @@ static void launch_valgrind(int argc, char *argv[]) {
                                        "--partial-loads-ok=no",
                                        "--malloc-fill=0xbe",
                                        "--free-fill=0xbe",
-                                       "--vgdb-error=1" };
+                                       "--vgdb-error=1",
+                                       "--" };
 
     int valgrind_command_len =
         sizeof valgrind_command / sizeof valgrind_command[0];

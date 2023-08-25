@@ -8,7 +8,7 @@ do
 done
 
 export tests_dir="$(dirname $(readlink -f $0))"
-export dcc="$(readlink -f ${1:-"./dcc)"})"
+export dcc="$(readlink -f ${1:-"./dcc"})"
 export dcc_cpp="${dcc}++"
 export c_compiler="${2:-clang}"
 export cpp_compiler="${3:-clang++}"

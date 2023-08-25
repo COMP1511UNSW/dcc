@@ -1,8 +1,5 @@
 #!/bin/bash
-
-dcc=${dcc:-./dcc}
-
-bird_directory=$tests_dir/check_output/birds
+dcc=${dcc:$1}
 
 export DCC_EXPECTED_STDOUT="  ___
  ('v')
@@ -10,7 +7,7 @@ export DCC_EXPECTED_STDOUT="  ___
  ^   ^
 "
 
-for bird in "$bird_directory"/bird-*.c
+for bird in birds/bird-*.c
 do
 	basename "$bird" 1>&2
 	$dcc "$bird"

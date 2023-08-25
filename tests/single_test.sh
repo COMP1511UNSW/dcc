@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+command -v "$dcc" > /dev/null || exit 1
+command -v "$dcc_cpp" > /dev/null || exit 1
+
 tmpdir=$(mktemp -d)
 trap 'cd /;rm -fr "$tmpdir"' EXIT
 
@@ -11,7 +14,7 @@ then
 fi
 original_src_file="$1"
 
-cp -p "$original_src_file" $tmpdir
+rsync -a  $(dirname $(readlink -f "$original_src_file"))/ $tmpdir/
 src_file=$(basename "$1")
 cd  $tmpdir
 # some values reported in errors are not determinate (e.g. variable addresses)

@@ -277,6 +277,8 @@ def explain_signal(signal_number):
 def run_runtime_helper(
     loc, explanation, variables, stack_explanation, stack, output_stream
 ):
+    if not loc:
+        return
     color = lambda text, _: text
     helper = os.environ.get("DCC_RUNTIME_HELPER", "")
     if not helper:
@@ -289,7 +291,7 @@ def run_runtime_helper(
     explanation = colors.strip_color(explanation)
     stack_explanation = colors.strip_color(stack_explanation)
     variables = colors.strip_color(variables)
-    argv = parse_argv(stack)
+    argv = get_argv(stack)
 
     source = ""
     try:
@@ -315,12 +317,14 @@ def run_runtime_helper(
         "argv": argv,
     }
 
-    saved_stdin_as_utf8, buffer_overflow = get_saved_stdin()
+    saved_stdin_as_utf8, buffer_overflow, stdin_was_utf8 = get_saved_stdin()
 
     # print('saved_stdin_as_utf8', saved_stdin_as_utf8, file=output_stream)
     if saved_stdin_as_utf8 is not None:
         helper_info["stdin"] = saved_stdin_as_utf8
-        helper_info["stdin_truncated"] = str(buffer_overflow)
+        helper_info["stdin_truncated"] = buffer_overflow
+    if stdin_was_utf8 is not None:
+        helper_info["stdin_valid_utf8"] = stdin_was_utf8
 
     # needed?
     #    signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
@@ -341,31 +345,27 @@ def run_runtime_helper(
 
 def get_saved_stdin():
     try:
-        buffer_size = int(gdb_interface.gdb_evaluate("__dcc_save_stdin_buffer_size"))
-        n_bytes_seen = int(gdb_interface.gdb_evaluate("__dcc_save_stdin_n_bytes_seen"))
-    except ValueError:
-        return None, None
+        buffer_size = int(gdb_interface.gdb_eval("__dcc_save_stdin_buffer_size"))
+        n_bytes_seen = int(gdb_interface.gdb_eval("__dcc_save_stdin_n_bytes_seen"))
+    except (ValueError, TypeError):
+        return None, None, None
     if n_bytes_seen == 0:
-        return "", False
+        return "", False, True
     n = min(n_bytes_seen, buffer_size)
-    buffer = gdb_get_byte_array("__dcc_save_stdin_buffer", n)
+    buffer = gdb_interface.gdb_get_byte_array("__dcc_save_stdin_buffer", n)
+    if len(buffer) != n:
+        return None, None, None
     if n_bytes_seen > buffer_size:
         cut_point = n_bytes_seen % buffer_size
         buffer = buffer[cut_point:] + buffer[:cut_point]
     try:
         utf = buffer.decode("utf8")
     except UnicodeDecodeError:
-        return None, None
-    return utf, n_bytes_seen > buffer_size
+        return None, n_bytes_seen > buffer_size, False
+    return utf, n_bytes_seen > buffer_size, True
 
 
-def gdb_get_byte_array(array, length):
-    gdb_output = gdb_interface.gdb_execute(f"x/{length}b {array}")
-    gdb_output = re.sub(r"^.*: *", "", gdb_output, flags=re.M)
-    return bytes(int(b) for b in re.findall(r"\d+", gdb_output)[:length])
-
-
-def parse_argv(stack):
+def get_argv(stack):
     current_level = gdb_interface.gdb_get_frame()
     try:
         gdb_interface.gdb_set_frame(stack[0].frame_number)
