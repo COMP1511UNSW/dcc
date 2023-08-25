@@ -43,12 +43,13 @@ def gdb_set_frame(level):
     gdb_execute(f"frame {level}")
 
 
+# only in recent gdb versions
 def gdb_get_frame():
-    dprint(3, "gdb.get_frame")
+    dprint(3, "gdb.selected_frame")
     try:
         return gdb.selected_frame().level()
     except gdb.error as e:
-        dprint(3, "gdb.get_frame", e)
+        dprint(3, "gdb.selected_frame", e)
         return 0
 
 

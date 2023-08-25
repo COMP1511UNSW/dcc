@@ -217,7 +217,9 @@ def get_variable_addresses(stack):
         return []
     addresses = []
     get_variables("", addresses)
-    current_level = gdb_interface.gdb_get_frame()
+    #    only in recent gdb
+    #    current_level = gdb_interface.gdb_get_frame()
+    current_level = stack[0].frame_number
     for frame in stack[1:]:
         gdb_interface.gdb_set_frame(frame.frame_number)
         get_variables(frame.function, addresses)

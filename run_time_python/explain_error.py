@@ -366,10 +366,12 @@ def get_saved_stdin():
 
 
 def get_argv(stack):
-    current_level = gdb_interface.gdb_get_frame()
+    #    only in recent gdb
+    #    current_level = gdb_interface.gdb_get_frame()
+    current_level = stack[0].frame_number
     try:
-        gdb_interface.gdb_set_frame(stack[0].frame_number)
-        params = stack[0].params.split(", ")
+        gdb_interface.gdb_set_frame(stack[-1].frame_number)
+        params = stack[-1].params.split(", ")
         argc = int(params[0].split("=")[1])
         argv_variable = params[1].split("=")[0]
         argv = [
