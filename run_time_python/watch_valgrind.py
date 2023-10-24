@@ -109,11 +109,13 @@ A common cause of this error is infinite recursion.
             line = sys.stdin.readline()
             if debug_level > 1:
                 print("valgrind: ", line, file=sys.stderr, end="")
-            # crude workaround to stop spurious error from fopencookie use in wrapper code
-            # closing streams using cookies seems to have no affect
-            # real cause is probably valgrind bug - suppression file needing update
-            if "LIBC" in line or "fopencookie" in line:
-                return 1
+            # crude workaround to stop spurious leak error from lekas
+            # cause may leak in library or update needed to valgrind suppression file
+            for bad_string in ["LIBC", "fopencookie", ": _", " tsearch "]:
+                if bad_string in line:
+                    if debug_level > 1:
+                        print("ignoring spurious leak", bad_string, file=sys.stderr)
+                    return 1
 
             m = re.search(r"(\S+)\s*\((.+):(\d+)", line)
             error_text = "Error: free not called for memory allocated with malloc"
