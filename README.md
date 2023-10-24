@@ -246,8 +246,8 @@ int main(void) {
 * Deb-based Systems including Debian, Ubuntu, Mint and Windows Subsystem for Linux
 
 	```bash
-	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.28/dcc_2.28_all.deb -o /tmp/dcc_2.28_all.deb
-	sudo apt install /tmp/dcc_2.28_all.deb
+	curl -L https://github.com/COMP1511UNSW/dcc/releases/download/2.29/dcc_2.29_all.deb -o /tmp/dcc_2.29_all.deb
+	sudo apt install /tmp/dcc_2.29_all.deb
 	```
 
 	or
