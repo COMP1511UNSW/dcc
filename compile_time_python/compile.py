@@ -379,13 +379,14 @@ def get_rename_arguments(source, options, rename_functions=True):
             rename_arguments += ['-Dmain=__fake_variable;extern "C" int __real_main']
         else:
             rename_arguments += ["-Dmain=__real_main"]
-        rename_arguments += [f"-D{f}=__wrap_{f}" for f in override_functions]
+        rename_arguments += [f"-D{f}=__wrap_{f}" for f in ["fileno"] + override_functions]
         source = source.replace("__wrap_main", "main")
+        source = source.replace("__real_fileno", "fileno")
         for f in override_functions:
             source = source.replace("__real_" + f, f)
     else:
         rename_arguments += [
-            "-Wl" + "".join(",-wrap," + f for f in ["main"] + override_functions)
+            "-Wl" + "".join(",-wrap," + f for f in ["main","fileno"] + override_functions)
         ]
     return rename_arguments, source
 

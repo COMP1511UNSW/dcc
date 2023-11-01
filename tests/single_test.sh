@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 command -v "$dcc" > /dev/null || exit 1
-command -v "$dcc_cpp" > /dev/null || exit 1
 
 tmpdir=$(mktemp -d)
 trap 'cd /;rm -fr "$tmpdir"' EXIT
@@ -51,7 +50,7 @@ compile_options_list=${compile_options_list:-'dcc_flags=""'}
 
 for compile_options in $compile_options_list
 do
-	rm -f a.out
+	rm -f a.out tmp.actual_*
 	compile_options=$(echo "$compile_options"|sed 's/#/ /g')
 	case "$src_file" in
 	*.c)
@@ -65,6 +64,7 @@ do
 		;;
 
 	*.cpp)
+		command -v "$dcc_cpp" > /dev/null || continue
 		dcc_flags=
 		suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/ /_/g;s/["$]//g;s/src_file//;s?/?_?g'`
 		eval $compile_options
@@ -76,7 +76,7 @@ do
 
 	*.sh)
 		expected_output_basename="`basename $src_file .sh`"
-		$src_file </dev/null   2>tmp.actual_stderr >/dev/null
+		$src_file </dev/null   2>tmp.actual_stderr >tmp.actual_stdout
 		;;
 		
 	*)

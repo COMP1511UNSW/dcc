@@ -13,7 +13,8 @@ static void launch_valgrind(int argc, char *argv[]) {
                sizeof tar_data / sizeof tar_data[0], valgrind_error_pipe);
         fflush(valgrind_error_pipe);
         setbuf(valgrind_error_pipe, NULL);
-        valgrind_error_fd = (int)fileno(valgrind_error_pipe);
+        extern int __real_fileno(FILE *stream);
+        valgrind_error_fd = (int)__real_fileno(valgrind_error_pipe);
     } else {
         debug_printf(2, "popen __MONITOR_VALGRIND__ failed");
         return;

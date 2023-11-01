@@ -13,6 +13,15 @@ export dcc_cpp="${dcc}++"
 export c_compiler="${2:-clang}"
 export cpp_compiler="${3:-clang++}"
 
+command -v "$dcc" > /dev/null || {
+	echo "$0: error: $dcc not found"
+	exit 1
+}
+command -v "$dcc_cpp" > /dev/null || {
+	echo "$0: warning: $dcc_cpp not found - no C++ tests will be run"
+	exit 1
+}
+
 e="$tests_dir/extracted_compile_time_errors"
 mkdir -p "$e"
 (

@@ -117,7 +117,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	clear_stack();
 	extern char **environ;
 	int r = __real_main(argc, argv, environ);
-	debug_printf(2, "__real_main returning %d\n", r);
+	debug_printf(2, "__real_main exiting %d\n", r);
 	exit(r);
 	return 1; // not reached
 }

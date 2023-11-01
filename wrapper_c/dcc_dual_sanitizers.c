@@ -15,7 +15,8 @@ static FILE *get_cookie(FILE *f, const char *mode) {
 	}
 	for (int i = 0; i < FOPEN_MAX; i++) {
 		if (!file_cookies[i].stream) {
-			file_cookies[i].fd = fileno(f);
+			extern int __real_fileno(FILE *stream);
+			file_cookies[i].fd = __real_fileno(f);
 			file_cookies[i].stream = f;
 			file_cookies[i].cookie_stream = open_cookie(&file_cookies[i], mode);
 			return file_cookies[i].cookie_stream;
@@ -27,6 +28,7 @@ static FILE *get_cookie(FILE *f, const char *mode) {
 #endif
 	return f;
 }
+
 
 static int init_check_output(void);
 static void init_cookies(void) {
@@ -135,6 +137,7 @@ enum which_system_call {
 	sc_clock,
 	sc_close,
 	sc_fdopen,
+	sc_fileno,
 	sc_fopen,
 	sc_freopen,
 	sc_popen,
@@ -154,6 +157,7 @@ static char *system_call_names[] = {
 	[sc_close] = "close",
 	[sc_fopen] = "fopen",
 	[sc_fdopen] = "fdopen",
+	[sc_fileno] = "fileno",
 	[sc_freopen] = "freopen",
 	[sc_popen] = "popen",
 	[sc_read] = "read",
@@ -570,7 +574,6 @@ int __wrap_system(const char *command) {
 }
 
 
-
 static FILE *fopen_helper(FILE *f, const char *mode, enum which_system_call system_call) {
 #if __I_AM_SANITIZER1__
 	FILE *f1 = get_cookie(f, mode);
@@ -649,7 +652,8 @@ FILE *__wrap_freopen(const char *pathname, const char *mode, FILE *stream) {
 	FILE *f1 = __real_freopen(pathname, mode, file_cookies[i].stream);
 	if (f1) {
 		file_cookies[i].stream = f1;
-		file_cookies[i].fd = fileno(f1);
+		extern int __real_fileno(FILE *stream);
+		file_cookies[i].fd = __real_fileno(f1);
 		(void)synchronize_system_call_result(sc_freopen, 1);
 		return file_cookies[i].cookie_stream;
 	} else {
@@ -678,4 +682,42 @@ static void unlink_sanitizer2_executable(void) {
 		unlink_done = 1;
 	}
 }
+#endif
+
+static int cookie_stream_to_fd(FILE *stream) {
+	int fd = -1;
+	for (int i = 0; i < FOPEN_MAX; i++) {
+		if (file_cookies[i].cookie_stream == stream) {
+			fd = file_cookies[i].fd;
+			break;
+		}
+	}
+
+	// in single santizer mode cookies are used for stdin, stdout & stderr not files
+	if (fd == -1) {
+		extern int __real_fileno(FILE *stream);
+		fd = __real_fileno(stream);
+	}
+	return fd;
+}
+
+#if __N_SANITIZERS__ > 1
+
+#undef fileno
+
+int __wrap_fileno(FILE *stream) {
+	synchronize_system_call(sc_fileno, 0);
+#if __I_AM_SANITIZER1__
+	return synchronize_system_call_result(sc_fileno, cookie_stream_to_fd(stream));
+#else
+	return synchronize_system_call_result(sc_fileno);
+#endif
+}
+
+#else
+
+int __wrap_fileno(FILE *stream) {
+	return cookie_stream_to_fd(stream);
+}
+
 #endif
