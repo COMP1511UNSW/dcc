@@ -1,0 +1,19 @@
+=================================================================
+
+Runtime error: stack buffer overflow
+dcc explanation: access past the end of a local variable.
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+Execution stopped in main() in unterminated_strcat.c at line 7:
+
+int main(void) {
+    char c = 'd';
+    char s[5];
+--> strcat(s, &c);
+}
+
+Values when execution stopped:
+
+c = 100 = 'd'
+s = "<5 uninitialized values>"
+

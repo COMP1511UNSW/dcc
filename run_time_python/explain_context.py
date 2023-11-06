@@ -247,9 +247,13 @@ def get_variable_address(line, function):
     variable_type = variable_type.split("=", maxsplit=1)[1].strip()
     address = gdb_interface.gdb_evaluate("&" + variable)
     address = re.sub(r"^\(.*\)\s*", "", address)
+    address = address.split(" ")[0]
     if not address.startswith("0x"):
         return None
-    address = int(address, 16)
+    try:
+        address = int(address, 16)
+    except ValueError:
+        return None
     va = {
         "function": function,
         "variable": variable,
