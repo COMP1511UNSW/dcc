@@ -48,29 +48,23 @@ REMOVE_NON_DETERMINATE_VALUES='
 compile_options_list=$(egrep '^//dcc_flags=' "$src_file"|sed 's?//??;s/ /#/g')
 compile_options_list=${compile_options_list:-'dcc_flags=""'}
 
+case "$src_file" in
+*.cpp) compiler="$cpp_compiler";;
+*) compiler="$c_compiler"
+esac
+	
 for compile_options in $compile_options_list
 do
 	rm -f a.out tmp.actual_*
 	compile_options=$(echo "$compile_options"|sed 's/#/ /g')
 	case "$src_file" in
-	*.c)
+	*.c|*.cpp)
 		dcc_flags=
 		suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/ /_/g;s/["$]//g;s/src_file//;s?/?_?g'`
 		eval $compile_options
 		expected_output_basename="`basename $src_file .c`$suffix"
-		#echo "$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file"
-		"$dcc" --c-compiler=$c_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
-		test ! -s tmp.actual_stderr && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
-		;;
-
-	*.cpp)
-		command -v "$dcc_cpp" > /dev/null || continue
-		dcc_flags=
-		suffix=`echo $compile_options|sed 's/^dcc_flags=//;s/ /_/g;s/["$]//g;s/src_file//;s?/?_?g'`
-		eval $compile_options
-		expected_output_basename="`basename $src_file`$suffix"
-		#echo "$dcc" --c-compiler=$cpp_compiler $dcc_flags "$src_file"
-		"$dcc_cpp" --c-compiler=$cpp_compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
+		#echo "$dcc" --c-compiler=$compiler $dcc_flags "$src_file"
+		"$dcc" --c-compiler=$compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
 		test ! -s tmp.actual_stderr && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
 		;;
 

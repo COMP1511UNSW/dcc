@@ -381,7 +381,7 @@ def parse_arg(arg, remaining_args, options):
     elif arg == "--help":
         print()
         sys.exit(0)
-    elif arg.startswith("-o"):
+    elif arg == "-x":
         if arg == "-o":
             if remaining_args:
                 options.object_pathname = remaining_args.pop(0)
@@ -436,6 +436,8 @@ def process_possible_source_file(pathname, options, processed_files):
     if extension.lower() in [".a", ".o", ".so"]:
         options.object_files_being_linked = True
         return
+    if extension.lower() in [".cpp", ".c++"]:
+        options.cpp_mode = True
     try:
         with open(pathname, encoding="utf-8", errors="replace") as f:
             for line in f:
