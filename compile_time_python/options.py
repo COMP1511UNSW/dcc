@@ -381,7 +381,7 @@ def parse_arg(arg, remaining_args, options):
     elif arg == "--help":
         print()
         sys.exit(0)
-    elif arg == "-x":
+    elif arg.startswith("-o"):
         if arg == "-o":
             if remaining_args:
                 options.object_pathname = remaining_args.pop(0)
