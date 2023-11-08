@@ -1,0 +1,20 @@
+
+Runtime error: accessing a field via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is  using p->field when p == NULL.
+
+Execution stopped in main() in example2.c at line 13:
+
+int main(void) {
+    struct node *new_node = malloc(sizeof(struct node));
+    new_node->next = NULL;
+    struct node *current = new_node->next;
+--> printf("%d\n", current->value);
+    return 0;
+}
+
+Values when execution stopped:
+
+current = NULL
+new_node->next = NULL
+
