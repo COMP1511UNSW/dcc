@@ -1,0 +1,9 @@
+misspelt_printf.c:3:5: error: call to undeclared function 'print'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    print("hello");
+    ^
+misspelt_printf.c:3:5: note: did you mean 'printf'?
+/usr/include/stdio.h:356:12: note: 'printf' declared here
+extern int printf (const char *__restrict __format, ...);
+           ^[0m
+dcc explanation: you are calling a function named print on line 3 of misspelt_printf.c but dcc does not recognize print as a function.
+Maybe you meant printf?

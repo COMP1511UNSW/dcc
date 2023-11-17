@@ -2,6 +2,6 @@
 
 int main(void) {
     void *p = malloc(4);
-    free(p);
+    if (p) free(p);
     free(p);
 }

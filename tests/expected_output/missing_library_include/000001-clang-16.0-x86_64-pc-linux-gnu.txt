@@ -1,0 +1,6 @@
+missing_library_include.c:2:5: error: call to undeclared library function 'printf' with type 'int (const char *, ...)'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    printf("hello");
+    ^
+dcc explanation: you are calling printf on line 2 of missing_library_include.c but
+dcc does not recognize printf as a function.
+Do you have #include <stdio.h> at the top of your file?

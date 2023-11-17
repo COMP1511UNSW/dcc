@@ -289,10 +289,10 @@ int main(int argc, char *argv[]) {
     ),
     Explanation(
         label="missing_library_include",
-        regex=r"implicitly declaring library function '(\w+)'",
+        regex=r"(implicitly declaring library function|call to undeclared library function) '(\w+)'",
         explanation="""\
-you are calling **{match.group(1)}** on line {line_number} of {file} but
-dcc does not recognize **{match.group(1)}** as a function.
+you are calling **{match.group(2)}** on line {line_number} of {file} but
+dcc does not recognize **{match.group(2)}** as a function.
 Do you have {emphasize('#include <' + extract_system_include_file(note) + '>')} at the top of your file?
 """,
         show_note=False,
@@ -304,9 +304,9 @@ int main(int argc, char *argv[]) {
     ),
     Explanation(
         label="misspelt_printf",
-        regex=r"implicit declaration of function '(print.?.?)' is invalid in C99",
+        regex=r"(implicit declaration of|call to undeclared) function '(print.?.?)'",
         explanation="""\
-you are calling a function named **{match.group(1)}** on line {line_number} of {file} but dcc does not recognize **{match.group(1)}** as a function.
+you are calling a function named **{match.group(2)}** on line {line_number} of {file} but dcc does not recognize **{match.group(2)}** as a function.
 Maybe you meant **printf**?
 """,
         no_following_explanations=True,
@@ -319,13 +319,13 @@ int main(int argc, char *argv[]) {
     ),
     Explanation(
         label="implicit_function_declaration",
-        regex=r"implicit declaration of function '(\w+)' is invalid in C99",
+        regex=r"(implicit declaration of function|call to undeclared function) '(\w+)'",
         explanation="""\
-you are calling a function named **{match.group(1)}** line {line_number} of {file} but dcc does not recognize **{match.group(1)}** as a function.
+you are calling a function named **{match.group(2)}** line {line_number} of {file} but dcc does not recognize **{match.group(2)}** as a function.
 There are several possible causes:
   a) You might have misspelt the function name.
   b) You might need to add a #include line at the top of {file}.
-  c) You might need to add a prototype for **{match.group(1)}**.
+  c) You might need to add a prototype for **{match.group(2)}**.
 """,
         no_following_explanations=True,
         reproduce="""\
@@ -519,7 +519,7 @@ int main(void) {
     ),
     Explanation(
         label="indexing_one_too_far",
-        regex=r"array index (\d+) is past the end of the array.*which contains \1 element",
+        regex=r"array index (\d+) is past the end of the array.*(which contains \1 element|\[\1\])",
         explanation="""\
 remember arrays indices start at zero.
 The valid array indices for an array of size n are 0..n-1.

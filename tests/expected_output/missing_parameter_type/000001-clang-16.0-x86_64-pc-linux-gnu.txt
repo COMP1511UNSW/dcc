@@ -1,0 +1,6 @@
+missing_parameter_type.c:1:16: error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
+int add(int b, c) {
+               ^
+               int
+dcc explanation: have you given a type for c?
+You must specify the type of each function parameter.

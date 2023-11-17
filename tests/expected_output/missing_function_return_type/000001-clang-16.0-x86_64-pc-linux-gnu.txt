@@ -1,0 +1,6 @@
+missing_function_return_type.c:1:1: error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
+square (int x) {
+^
+int
+dcc explanation: have you given a return type for square?
+You must specify the return type of a function just before its name.
