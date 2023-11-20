@@ -79,8 +79,7 @@ static int __dcc_run_sanitizer1(int argc, char *argv[]);
 
 //
 // any function which might appear in a user call stack
-// should be prefaced with __dcc_ so it won't
-// displayed in user calls stack
+// should be prefaced with __dcc_ so it won't displayed in explanations
 //
 
 static void init_cookies(void);

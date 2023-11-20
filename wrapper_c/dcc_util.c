@@ -242,7 +242,7 @@ static void __dcc_signal_handler(int signum) {
 }
 
 static const char *run_tar_file =
-    "PATH=$PATH:/bin:/usr/bin:/usr/local/bin python3 -B -E -c \"import io,os,sys,tarfile,tempfile\n\
+    "PATH=$PATH:/bin:/usr/bin:/usr/local/bin exec python3 -B -E -c \"import io,os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
   buffer = io.BytesIO(sys.stdin.buffer.raw.read())\n\
   buffer_length = len(buffer.getbuffer())\n\
