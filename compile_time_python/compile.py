@@ -18,7 +18,9 @@ FILES_EMBEDDED_IN_BINARY = [
 ]
 
 # its possible  -g -fno-omit-frame-pointer could be needed here
+# specifying dwarf-4 avoids warnings & errors from valgrind on Debian bookworm & trixie
 WRAPPER_SOURCE_COMPILER_ARGS = """
+    -gdwarf-4
     -g
     -O3
 """.split()

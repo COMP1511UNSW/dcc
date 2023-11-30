@@ -19,7 +19,9 @@ COMMON_WARNING_ARGS = """
 
 COMMON_COMPILER_ARGS = COMMON_WARNING_ARGS + "-g".split()
 
+# specifying dwarf-4 avoids warnings & errors from valgrind on Debian bookworm & trixie
 CLANG_ONLY_ARGS = """
+    -gdwarf-4
     -Wunused-comparison
     -fno-omit-frame-pointer
     -fno-common
@@ -49,7 +51,14 @@ COMPILE_LOGGER_BASENAME = "dcc-compile-logger"
 #
 # -O is needed with gcc to get warnings for some things
 
-GCC_ONLY_ARGS = "-Wunused-but-set-variable -Wduplicated-cond -Wduplicated-branches -Wlogical-op -O -o /dev/null".split()
+GCC_ONLY_ARGS = """
+	-Wunused-but-set-variable
+	-Wduplicated-cond
+	-Wduplicated-branches
+	-Wlogical-op
+	-O
+	-o /dev/null
+	""".split()
 
 
 class Options:
@@ -390,6 +399,8 @@ def parse_arg(arg, remaining_args, options):
         op = options.object_pathname
         if (op.endswith(".c") or op.endswith(".h")) and os.path.exists(op):
             options.die(f"will not overwrite {op} with machine code")
+    elif arg in ["-", "/dev/stdin"]:
+        options.die(f"compilation of stdin not supported")
     else:
         parse_clang_arg(arg, options)
 
