@@ -1,3 +1,5 @@
+#include <errno.h>
+
 struct cookie {
 	FILE *stream;
 	FILE *cookie_stream;
@@ -175,6 +177,7 @@ static void unlink_sanitizer2_executable(void) NO_SANITIZE;
 
 struct system_call {
 	enum which_system_call which;
+	int32_t e;
 	int64_t n;
 };
 
@@ -268,7 +271,7 @@ static void synchronization_failed(void) {
 }
 
 // when it reaches a system call sanitizer 1 waits for sanitizer 2
-// to have reached the same system call and writen a message down from_sanitizer2_pipe
+// to have reached the same system call and writes a message down from_sanitizer2_pipe
 
 static void synchronize_system_call(enum which_system_call which, int64_t n) {
 	debug_printf(3, "synchronize_system_call(%s, %d)\n", system_call_names[which], (int)n);
@@ -310,20 +313,17 @@ static void synchronize_system_call(enum which_system_call which, int64_t n) {
 // sanitizer 2 waits for sanitizer 1 to write a message down to_sanitizer2_pipe
 // passing result of a system call from sanitizer1 -> sanitizer2
 
-static int64_t synchronize_system_call_result(enum which_system_call which
 #if __I_AM_SANITIZER1__
-	, int64_t return_value) {
+static int64_t synchronize_system_call_result(enum which_system_call which, int64_t return_value) {
 	debug_printf(3, "synchronize_system_call_result(%s, %d)\n", system_call_names[which], (int)return_value);
 	if (synchronization_terminated) {
 		debug_printf(2, "synchronize_system_call_result - synchronization_terminated\n");
-#if __I_AM_SANITIZER2__
-		__dcc_error_exit();
-#endif
 		return return_value;
 	}
 	struct system_call s = {0};
 	memset(&s, 0, sizeof s); // clear padding bytes
 	s.which = which;
+	s.e = errno;
 	s.n = return_value;
 	ssize_t n_bytes_written = write(to_sanitizer2_pipe[1], &s, sizeof s);
 	if (n_bytes_written != sizeof (struct system_call)) {
@@ -332,8 +332,9 @@ static int64_t synchronize_system_call_result(enum which_system_call which
 	}
 	debug_printf(3, "synchronize_system_call_result(%s) returning %d\n", system_call_names[which], (int)return_value);
 	return return_value;
+}
 #else
-	) {
+static int64_t synchronize_system_call_result(enum which_system_call which) {
 	debug_printf(3, "synchronize_system_call_result(%s)\n", system_call_names[which]);
 	struct system_call s = {0};
 	ssize_t n_bytes_read = read(to_sanitizer2_pipe[0], &s, sizeof s);
@@ -345,9 +346,10 @@ static int64_t synchronize_system_call_result(enum which_system_call which
 		synchronization_failed();
 	}
 	debug_printf(3, "synchronize_system_call_result(%s) returning %d\n", system_call_names[which], (int)s.n);
+	errno = s.e;
 	return s.n;
-#endif
 }
+#endif
 
 #endif
 
