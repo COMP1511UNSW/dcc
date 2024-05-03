@@ -1027,7 +1027,7 @@ if you want an actual backslash in your string use **{BACKSLASH * 2}**
 """,
         reproduce="""\
 int main(void) {
-   return (int)"\_/";
+   return (int)"\\_/";
 }
 """,
     ),
