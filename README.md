@@ -1,7 +1,7 @@
 
 # Introduction
 
-dcc helps novice C programmers by catching common errors and providing easy-to-understand explnations.
+dcc helps novice C programmers by catching common errors and providing easy-to-understand explanations.
 
 For example:
 
