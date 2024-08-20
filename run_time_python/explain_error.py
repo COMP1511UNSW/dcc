@@ -18,6 +18,14 @@ def explain_error(output_stream, color):
         # asan's thread numbers start counting at 0
         thread_id = int(os.environ.get("DCC_ASAN_THREAD")) + 1
         gdb_interface.gdb_execute(f"thread {thread_id}")
+    elif "DCC_SIGNAL_THREAD" in os.environ:
+        # signal gives us the Linux TID, gdb calls this the LWP
+        threads = gdb_interface.gdb_execute("info threads").split('\n')
+        lwp = int(os.environ.get("DCC_SIGNAL_THREAD"))
+        # should only be one thread
+        thread_entry = [line for line in threads if f"(LWP {lwp})" in line][0]
+        thread_id = int(thread_entry[2:].split(' ')[0])
+        gdb_interface.gdb_execute(f"thread {thread_id}")
 
     stack = parse_stack()
     location = stack[0] if stack else None
