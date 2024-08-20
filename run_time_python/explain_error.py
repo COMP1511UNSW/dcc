@@ -11,6 +11,14 @@ def explain_error(output_stream, color):
     # file descriptor 3 is a dup of stderr (see below)
     # stdout & stderr have been diverted to /dev/null
     print(file=output_stream)
+
+    dprint(2, os.environ.get("DCC_ASAN_THREAD"))
+    if "DCC_ASAN_THREAD" in os.environ:
+        # gdb's thread numbers start counting at 1
+        # asan's thread numbers start counting at 0
+        thread_id = int(os.environ.get("DCC_ASAN_THREAD")) + 1
+        gdb_interface.gdb_execute(f"thread {thread_id}")
+
     stack = parse_stack()
     location = stack[0] if stack else None
     signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
