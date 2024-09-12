@@ -119,8 +119,17 @@ void __asan_on_error(void) {
 #if __SANITIZER__ == ADDRESS && __CLANG_VERSION_MAJOR__ >= 6
     extern char *__asan_get_report_description();
     extern int __asan_report_present();
+    extern void *__asan_get_report_address();
+    extern size_t __asan_get_alloc_stack(void *, void **, size_t, int *);
+    // putenv does not copy strings, we need to alloc it outside the if block scope
+    char thread_env[64];
     if (__asan_report_present()) {
         report = __asan_get_report_description();
+
+        int thread_id;
+        __asan_get_alloc_stack(__asan_get_report_address(), NULL, 0, &thread_id);
+        snprintf(thread_env, sizeof thread_env, "DCC_ASAN_THREAD=%d", thread_id);
+        putenvd(thread_env);
     }
 #endif
     char report_description[8192];
@@ -237,6 +246,10 @@ static void __dcc_signal_handler(int signum) {
     snprintf(signum_buffer, sizeof signum_buffer, "DCC_SIGNAL=%d", (int)signum);
     putenvd(
         signum_buffer); // less likely? to trigger another error than direct setenv
+
+    char threadid_buffer[64];
+    snprintf(threadid_buffer, sizeof threadid_buffer, "DCC_SIGNAL_THREAD=%ld", (long)gettid());
+    putenvd(threadid_buffer);
 
     _explain_error(); // not reached
 }
