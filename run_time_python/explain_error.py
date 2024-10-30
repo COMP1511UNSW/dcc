@@ -349,7 +349,7 @@ def run_runtime_helper(
 
     dprint(2, f"run_helper helper='{helper}' info='{helper_info}'")
     for k, v in helper_info.items():
-        os.environ["HELPER_" + k.upper()] = str(v)
+        os.environ["HELPER_" + k.upper()] = str(v).replace("\x00", "\\x00")
     os.environ["HELPER_JSON"] = json.dumps(helper_info, separators=(",", ":"))
 
     dprint(2, f"running {helper}")
