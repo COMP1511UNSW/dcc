@@ -363,12 +363,15 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 	// libc 2.28-5 doesn't flush stdout if it is a (linebuffered) fopencookie streams
 	// when there is a read on stdin which is a (linebuffered) fopencookie streams
 	// workaround by flushing stdout here on read of any stream
-
 	fflush(stdout);
 
 	synchronize_system_call(sc_read, size);
 #if __I_AM_SANITIZER1__
 	struct cookie *cookie = (struct cookie *)v;
+    if (cookie == NULL || cookie->fd == -1) {
+        putenvd("DCC_ASAN_ERROR=attempt to use stream after closed with fclose");
+        _explain_error();
+    }
 	ssize_t n_bytes_read = read(cookie->fd, buf, size);
 #if __N_SANITIZERS__ > 1
 	(void)synchronize_system_call_result(sc_read, n_bytes_read);
@@ -392,7 +395,7 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 	}
 #endif
     debug_printf(5, "__dcc_save_stdin %x\n", v);
-    if (v != NULL && ((struct cookie *)v)->fd == 0) {
+    if (v != NULL && ((struct cookie *)v)->stream != NULL && ((struct cookie *)v)->fd == 0) {
 	    __dcc_save_stdin(buf, n_bytes_read);
 	}
 	quick_clear_stack();
@@ -476,7 +479,7 @@ static int __dcc_cookie_close(void *v) {
 	__dcc_check_close(cookie->fd);
 	cookie->stream = NULL;
 	cookie->cookie_stream = NULL;
-	cookie->fd = 0;
+	cookie->fd = -1;
 	(void)synchronize_system_call_result(sc_close, result);
 #else
 	(void)v; // avoid unused parameter warning
