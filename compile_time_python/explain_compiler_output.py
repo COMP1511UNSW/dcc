@@ -275,7 +275,7 @@ def run_compile_time_helper(message, args):
         )
 
     for k, v in helper_info.items():
-        os.environ["HELPER_" + k.upper()] = v
+        os.environ["HELPER_" + k.upper()] = str(v).replace("\x00", "\\x00")
     os.environ["HELPER_JSON"] = json.dumps(helper_info, separators=(",", ":"))
 
     if args.debug:

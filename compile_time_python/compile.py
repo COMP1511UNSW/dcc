@@ -626,7 +626,7 @@ def run_compile_time_logger(process, explanation_labels, options):
         print(f"compile_logger logger='{options.compile_logger} info='{logger_info}'")
 
     for k, v in logger_info.items():
-        os.environ["DCC_LOGGER_" + k.upper()] = str(v)
+        os.environ["DCC_LOGGER_" + k.upper()] = str(v).replace("\x00", "\\x00")
     os.environ["DCC_LOGGER_JSON"] = json.dumps(logger_info, separators=(",", ":"))
 
     if options.debug:
