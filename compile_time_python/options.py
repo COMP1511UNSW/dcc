@@ -163,7 +163,7 @@ class Options:
 
         self.tar_buffer = io.BytesIO()
         # pylint: disable=consider-using-with
-        self.tar = tarfile.open(fileobj=self.tar_buffer, mode="w|xz")
+        self.tar = tarfile.open(fileobj=self.tar_buffer, mode="w|xz", dereference=True)
 
         self.threads_used = False
         self.treat_warnings_as_errors = False
@@ -485,7 +485,11 @@ def process_possible_source_file(pathname, options, processed_files):
     if pathname in options.source_files:
         return
     try:
+        if not os.path.isfile(pathname):
+            options.debug_print("skipping", pathname, "not a regular file", level=2)
+            return
         if os.path.getsize(pathname) > options.maximum_source_file_embedded_bytes:
+            options.debug_print("skipping", pathname, "too large", level=2)
             return
         options.tar.add(pathname)
         options.source_files.add(pathname)
