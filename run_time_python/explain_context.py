@@ -131,7 +131,7 @@ def evaluate_expression(expression, color, variable_addresses):
     ):
         return None
 
-    if len(expression_value) > 512:
+    if len(expression_value) > 1024:
         return None
 
     return expression_value
