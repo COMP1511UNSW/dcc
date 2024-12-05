@@ -1,0 +1,19 @@
+=================================================================
+
+Runtime error: stack buffer overflow
+dcc explanation: access past the end of a local variable.
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+Execution stopped in main() in unterminated-strlen.c at line 6:
+
+int main(void) {
+    char i[2];
+    i[0] = 'H';
+--> return strlen(i);
+}
+
+Values when execution stopped:
+
+i = "H<uninitialized value>"
+i[0] = 72 = 'H'
+

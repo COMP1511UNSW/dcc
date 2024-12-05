@@ -1,0 +1,16 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in unterminated-strlen.c at line 6:
+
+int main(void) {
+    char i[2];
+    i[0] = 'H';
+--> return strlen(i);
+}
+
+Values when execution stopped:
+
+i = "H<uninitialized value>"
+i[0] = 72 = 'H'
+

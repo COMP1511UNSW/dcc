@@ -1,0 +1,20 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in unterminated-strcmp.c at line 8:
+
+int main(void) {
+    char i[2];
+    char j[2];
+    i[0] = 'H';
+    j[0] = 'H';
+--> return strcmp(i, j);
+}
+
+Values when execution stopped:
+
+i = "H<uninitialized value>"
+j = "H<uninitialized value>"
+i[0] = 72 = 'H'
+j[0] = 72 = 'H'
+

@@ -1,0 +1,21 @@
+=================================================================
+
+Runtime error: stack buffer overflow
+dcc explanation: access past the end of a local variable.
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+Execution stopped in main() in unterminated-strcpy.c at line 7:
+
+int main(void) {
+    char i[2];
+    char o[2];
+    i[0] = 'H';
+--> strcpy(o, i);
+}
+
+Values when execution stopped:
+
+i = "H<uninitialized value>"
+o = "H<uninitialized value>"
+i[0] = 72 = 'H'
+
