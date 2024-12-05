@@ -1,3 +1,5 @@
+#define MEMORY_FILL_HEX 0xbe
+#define MEMORY_FILL_STR "be"
 
 static void launch_valgrind(int argc, char *argv[]) {
     debug_printf(2, "command=%s\n", "__MONITOR_VALGRIND__");
@@ -32,8 +34,8 @@ static void launch_valgrind(int argc, char *argv[]) {
                                        "--suppressions=__SUPRESSIONS_FILE__",
                                        "--max-stackframe=16000000",
                                        "--partial-loads-ok=no",
-                                       "--malloc-fill=0xbe",
-                                       "--free-fill=0xbe",
+                                       "--malloc-fill=0x" MEMORY_FILL_STR,
+                                       "--free-fill=0x" MEMORY_FILL_STR,
                                        "--vgdb-error=1",
                                        "--" };
 
@@ -151,7 +153,7 @@ void _Unwind_Backtrace(void *a, ...) {
 #if __SANITIZER__ == ADDRESS
 const char *__asan_default_options(void) {
     // NOTE setting detect_stack_use_after_return here stops
-    // clear_stack pre-initializing stack frames to 0xbe
+    // clear_stack pre-initializing stack frames to MEMORY_FILL_HEX
 
     return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0:detect_stack_use_after_return=__STACK_USE_AFTER_RETURN__";
 }
@@ -331,19 +333,19 @@ static void quick_clear_stack(void)
 #endif
     ;
 
-// hack to initialize (most of) stack to 0xbe
+// hack to initialize (most of) stack to MEMORY_FILL_HEX
 // so uninitialized variables are more obvious
 
 static void clear_stack(void) {
     char a[4096000];
     debug_printf(3, "initialized %p to %p\n", a, a + sizeof a);
-    _memset_shim(a, 0xbe, sizeof a);
+    _memset_shim(a, MEMORY_FILL_HEX, sizeof a);
 }
 
 static void quick_clear_stack(void) {
     char a[256000];
     debug_printf(3, "initialized %p to %p\n", a, a + sizeof a);
-    _memset_shim(a, 0xbe, sizeof a);
+    _memset_shim(a, MEMORY_FILL_HEX, sizeof a);
 }
 
 // hide memset in a function with optimization turned off
@@ -586,7 +588,7 @@ size_t strcspn(const char *s, const char *reject) {
 	while (*t && !reject_set[(unsigned char)*t]) {
 		t++;
 	}
-	_memset_shim(reject_set, 0xbe, sizeof reject_set);
+	_memset_shim(reject_set, MEMORY_FILL_HEX, sizeof reject_set);
 	return t - s;
 }
 
@@ -601,6 +603,6 @@ size_t strspn(const char *s, const char *accept) {
 	while (*t && accept_set[(unsigned char)*t]) {
 		t++;
 	}
-	_memset_shim(accept_set, 0xbe, sizeof accept_set);
+	_memset_shim(accept_set, MEMORY_FILL_HEX, sizeof accept_set);
 	return t - s;
 }

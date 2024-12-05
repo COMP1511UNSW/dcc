@@ -1,6 +1,6 @@
 import re
 import gdb_interface
-from util import dprint
+from util import dprint, MEMORY_FILL
 
 
 def explain_location(location, variable_addresses, color):
@@ -330,17 +330,7 @@ def clarify_values(values, color, variable_addresses):
 
     values = re.sub(r"'\000'", r"'\\0'", values)
 
-    for value in [
-        "-1094795586",
-        "-1.8325506472120096e-06",
-        "-0.372548997",
-        "-66 (not valid ASCII)",
-        "(unknown: 0xbebebebe)",
-        "0xbebebebe",
-        "3200171710",
-        "0xbebebebebebebebe",
-        "13744632839234567870",
-    ]:
+    for value in MEMORY_FILL.values():
         values = re.sub(
             r"(^|\D)" + re.escape(value) + r"($|\W)",
             r"\1" + "<uninitialized value>" + r"\2",

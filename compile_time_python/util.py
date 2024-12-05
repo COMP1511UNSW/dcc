@@ -5,6 +5,22 @@ import os, re, sys
 EXPLANATION_BASE_URL = "https://comp1511unsw.github.io/dcc/"
 MAX_FILE_SIZE_PASSED_TO_HELPER = 8192
 
+# order matters long values should be first
+MEMORY_FILL = {
+	"gdb_unknown": "(unknown: 0xbebebebe)",
+	"gdb_ascii" : "-66 (not valid ASCII)",
+	"int64_hex" : "0xbebebebebebebebe",
+	"int64" : "-4702111234474983746",
+	"uint64" : "13744632839234567870",
+	"float" : "-0.372548997",
+	"double" : "-1.8325506472120096e-06",
+	"int32_hex" : "0xbebebebe",
+	"int32" : "-1094795586",
+	"uint32" : "3200171710",
+	"int8_hex" : "0xbe",
+}
+
+
 
 def explanation_url(page):
     return EXPLANATION_BASE_URL + page + ".html"

@@ -1,6 +1,6 @@
 import json, os, re, signal, sys, subprocess, traceback
 import colors, explain_context, gdb_interface, util
-from util import dprint
+from util import dprint, MEMORY_FILL
 from explain_output_difference import explain_output_difference
 
 RUNTIME_HELPER_BASENAME = "dcc-runtime-helper"
@@ -20,11 +20,11 @@ def explain_error(output_stream, color):
         gdb_interface.gdb_execute(f"thread {thread_id}")
     elif "DCC_SIGNAL_THREAD" in os.environ:
         # signal gives us the Linux TID, gdb calls this the LWP
-        threads = gdb_interface.gdb_execute("info threads").split('\n')
+        threads = gdb_interface.gdb_execute("info threads").split("\n")
         lwp = int(os.environ.get("DCC_SIGNAL_THREAD"))
         # should only be one thread
         thread_entry = [line for line in threads if f"(LWP {lwp})" in line][0]
-        thread_id = int(thread_entry[2:].split(' ')[0])
+        thread_id = int(thread_entry[2:].split(" ")[0])
         gdb_interface.gdb_execute(f"thread {thread_id}")
 
     stack = parse_stack()
@@ -125,10 +125,17 @@ def explain_ubsan_error(loc, color):
     if message:
         message = message[0].lower() + message[1:]
 
-    m = re.search("(load|store|applying).*(0xbebebebe|null pointer)", message.lower())
+    m = re.search(
+        f"(load|store|applying).*({MEMORY_FILL['int32_hex']}|null pointer)",
+        message.lower(),
+    )
     if m:
         access = "accessing" if m.group(1) in ["load", "applying"] else "assigning to"
-        problem = "uninitialized" if m.group(2).startswith("0xbe") else "NULL"
+        problem = (
+            "uninitialized"
+            if m.group(2).startswith(MEMORY_FILL["int8_hex"])
+            else "NULL"
+        )
 
         if "*" in source and "[" not in source:
             what = "*p"
@@ -148,9 +155,11 @@ def explain_ubsan_error(loc, color):
             explanation += f"  A common error is {access} {what} when p == NULL.\n"
 
     if not explanation:
-        m = re.search("member access.*(0xbebebebe|null pointer)", message.lower())
+        m = re.search(
+            f"member access.*({MEMORY_FILL['int32_hex']}|null pointer)", message.lower()
+        )
         if m:
-            if m.group(1).startswith("0xbe"):
+            if m.group(1).startswith(MEMORY_FILL["int32_hex"]):
                 message = "accessing a field via an uninitialized pointer"
                 explanation = """You are using a pointer which has not been initialized
   A common error is using p->field without first assigning a value to p.\n"""
@@ -171,20 +180,15 @@ def explain_ubsan_error(loc, color):
         )
 
     if not explanation:
-        for value in [
-            "-1094795586",
-            "-1.8325506472120096e-06",
-            "-0.372548997",
-            "0xbe",
-        ]:
+        for value in MEMORY_FILL.values():
             if value in message:
                 explanation = f"""Your program looks to be using an uninitialized value.
   {color(value, "red")} is probably actually an uninitialized value.\n"""
-            break
+                break
 
     # FIXME make this more specific
     if not explanation and ("overflow" in message or "underflow" in message):
-        if "-10947955" in message:
+        if MEMORY_FILL["int32"][:-3] in message:
             explanation = """Arithmetic on an an uninitialized value has produced a value that can not be represented.\n"""
         else:
             explanation = """There are limits in the range of values that can be represented in all types.
