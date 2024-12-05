@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
 	if (!argc) {
 		i.i8 = 1;
 		f.d = 1;
-		c.a[0] = 1;
 	}
+	c.a[argc+20] = 0;
 	printf("%d %lf %c\n", i.i8, f.d, c.a[0]);
 }

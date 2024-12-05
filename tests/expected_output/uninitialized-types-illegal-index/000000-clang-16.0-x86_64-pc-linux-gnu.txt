@@ -1,0 +1,28 @@
+=================================================================
+
+Runtime error: stack buffer overflow
+dcc explanation: access past the end of a local variable.
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+Execution stopped in main() in uninitialized-types-illegal-index.c at line 34:
+
+	struct f f;
+	struct c c;
+	if (!argc) {
+		i.i8 = 1;
+		f.d = 1;
+	}
+-->	c.a[argc+20] = 0;
+	printf("%d %lf %c\n", i.i8, f.d, c.a[0]);
+}
+
+Values when execution stopped:
+
+argc = 1
+c = {<uninitialized values>}
+f = {<uninitialized values>}
+i = {<uninitialized values>}
+c.a = <16 uninitialized values>
+f.d = <uninitialized value>
+i.i8 = <uninitialized value>
+

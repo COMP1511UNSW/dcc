@@ -1,0 +1,24 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in uninitialized-types-malloc.c at line 36:
+
+	struct c *c = malloc(sizeof *c);
+	if (!argc) {
+		i->i8 = 1;
+		f->d = 1;
+		c->c = 1;
+	}
+-->	printf("%d %lf %c\n", i->i8, f->d, c->c);
+}
+
+Values when execution stopped:
+
+argc = 1
+c = 0x4b55770
+f = 0x4b55710
+i = 0x4b556a0
+c->c = <uninitialized value>
+f->d = <uninitialized value>
+i->i8 = <uninitialized value>
+

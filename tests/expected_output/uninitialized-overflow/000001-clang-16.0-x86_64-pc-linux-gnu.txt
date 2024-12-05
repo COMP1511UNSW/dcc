@@ -1,0 +1,18 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in uninitialized-overflow.c at line 5:
+
+int main(int argc, char **argv) {
+    int x[2];
+    x[argc] = 1;
+--> printf("%d\n", (x[0] - 1) * 8);
+}
+
+Values when execution stopped:
+
+argc = 1
+x = {<uninitialized value>, 1}
+x[0] = <uninitialized value>
+x[argc] = 1
+

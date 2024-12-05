@@ -1,5 +1,6 @@
-#define MEMORY_FILL_HEX 0xbe
-#define MEMORY_FILL_STR "be"
+#define MEMORY_FILL_HEX 0xaa
+#define MEMORY_FILL_STR "aa"
+#define MEMORY_FILL_INT_STR "170"
 
 static void launch_valgrind(int argc, char *argv[]) {
     debug_printf(2, "command=%s\n", "__MONITOR_VALGRIND__");
@@ -155,7 +156,7 @@ const char *__asan_default_options(void) {
     // NOTE setting detect_stack_use_after_return here stops
     // clear_stack pre-initializing stack frames to MEMORY_FILL_HEX
 
-    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0:detect_stack_use_after_return=__STACK_USE_AFTER_RETURN__";
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0:detect_stack_use_after_return=__STACK_USE_AFTER_RETURN__:malloc_fill_byte=" MEMORY_FILL_INT_STR;
 }
 #endif
 
@@ -334,7 +335,15 @@ static void quick_clear_stack(void)
     ;
 
 // hack to initialize (most of) stack to MEMORY_FILL_HEX
-// so uninitialized variables are more obvious
+// so uninitialized values are more obvious in output
+//
+// clang's -ftrivial-auto-var-init=pattern can't be used with valgrind
+// this often, but not always, results in clear output of uninitialized values
+//
+// clangs's -ftrivial-auto-var-init=pattern only sets local variables
+// but not other stack space so this is still is helpful when
+// values from invalid accesses are printed
+
 
 static void clear_stack(void) {
     char a[4096000];

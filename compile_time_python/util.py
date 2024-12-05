@@ -6,20 +6,25 @@ EXPLANATION_BASE_URL = "https://comp1511unsw.github.io/dcc/"
 MAX_FILE_SIZE_PASSED_TO_HELPER = 8192
 
 # order matters long values should be first
+# tests/run_time_errors/uninitialized-types.c test most of these values
 MEMORY_FILL = {
-	"gdb_unknown": "(unknown: 0xbebebebe)",
-	"gdb_ascii" : "-66 (not valid ASCII)",
-	"int64_hex" : "0xbebebebebebebebe",
-	"int64" : "-4702111234474983746",
-	"uint64" : "13744632839234567870",
-	"float" : "-0.372548997",
-	"double" : "-1.8325506472120096e-06",
-	"int32_hex" : "0xbebebebe",
-	"int32" : "-1094795586",
-	"uint32" : "3200171710",
-	"int8_hex" : "0xbe",
+	"gdb_unknown": "(unknown: 0xaaaaaaaa)",
+	"gdb_ascii" : "-86 (not valid ASCII)",
+	"gdb_int8" : "-86 '\\252'",
+	"gdb_uint8" : "170 '\\252'",
+	"clang_float" : "-nan(0x7fffff)",
+	"clang_double" : "-nan(0xfffffffffffff)",
+	"int64_hex" : "0xaaaaaaaaaaaaaaaa",
+	"int64" : "-6148914691236517206",
+	"uint64" : "12297829382473034410",
+	"float" : "-3.03164883e-13",
+	"double" : "-3.7206620809969885e-103",
+	"int32_hex" : "0xaaaaaaaa",
+	"int32" : "-1431655766",
+	"uint32" : "2863311530",
+	"int8_hex" : "0xaa",
+	"int8_char" : '\\252',
 }
-
 
 
 def explanation_url(page):

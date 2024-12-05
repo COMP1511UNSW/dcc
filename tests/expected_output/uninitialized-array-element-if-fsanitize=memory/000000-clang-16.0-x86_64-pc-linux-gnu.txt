@@ -1,10 +1,9 @@
 
-Runtime error: uninitialized variable accessed.
-
+Runtime error: uninitialized variable used
 Execution stopped in main() in uninitialized-array-element-if.c at line 9:
 
 int main(int argc, char **argv) {
-    int a[1000];
+    int a[100];
     a[42] = 42;
 --> if (a[argc]) {
         a[43] = 43;
@@ -13,7 +12,7 @@ int main(int argc, char **argv) {
 
 Values when execution stopped:
 
-a = {<uninitialized value> <repeats 42 times>, 42, <uninitialized value> <repeats 957 times>}
+a = {<uninitialized value> <repeats 42 times>, 42, <uninitialized value> <repeats 37 times>, 1464690352, 32741, ...}
 argc = 1
 a[42] = 42
 a[43] = <uninitialized value>

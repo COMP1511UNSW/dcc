@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 struct i {
 	int8_t i8;
@@ -24,13 +25,13 @@ struct c {
 };
 
 int main(int argc, char *argv[]) {
-	struct i i;
-	struct f f;
-	struct c c;
+	struct i *i = malloc(sizeof *i);
+	struct f *f = malloc(sizeof *f);
+	struct c *c = malloc(sizeof *c);
 	if (!argc) {
-		i.i8 = 1;
-		f.d = 1;
-		c.a[0] = 1;
+		i->i8 = 1;
+		f->d = 1;
+		c->c = 1;
 	}
-	printf("%d %lf %c\n", i.i8, f.d, c.a[0]);
+	printf("%d %lf %c\n", i->i8, f->d, c->c);
 }

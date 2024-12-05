@@ -1,0 +1,24 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in uninitialized-types.c at line 35:
+
+	struct c c;
+	if (!argc) {
+		i.i8 = 1;
+		f.d = 1;
+		c.a[0] = 1;
+	}
+-->	printf("%d %lf %c\n", i.i8, f.d, c.a[0]);
+}
+
+Values when execution stopped:
+
+argc = 1
+c = {<uninitialized values>}
+f = {<uninitialized values>}
+i = {<uninitialized values>}
+c.a = <16 uninitialized values>
+f.d = <uninitialized value>
+i.i8 = <uninitialized value>
+

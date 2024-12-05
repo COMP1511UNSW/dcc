@@ -180,6 +180,8 @@ def update_wrapper_source(sanitizer, sanitizer_n, src, tar_source, options):
         # which would be preferable here we get uninitialized variable error message for undefined errors
         src = src.replace("__UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__", "1")
         sanitizer_args += ["-fsanitize=undefined"]
+    if sanitizer == "address":
+        sanitizer_args += ["-ftrivial-auto-var-init=pattern"]
 
     # These options stop error explanations if	__ubsan_on_report can not be intercepted (on Ubuntu)
     # They appear to have  no significant benefit on other platforms
