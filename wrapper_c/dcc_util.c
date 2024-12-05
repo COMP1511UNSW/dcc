@@ -356,6 +356,8 @@ static void clear_stack(void) {
 }
 static void quick_clear_stack(void) {
 }
+static void _memset_shim(void *p, int byte, size_t size) {
+}
 #endif
 
 static void setenvd(const char *n, const char *v) {
@@ -464,3 +466,141 @@ int __wrap_posix_spawnp(pid_t *pid, const char *path,
 }
 
 #endif
+
+// over-ride some C library functions commonly used by novices in small programs
+// because the glibc implementation dirty much of the stack
+// and can prevent student geeting clear information about uninitialized variables
+// scanf, fscanf can't be overridden
+
+int fprintf(FILE *restrict stream, const char *restrict format, ...) {
+	va_list args;
+	va_start(args, format);
+	int done = vfprintf(stream, format, args);
+	va_end(args);
+	quick_clear_stack();
+	return done;
+}
+
+int printf(const char *restrict format, ...) {
+	va_list args;
+	va_start(args, format);
+	int done = vfprintf(stdout, format, args);
+	va_end(args);
+	quick_clear_stack();
+	return done;
+}
+
+size_t strlen(const char *s) {
+	size_t length = 0;
+	while (s[length] != '\0') {
+		length++;
+	}
+	return length;
+}
+
+char *stpcpy(char *restrict dst, const char *restrict src) {
+	char *d = dst;
+	while (*src) {
+		*d++ = *src++;
+	}
+	*d = '\0';
+	return d;
+}
+
+char *strcpy(char *restrict dst, const char *restrict src) {
+	char *d = dst;
+	while (*src) {
+		*d++ = *src++;
+	}
+	*d = '\0';
+	return dst;
+}
+
+char *strcat(char *restrict dst, const char *restrict src) {
+	char *d = dst;
+	while (*d) {
+		d++;
+	}
+	while (*src) {
+		*d++ = *src++;
+	}
+	*d = '\0';
+	return dst;
+}
+
+char *stpncpy(char *restrict dst, const char *restrict src, size_t sz) {
+	char *d = dst;
+	while (sz > 0 && *src) {
+		*d++ = *src++;
+		sz--;
+	}
+	if (sz > 0) {
+		*d = '\0';
+	}
+	return d;
+}
+
+char *strncpy(char *restrict dst, const char *restrict src, size_t sz) {
+	char *d = dst;
+	while (sz > 0 && *src) {
+		*d++ = *src++;
+		sz--;
+	}
+	if (sz > 0) {
+		*d = '\0';
+	}
+	return dst;
+}
+
+int strcmp(const char *s1, const char *s2) {
+	while (*s1 && *s1 == *s2) {
+		s1++;
+		s2++;
+	}
+	return *(unsigned char *)s1 - *(unsigned char *)s2;
+}
+
+int strncmp(const char *s1, const char *s2, size_t n) {
+	while (n > 0 && *s1 && *s1 == *s2) {
+		s1++;
+		s2++;
+		n--;
+	}
+	if (n > 0) {
+		return *(unsigned char *)s1 - *(unsigned char *)s2;
+	} else {
+		return 0;
+	}
+}
+
+#include <limits.h>
+
+size_t strcspn(const char *s, const char *reject) {
+	const char *r = reject;
+	unsigned char reject_set[UCHAR_MAX + 1] = {0};
+	while (*r) {
+		reject_set[(unsigned char)*r] = 1;
+		r++;
+	}
+	const char *t = s;
+	while (*t && !reject_set[(unsigned char)*t]) {
+		t++;
+	}
+	_memset_shim(reject_set, 0xbe, sizeof reject_set);
+	return t - s;
+}
+
+size_t strspn(const char *s, const char *accept) {
+	const char *a = accept;
+	unsigned char accept_set[UCHAR_MAX + 1] = {0};
+	while (*a) {
+		accept_set[(unsigned char)*a] = 1;
+		a++;
+	}
+	const char *t = s;
+	while (*t && accept_set[(unsigned char)*t]) {
+		t++;
+	}
+	_memset_shim(accept_set, 0xbe, sizeof accept_set);
+	return t - s;
+}

@@ -87,6 +87,7 @@ def compile_user_program(options):
                 options,
                 wrapper_C_source=sanitizer2_wrapper_source,
                 wrapper_cpp_source=wrapper_cpp_source,
+                wrapper_extra_options=[opt for opt in sanitizer2_sanitizer_args if opt.startswith("-f")],
                 debug_C_wrapper_file="tmp_dcc_sanitizer2.c",
             )
             if p.returncode != 0:
@@ -137,6 +138,7 @@ def compile_user_program(options):
         + ["-o", options.object_pathname],
         options,
         wrapper_C_source=wrapper_source,
+        wrapper_extra_options=[opt for opt in sanitizer_args if opt.startswith("-f")],
         wrapper_cpp_source=wrapper_cpp_source,
     )
     if p.returncode != 0 or p.stdout:
@@ -217,6 +219,7 @@ def execute_compiler(
     debug_C_wrapper_file="tmp_dcc_sanitizer1.c",
     rename_functions=True,
     wrapper_cpp_source="",
+    wrapper_extra_options=[],
     debug_cpp_wrapper_file="tmp_dcc_sanitizer1.cpp",
 ):
     extra_c_arguments, extra_c_arguments_debug = compile_wrapper_source(
@@ -225,6 +228,7 @@ def execute_compiler(
         debug_C_wrapper_file,
         cpp=False,
         rename_functions=rename_functions,
+        wrapper_extra_options=wrapper_extra_options,
     )
     extra_cpp_arguments, extra_cpp_arguments_debug = compile_wrapper_source(
         wrapper_cpp_source,
@@ -232,6 +236,7 @@ def execute_compiler(
         debug_cpp_wrapper_file,
         cpp=True,
         rename_functions=rename_functions,
+        wrapper_extra_options=wrapper_extra_options,
     )
 
     command = (
@@ -294,7 +299,12 @@ def execute_compiler(
 
 
 def compile_wrapper_source(
-    source, options, debug_wrapper_file, cpp=False, rename_functions=True
+    source,
+    options,
+    debug_wrapper_file,
+    cpp=False,
+    rename_functions=True,
+    wrapper_extra_options=[],
 ):
     if not source:
         return [], []
@@ -331,7 +341,8 @@ def compile_wrapper_source(
         "-",
         "-o",
         relocatable_pathname,
-    ] + WRAPPER_SOURCE_COMPILER_ARGS
+    ] + WRAPPER_SOURCE_COMPILER_ARGS + wrapper_extra_options
+    options.debug_print("wrapper options", wrapper_extra_options)
     process = run(command, options, input=source)
     if process.stdout or process.returncode != 0:
         options.die("Internal error\n" + process.stdout)
@@ -381,14 +392,17 @@ def get_rename_arguments(source, options, rename_functions=True):
             rename_arguments += ['-Dmain=__fake_variable;extern "C" int __real_main']
         else:
             rename_arguments += ["-Dmain=__real_main"]
-        rename_arguments += [f"-D{f}=__wrap_{f}" for f in ["fileno"] + override_functions]
+        rename_arguments += [
+            f"-D{f}=__wrap_{f}" for f in ["fileno"] + override_functions
+        ]
         source = source.replace("__wrap_main", "main")
         source = source.replace("__real_fileno", "fileno")
         for f in override_functions:
             source = source.replace("__real_" + f, f)
     else:
         rename_arguments += [
-            "-Wl" + "".join(",-wrap," + f for f in ["main","fileno"] + override_functions)
+            "-Wl"
+            + "".join(",-wrap," + f for f in ["main", "fileno"] + override_functions)
         ]
     return rename_arguments, source
 
