@@ -30,6 +30,15 @@
 #include <stdint.h>
 #include <stdarg.h>
 
+#include <unistd.h>
+#include <sys/syscall.h>
+
+#ifndef SYS_gettid
+#error "SYS_gettid unavailable on this system"
+#endif
+
+#define gettid() ((pid_t)syscall(SYS_gettid))
+
 #if __N_SANITIZERS__ > 1
 #include <sys/stat.h>
 #include <sys/wait.h>
