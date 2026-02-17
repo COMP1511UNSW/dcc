@@ -39,6 +39,15 @@
 # include <sys/prctl.h>
 #endif
 
+#ifdef __APPLE__
+#include <pthread.h>
+static long gettid(void) {
+    uint64_t tid;
+    pthread_threadid_np(NULL, &tid);
+    return (long)tid;
+}
+#endif
+
 static int debug_level = 0;
 static FILE *debug_stream = NULL;
 
