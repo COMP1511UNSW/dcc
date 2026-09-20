@@ -343,11 +343,13 @@ static void synchronize_system_call(enum which_system_call which, int64_t n) {
 	struct system_call s = {0};
 #if DCC_I_AM_SANITIZER1
 	int n_bytes_read = read(from_sanitizer2_pipe[0], &s, sizeof s);
+	// the two sanitizers can legitimately write different numbers of bytes,
+	// e.g. %p prints a shorter pointer under valgrind, and sanitizer2's bytes are discarded anyway
 	if (n_bytes_read != sizeof s) {
 		debug_printf(1, "synchronize_system_call error(%s, %d): read returned %d != %d\n", system_call_names[which], (int)n, n_bytes_read, (int)sizeof s);
 	} else if (which != s.which) {
 		debug_printf(1, "synchronize_system_call error(%s, %d): which == %d\n", system_call_names[which], (int)n, s.which);
-	} else if (n != s.n) {
+	} else if (which != sc_write && n != s.n) {
 		debug_printf(1, "synchronize_system_call error(%s, %d) n == %d\n", system_call_names[which], (int)n, (int)s.n);
 	} else {
 		debug_printf(2, "synchronize_system_call(%s, %d) returning\n", system_call_names[which], (int)n);
@@ -486,8 +488,10 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 #else
 	(void)v; // avoid unused parameter warning
 	(void)buf; // avoid unused parameter warning
-	(void)size; // avoid unused parameter warning
-	size_t n_bytes_written = synchronize_system_call_result(sc_write);
+	// sanitizer1 may have been asked to write more bytes than we were,
+	// and stdio treats a return larger than its request as a failed write
+	int64_t result = synchronize_system_call_result(sc_write);
+	size_t n_bytes_written = result > (int64_t)size ? (size_t)size : (size_t)result;
 #endif
 	quick_clear_stack();
 	return n_bytes_written;

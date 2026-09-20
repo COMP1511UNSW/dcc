@@ -1,0 +1,16 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in uninitialized_after_printf_pointer.c at line 9:
+
+int main(void) {
+    int *a = malloc(sizeof *a);
+    printf("%p\n", a);
+--> if (*a > 10) {
+        printf("big\n");
+    }
+}
+
+Values when execution stopped:
+
+a = 0x4b4f6b0
