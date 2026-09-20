@@ -8,6 +8,33 @@ from util import explanation_url
 BACKSLASH = "\\"
 
 
+def echoed_source_line(message):
+    """the line of the program the compiler echoed under its message, if any"""
+    for line in message.text_without_ansi_codes:
+        m = re.match(r"^\s*\d+\s*\|(.*)", line)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def word_is_called(message):
+    """is the word the compiler highlighted followed by an argument list"""
+    # the word comes from the compiler, so it can contain anything
+    return bool(
+        re.search(
+            rf"\b{re.escape(message.highlighted_word)}\s*\(",
+            "".join(message.text_without_ansi_codes),
+        )
+    )
+
+
+def word_is_in_parentheses(message):
+    """is the word the compiler highlighted inside a parameter list"""
+    line = echoed_source_line(message)
+    index = line.find(message.highlighted_word)
+    return index > 0 and "(" in line[:index]
+
+
 def get_explanation(message, colorize_output):
     for e in explanations:
         text = e.get(message, colorize_output)
@@ -85,7 +112,16 @@ class Explanation:
                 return None
 
         if hasattr(self.precondition, "__call__"):
-            r = self.precondition(message, match)
+            try:
+                r = self.precondition(message, match)
+            except Exception:  # pylint: disable=broad-exception-caught
+                # a precondition is given compiler output, so like a template it
+                # must not be able to replace the message with a traceback
+                if util.debug_level_from_environment():
+                    import traceback  # pylint: disable=import-outside-toplevel
+
+                    traceback.print_exc(file=sys.stderr)
+                return None
             if not r:
                 return None
             if isinstance(r, str) and not self.explanation:
@@ -890,9 +926,7 @@ int main(int argc, char *argv[]) {
     Explanation(
     	label="missing_function_return_type",
         regex=r"type specifier missing, defaults to 'int'",
-        precondition=lambda message, _: re.search(
-            rf"\b{message.highlighted_word}\s*\(", "".join(message.text_without_ansi_codes)
-        ),
+        precondition=lambda message, _: word_is_called(message),
         explanation="""\
 have you given a return type for **{highlighted_word}**?
 You must specify the return type of a function just before its name.
@@ -909,9 +943,8 @@ int main(void) {
     Explanation(
     	label="missing_parameter_type",
         regex=r"type specifier missing, defaults to 'int'",
-        precondition=lambda message, _: not re.search(
-            rf"\b{message.highlighted_word}\s*\(", "".join(message.text_without_ansi_codes)
-        ),
+        precondition=lambda message, _: not word_is_called(message)
+        and word_is_in_parentheses(message),
         explanation="""\
 have you given a type for **{highlighted_word}**?
 You must specify the type of each function parameter.
@@ -922,6 +955,22 @@ int add(int b, c) {
 }
 int main(void) {
     return add(1, 2);
+}
+""",
+    ),
+    Explanation(
+    	label="missing_variable_type",
+        regex=r"type specifier missing, defaults to 'int'",
+        precondition=lambda message, _: not word_is_called(message)
+        and not word_is_in_parentheses(message),
+        explanation="""\
+have you given a type for **{highlighted_word}**?
+You must specify the type of a variable when you declare it.
+""",
+        reproduce="""\
+counter = 0;
+int main(void) {
+    return counter;
 }
 """,
     ),

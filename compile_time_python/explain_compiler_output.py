@@ -1,4 +1,4 @@
-import json, os, re, subprocess, sys
+import json, os, re, subprocess, sys, unicodedata
 import colors, util
 from compiler_explanations import get_explanation
 
@@ -178,6 +178,26 @@ INCLUDED_FROM_RE = re.compile(r"^(In file included from|\s+from)\s")
 MAX_REPEATED_BLOCK_LINES = 32
 
 
+def character_index(line, column):
+    """the index in line of the character the compiler shows at column
+
+    The compiler positions its ^ line by how wide the characters print, so a
+    character which prints two columns wide -- a Chinese character in a string
+    or a comment, for example -- moves everything after it one place, and
+    indexing line by the position of the ^ gives the wrong word.
+    """
+    width = 0
+    for index, character in enumerate(line):
+        if width >= column:
+            return index
+        width += 2 if unicodedata.east_asian_width(character) in "WF" else 1
+    return len(line)
+
+
+def slice_by_column(line, start, end):
+    return line[character_index(line, start) : character_index(line, end)]
+
+
 def is_system_header(pathname):
     return bool(SYSTEM_HEADER_RE.match(pathname))
 
@@ -276,16 +296,21 @@ def get_next_message(lines):
             previous_line = e.text_without_ansi_codes[-1]
             m = re.match(r"^(.*)\^~+", colorless_next_line)
             if m:
-                e.highlighted_word = previous_line[len(m.group(1)) : len(m.group(0))]
+                e.highlighted_word = slice_by_column(
+                    previous_line, len(m.group(1)), len(m.group(0))
+                )
             else:
                 caret_index = colorless_next_line.index("^")
-                m = re.match(r"^\w*", previous_line[caret_index:])
+                start = character_index(previous_line, caret_index)
+                m = re.match(r"^\w*", previous_line[start:])
                 e.highlighted_word = m.group(0)
 
             e.underlined_word = ""
             m = re.match(r"^(.*?)~+", colorless_next_line)
             if m:
-                e.underlined_word = previous_line[len(m.group(1)) : len(m.group(0))]
+                e.underlined_word = slice_by_column(
+                    previous_line, len(m.group(1)), len(m.group(0))
+                )
 
         e.text.append(next_line)
         e.text_without_ansi_codes.append(colorless_next_line)

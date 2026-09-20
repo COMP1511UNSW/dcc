@@ -615,5 +615,68 @@ class DocumentationTests(unittest.TestCase):
             self.assertIn(topic, description)
 
 
+class CompilerSuppliedTextTests(unittest.TestCase):
+    """text from the compiler reaches regexes and int(), so it must not be trusted"""
+
+    IMPLICIT_INT = "type specifier missing, defaults to 'int'"
+
+    @staticmethod
+    def explanation_for(compiler_output):
+        message, _ = explain_compiler_output.get_next_message(
+            compiler_output.splitlines()
+        )
+        return compiler_explanations.get_explanation(message, colorize_output=False)
+
+    def diagnostic(self, source, caret, points_at=None):
+        echoed = f"    1 | {source}"
+        if points_at is not None:
+            caret = " " * (echoed.index(points_at) - len("      | ")) + caret
+        return f"t.c:1:1: error: {self.IMPLICIT_INT}\n{echoed}\n      | {caret}\n"
+
+    def test_regex_metacharacters_in_the_highlighted_word(self):
+        # an unbalanced [ used to reach re.search unescaped and raise PatternError
+        e = self.explanation_for(self.diagnostic("a[b;", "^~~"))
+        self.assertIn("a[b", e.text)
+
+    def test_nested_quantifier_in_the_highlighted_word(self):
+        # (a*)* used to be compiled as a pattern and backtrack exponentially
+        source = "(a*)*p;"
+        text = self.diagnostic(source, "^~~~~~") + "    2 | " + "a" * 40 + "\n"
+        self.assertIsNotNone(self.explanation_for(text))
+
+    def test_line_number_too_long_for_int(self):
+        # Python refuses to convert a string of more than 4300 digits
+        nines = "9" * 5000
+        output = f"t.c:{nines}:1: error: function definition is not allowed here\n"
+        self.assertIsNone(self.explanation_for(output))
+
+    def test_implicit_int_distinguishes_what_was_declared(self):
+        for source, points_at, expected in [
+            ("counter = 0;", "counter", "type of a variable"),
+            ("int add(int b, c) {", "c) {", "type of each function parameter"),
+            ("square (int x) {", "square", "return type of a function"),
+        ]:
+            with self.subTest(source=source):
+                e = self.explanation_for(self.diagnostic(source, "^", points_at))
+                self.assertIn(expected, e.text)
+
+
+class CaretColumnTests(unittest.TestCase):
+    """the compiler positions its caret by display width, not by character count"""
+
+    def test_narrow_characters_index_unchanged(self):
+        self.assertEqual(explain_compiler_output.character_index("abcdef", 3), 3)
+
+    def test_a_wide_character_counts_as_two_columns(self):
+        # the second column of a wide character belongs to that character
+        line = "\u6210\u7ee9abc"
+        self.assertEqual(explain_compiler_output.character_index(line, 4), 2)
+        self.assertEqual(explain_compiler_output.slice_by_column(line, 4, 7), "abc")
+
+    def test_column_past_the_end_of_the_line(self):
+        self.assertEqual(explain_compiler_output.character_index("ab", 99), 2)
+        self.assertEqual(explain_compiler_output.slice_by_column("ab", 99, 99), "")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,4 @@
+wide_character_before_caret.c:8:23: warning: format specifies type 'int *' but the argument has type 'int' [-Wformat]
+    8 |     scanf("成绩%d", marks);
+      |                ~~   ^~~~~
+dcc explanation: Perhaps you have forgotten an '&' before 'marks' on line 8 of wide_character_before_caret.c.
