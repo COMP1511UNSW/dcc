@@ -725,8 +725,9 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="ignoring_return_value_of_function",
         regex=r"ignoring return value of function",
+        # the arguments are part of the highlighted text with some compilers
         explanation="""\
-you are not using the value returned by function **{highlighted_word}** .
+you are not using the value returned by function **{extract_function_name(highlighted_word)}** .
 Did you mean to assign it to a variable?
 """,
         reproduce="""\
