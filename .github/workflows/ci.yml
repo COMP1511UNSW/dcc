@@ -1,0 +1,28 @@
+name: CI
+
+on: [push, pull_request]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the Makefile derives the version from git tags
+          fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang gcc gdb valgrind python3 python3-mypy pylint shellcheck zip rsync
+      - name: Build
+        run: make dcc
+      - name: Static checks and unit tests
+        run: make check
+      - name: End-to-end tests
+        # a test whose output differs prompts for a decision, so stdin must be empty
+        run: make tests </dev/null

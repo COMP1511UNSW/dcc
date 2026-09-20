@@ -3,10 +3,9 @@
 export EMAIL="andrewt@unsw.edu.au"
 export DEBFULLNAME="Andrew Taylor"
 
-base_directory=$(dirname $(readlink -f "$0"))
+base_directory=$(dirname "$(readlink -f "$0")")
 source_directory=$base_directory/../..
 version=`git describe --tags|sed 's/-/./;s/-.*//'`
-package_name=dcc
 
 dir=$base_directory/dcc-$version
 
@@ -21,8 +20,8 @@ git tag -l -n9 --sort=-version:refname --format 'dcc (%(refname:lstrip=-1)) unst
  -- %(*authorname) %(*authoremail) %(*authordate)'|
  sed 's?> \(.*\) \(.*\) \(.*\) \([0-9][0-9]:[0-9][0-9]:[0-9][0-9]\) \(.*\) \(.*\)?>  \1, \3 \2 \5 \4 \6?'   >$dir/debian/changelog
 
-cd $dir
-dpkg-buildpackage -b 
+cd "$dir" || exit 1
+dpkg-buildpackage -b
 #cd $base_directory
 #lintian dcc_${version}_all.deb
 exit 0

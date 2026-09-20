@@ -1,0 +1,15 @@
+# static checks run by "make check"
+#
+# all error and warning checks are enabled except the four below, which
+# fire on deliberate practices in this code; the convention and refactoring
+# categories are not used because the code predates pylint's style conventions
+[MAIN]
+# the gdb module only exists inside gdb's embedded Python
+ignored-modules=gdb
+
+[MESSAGES CONTROL]
+disable=C,R,
+        bad-indentation,
+        fixme,
+        global-statement,
+        broad-exception-caught
