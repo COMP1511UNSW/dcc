@@ -44,6 +44,24 @@ EXECUTABLE_MAGIC_NUMBERS = [
     b"MZ\x90\x00",
 ]
 
+# a program written to one of these would destroy a student's work, so -o is
+# refused for them.  C++ has a lot of spellings and clang accepts all of them.
+SOURCE_EXTENSIONS = [
+    ".c",
+    ".h",
+    ".cc",
+    ".cp",
+    ".cpp",
+    ".cxx",
+    ".c++",
+    ".hh",
+    ".hpp",
+    ".hxx",
+    ".h++",
+    ".ii",
+    ".i",
+]
+
 COMPILE_HELPER_BASENAME = "dcc-compile-helper"
 
 USAGE = """\
@@ -472,12 +490,13 @@ def parse_arg(arg, remaining_args, options):
         sys.exit(0)
     elif arg.startswith("-o"):
         if arg == "-o":
-            if remaining_args:
-                options.object_pathname = remaining_args.pop(0)
+            if not remaining_args:
+                options.die("argument to '-o' is missing")
+            options.object_pathname = remaining_args.pop(0)
         else:
             options.object_pathname = arg[2:]
         op = options.object_pathname
-        if (op.endswith(".c") or op.endswith(".h")) and os.path.exists(op):
+        if os.path.splitext(op)[1].lower() in SOURCE_EXTENSIONS and os.path.exists(op):
             options.die(f"will not overwrite {op} with machine code")
     elif arg == "-l":
         # separated form of -l<library>
