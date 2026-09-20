@@ -2,6 +2,10 @@
 unset CDPATH
 export PATH=/bin:/usr/bin:.
 
+# the tests run with a clean environment, so anything meant for this script
+# has to be read before the environment is cleared
+n_processes=${DCC_TEST_JOBS:-$(($(getconf _NPROCESSORS_ONLN) / 2 + 1))}
+
 for var in $(env|grep -E -v 'PATH|LOCALE|LC_|LANG'|grep '^[a-zA-Z0-9_]*='|cut -d= -f1)
 do
 	unset $var
@@ -32,12 +36,11 @@ mkdir -p "$e"
 clang_version=$($c_compiler -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
 platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
 export clang_version platform
-# how many tests are run at once
+# n_processes is set above, before the environment is cleared
 #
-# a test may run the program twice, once of them under valgrind, so this is
-# half the processors by default.  Set DCC_TEST_JOBS to run fewer, for example
-# on a machine with little memory or one shared with other work.
-n_processes=${DCC_TEST_JOBS:-$(($(getconf _NPROCESSORS_ONLN) / 2 + 1))}
+# a test may run the program twice, one of them under valgrind, so it defaults
+# to half the processors.  Set DCC_TEST_JOBS to run fewer, for example on a
+# machine with little memory or one shared with other work.
 all_tests=$(
 	{
 		ls "$tests_dir"/run_time_errors/*.*
