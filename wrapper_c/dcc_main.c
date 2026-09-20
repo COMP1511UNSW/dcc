@@ -40,6 +40,7 @@
 #ifdef __linux__
 # include <sys/prctl.h>
 # include <sys/syscall.h>
+# include <ucontext.h>
 #endif
 
 static int debug_level = 0;
@@ -105,6 +106,7 @@ static void __dcc_start(void) NO_SANITIZE;
 void __dcc_error_exit(void) NO_SANITIZE __attribute__((noreturn));
 static void __dcc_signal_handler(int signum) NO_SANITIZE;
 static void __dcc_segv_handler(int signum, siginfo_t *info, void *context) NO_SANITIZE;
+static char *fault_stack_pointer(void *context) NO_SANITIZE;
 static long __dcc_gettid(void) NO_SANITIZE;
 static void set_signals_default(void) NO_SANITIZE;
 static void launch_valgrind(int argc, char *argv[]) NO_SANITIZE;

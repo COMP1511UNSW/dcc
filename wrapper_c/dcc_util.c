@@ -71,6 +71,9 @@ static void launch_valgrind(int argc, char *argv[]) {
 // an address near the top of the stack, used to recognize a stack overflow
 static char *stack_top;
 
+// the thread stack_top belongs to
+static long main_thread_id;
+
 static void __dcc_start(void) {
     char *debug_level_string = getenv("DCC_DEBUG");
     if (debug_level_string) {
@@ -98,6 +101,7 @@ static void __dcc_start(void) {
     sigemptyset(&segv_action.sa_mask);
     sigaction(SIGSEGV, &segv_action, NULL);
     stack_top = (char *)&alternate;
+    main_thread_id = __dcc_gettid();
     signal(SIGXCPU, __dcc_signal_handler);
     signal(SIGXFSZ, __dcc_signal_handler);
     signal(SIGFPE, __dcc_signal_handler);
@@ -269,23 +273,59 @@ static void set_signals_default(void) {
 // set if the faulting address looks like a stack overflow
 static volatile sig_atomic_t stack_overflow_detected;
 
-// a fault just past the end of the stack is a stack overflow,
-// usually from infinite recursion
-//
-// only the main thread is recognized: stack_top is its stack and
-// sigaltstack is per-thread, so a thread which overflows its own stack
-// gets the generic explanation for an invalid memory access
-static void __dcc_segv_handler(int signum, siginfo_t *info, void *context) {
+// the stack pointer of the code a signal interrupted, or NULL where it can
+// not be read from the signal context
+static char *fault_stack_pointer(void *context) {
+#if defined(__linux__) && (defined(__x86_64__) || defined(__i386__) || defined(__aarch64__))
+    ucontext_t *interrupted = (ucontext_t *)context;
+    if (!interrupted) {
+        return NULL;
+    }
+#if defined(__x86_64__)
+    return (char *)interrupted->uc_mcontext.gregs[REG_RSP];
+#elif defined(__i386__)
+    return (char *)interrupted->uc_mcontext.gregs[REG_ESP];
+#else
+    return (char *)interrupted->uc_mcontext.sp;
+#endif
+#else
     (void)context;
+    return NULL;
+#endif
+}
+
+// a fault just past the end of the stack is a stack overflow,
+// usually from infinite recursion or one very large local array
+//
+// only the main thread is recognized: stack_top and main_thread_id are its
+// stack and its id, and sigaltstack is per-thread, so a thread which
+// overflows its own stack gets the generic explanation for an invalid
+// memory access
+static void __dcc_segv_handler(int signum, siginfo_t *info, void *context) {
     struct rlimit stack_limit;
     if (info && stack_top && getrlimit(RLIMIT_STACK, &stack_limit) == 0 &&
         stack_limit.rlim_cur != RLIM_INFINITY) {
         char *fault_address = (char *)info->si_addr;
-        // the stack occupies [stack_top - rlim_cur, stack_top], so an overflow
-        // faults near its lowest address and not merely somewhere below stack_top
-        if (fault_address < stack_top) {
+        // another thread's stack pointer is an arbitrary distance from
+        // stack_top, which would make any fault there look like an overflow
+        char *stack_pointer = __dcc_gettid() == main_thread_id
+                                  ? fault_stack_pointer(context)
+                                  : NULL;
+        size_t limit = (size_t)stack_limit.rlim_cur;
+        // the stack occupies [stack_top - rlim_cur, stack_top]
+        if (stack_pointer && stack_pointer < stack_top) {
+            // an overflow has moved the stack pointer itself past the end of
+            // the stack and faults where it points, however large the frame
+            // which took it there; a wild pointer faults far from it
+            size_t used = (size_t)(stack_top - stack_pointer);
+            if (used + STACK_OVERFLOW_SLACK > limit && fault_address < stack_top &&
+                fault_address + STACK_OVERFLOW_SLACK > stack_pointer) {
+                stack_overflow_detected = 1;
+            }
+        } else if (fault_address < stack_top) {
+            // no stack pointer available, so the fault must itself be near the
+            // lowest address of the stack and not merely somewhere below stack_top
             size_t depth = (size_t)(stack_top - fault_address);
-            size_t limit = (size_t)stack_limit.rlim_cur;
             if (depth + STACK_OVERFLOW_SLACK > limit &&
                 depth < limit + STACK_OVERFLOW_SLACK) {
                 stack_overflow_detected = 1;

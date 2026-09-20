@@ -1,0 +1,4 @@
+*** not_stack_overflow_null
+Runtime error: assigning to a value via a NULL pointer
+*** not_stack_overflow_thread
+Execution stopped because of an invalid pointer or string.
