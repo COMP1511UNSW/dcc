@@ -2,6 +2,7 @@
 
 import copy, math, re, sys
 import colors
+import util
 from util import explanation_url
 
 BACKSLASH = "\\"
@@ -114,7 +115,18 @@ class Explanation:
         f_string = re.sub(r"\*\*(.*?)\*\*", r"{emphasize('\1')}", f_string)
         f_string = 'f"""' + f_string + '"""'
 
-        return eval(f_string, globals(), parameters)
+        try:
+            # the templates are constants in this file, so this is not evaluating user input
+            return eval(f_string, globals(), parameters)  # pylint: disable=eval-used
+        except Exception:  # pylint: disable=broad-exception-caught
+            # a mistake in one template must not replace the compiler's own
+            # message with a Python traceback, so this explanation is skipped
+            if util.debug_level_from_environment():
+                import traceback  # pylint: disable=import-outside-toplevel
+
+                print(f"explanation {self.label} failed:", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+            return None
 
 
 explanations = [
@@ -135,6 +147,9 @@ int main(void) {
         explanation="Your program does not contain a main function - a C program must contain a main function.",
         no_following_explanations=True,
         reproduce="""\
+int f(void) {
+    return 0;
+}
 """,
     ),
     Explanation(
@@ -351,7 +366,7 @@ int main(int argc, char *argv[]) {
     ),
     Explanation(
         label="uninitialized-local-variable",
-        regex=r"'(.*)' is used uninitialized in this function",
+        regex=r"'(.*?)' is used uninitialized",
         explanation="""you are using the value of the variable **{match.group(1)}** before assigning a value to **{match.group(1)}**.""",
         reproduce="""\
 int main(void) {
@@ -655,6 +670,7 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
+        label="extra_tokens_at_end_of_include_directive_semicolon",
         regex=r"extra tokens at end of #include directive",
         precondition=lambda message, match: ";"
         in "".join(message.text_without_ansi_codes),
@@ -703,19 +719,6 @@ you may have an extra '**;**' that you should remove.
 int main(int argc, char *argv[]) {
     if (argc); {
     }
-}
-""",
-    ),
-    Explanation(
-        regex=r"ignoring return value of function",
-        explanation="""\
-you are not using the value returned by function **{highlighted_word}** .
-Did you mean to assign it to a variable?
-""",
-        reproduce="""\
-#include <stdlib.h>
-int main(int argc, char *argv[]) {
-    atoi(argv[0]);
 }
 """,
     ),
@@ -866,6 +869,7 @@ int main(void) {
 """,
     ),
     Explanation(
+        label="unknown_escape_sequence_space_before_n",
         regex=r" warning: unknown escape sequence '\\ '",
         precondition=lambda message, match: "\\ n"
         in "".join(message.text_without_ansi_codes),
@@ -935,7 +939,7 @@ you appear to have left out a '#'.
 Use #**include** to include a file, for example: #include <stdio.h>
 """,
         reproduce="""\
-define X 42
+include <stdio.h>
 int main(void) {
 }
 """,
@@ -947,8 +951,12 @@ you are using variable '**{highlighted_word}**' before it has been assigned a va
 Be sure to assign a value to '**{highlighted_word}**' before trying to use its value.
 """,
         reproduce="""\
+#include <stdio.h>
+
 int main(void) {
     int x;
+    printf("%d\\n", x);
+    return 0;
 }
 """,
     ),
@@ -960,21 +968,8 @@ You can not use a variable to initialize itself.
 """,
         reproduce="""\
 int main(void) {
-    int x;
-}
-""",
-    ),
-    Explanation(
-        regex=r"void function '(.*)' should not return a value",
-        explanation="""\
-you are trying to **return** a value from function **{match.group(1)}** which is of type **void**.
-You need to change the return type of **{match.group(1)}** or change the **return** statement.
-""",
-        reproduce="""\
-void f(void) {
-    return 1;
-}
-int main(void) {
+    int x = x + 1;
+    return x;
 }
 """,
     ),
@@ -1072,7 +1067,7 @@ def truncate_number(num):
 
 if __name__ == "__main__":
     if sys.argv[1:] and sys.argv[1] == "--create_test_files":
-        for explanation in explanations:
-            if explanation.label and explanation.reproduce:
-                with open(explanation.label + ".c", "w", encoding="utf-8") as f:
-                    f.write(explanation.reproduce)
+        for extracted in explanations:
+            if extracted.label and extracted.reproduce:
+                with open(extracted.label + ".c", "w", encoding="utf-8") as f:
+                    f.write(extracted.reproduce)

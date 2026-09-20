@@ -82,7 +82,7 @@ def explain_compiler_output(output, args):
         if args.debug:
             print("explanation_text:", explanation_text, file=sys.stderr)
 
-        message_lines = message.text
+        message_lines = list(message.text)
         if not explanation or explanation.show_note:
             message_lines += message.note
 
@@ -147,10 +147,7 @@ class Message:
         )
 
     def has_ansi_codes(self):
-        return (
-            self.text != self.text_without_ansi_codes
-            or self.note != self.note_without_ansi_codes
-        )
+        return any("\x1b" in line for line in self.text + self.note)
 
     def __str__(self):
         t = self.text_without_ansi_codes
@@ -158,6 +155,14 @@ class Message:
         u = self.underlined_word
         n = self.note_without_ansi_codes
         return f"Message(note_without_ansi_codes='{t}', highlighted_word='{h}', underlined_word='{u}',  note_without_ansi_codes='{n}')"
+
+
+# a note pointing into one of these is about the library, not the student's code
+SYSTEM_HEADER_RE = re.compile(r"^(/usr/|/Library/|/opt/|.*/include/)")
+
+
+def is_system_header(pathname):
+    return bool(SYSTEM_HEADER_RE.match(pathname))
 
 
 def get_next_message(lines):
@@ -178,6 +183,7 @@ def get_next_message(lines):
     e.text = [line]
     e.text_without_ansi_codes = [colorless_line]
     parsing_note = False
+    skipping_note = False
 
     while lines:
         next_line = lines[0]
@@ -186,8 +192,12 @@ def get_next_message(lines):
         colorless_next_line = colors.strip_color(lines[0])
         m = re.match(r"^\S.*:\d+:", colorless_next_line)
         if m:
-            if re.match(r"^\S.*?:\d+:\d+:\s*note:", colorless_next_line):
+            note = re.match(r"^(\S.*?):\d+:\d+:\s*note:", colorless_next_line)
+            if note:
                 parsing_note = True
+                # a note about a library header tells a novice nothing they
+                # can act on, so it and the source it quotes are left out
+                skipping_note = is_system_header(note.group(1))
             else:
                 break
 
@@ -196,9 +206,14 @@ def get_next_message(lines):
         if colorless_next_line.endswith(" generated."):
             break
 
+        if re.match(r"^(In file included from|\s+from)\s", colorless_next_line):
+            # this names the header a message came through, not the student's mistake
+            continue
+
         if parsing_note:
-            e.note.append(next_line)
-            e.note_without_ansi_codes.append(colorless_next_line)
+            if not skipping_note:
+                e.note.append(next_line)
+                e.note_without_ansi_codes.append(colorless_next_line)
             continue
 
         if re.match(r"^[ ~\d|]*\^[ ~]*$", colorless_next_line):
@@ -239,7 +254,7 @@ def run_compile_time_helper(message, args):
         return False
 
     message_text = "\n".join(message.text_without_ansi_codes)
-    explanation = get_explanation(message, lambda text, color_name: text)
+    explanation = get_explanation(message, colorize_output=False)
     explanation_text = explanation.text.rstrip("\n") if explanation else ""
     explanation_label = explanation.label if explanation else ""
     loc = util.Location(message.file, message.line_number)
@@ -248,7 +263,7 @@ def run_compile_time_helper(message, args):
     source = ""
     try:
         if os.path.getsize(message.file) < util.MAX_FILE_SIZE_PASSED_TO_HELPER:
-            with open(message.file) as f:
+            with open(message.file, encoding="utf-8", errors="replace") as f:
                 source = f.read(util.MAX_FILE_SIZE_PASSED_TO_HELPER)
     except OSError:
         pass
@@ -283,7 +298,7 @@ def run_compile_time_helper(message, args):
     try:
         sys.stdout.flush()
         sys.stderr.flush()
-        p = subprocess.run([args.compile_helper])
+        p = subprocess.run([args.compile_helper], check=False)
         return p.returncode == 0
     except OSError as e:
         if args.debug:
