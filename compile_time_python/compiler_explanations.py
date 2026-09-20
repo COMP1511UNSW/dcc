@@ -218,6 +218,22 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
+        label="incomplete_array_element_type",
+        regex=r"array (type )?has incomplete element type .[^'’]*\[\][^'’]*['’]",
+        explanation="""\
+you have declared a multidimensional array with no size for a dimension other than the first.
+Every dimension except the first needs a size, for example **int map[][8]** not **int map[][]**,
+because the compiler needs the length of a row to work out where **map[i][j]** is in memory.
+""",
+        reproduce="""\
+void print_map(int map[][]);
+
+int main(void) {
+    return 0;
+}
+""",
+    ),
+    Explanation(
         label="assign_to_multidimensional_array",
         regex=r"array type .*?\]\[.* is not assignable",
         explanation="""\
@@ -517,6 +533,46 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
+        label="printf_null_string",
+        regex=r"[‘'](%[^’'\n]*)[’'] directive argument is null",
+        explanation="""\
+you are using a NULL pointer where **{match.group(1)}** needs a string.
+**{match.group(1)}** needs a pointer to a string and NULL is not a string.
+Check the pointer has been assigned a string before you use it here.
+""",
+        reproduce="""\
+#include <stdio.h>
+
+int main(void) {
+    char *p = NULL;
+    printf("%s", p);
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="printf_null_argument",
+        regex=r"argument (\d+) null where non-null expected",
+        # only the printf->puts rewrite tells us the NULL argument is the string
+        precondition=lambda message, match: extract_rewritten_builtin(message) == "puts"
+        and extract_function_name(message.highlighted_word) != "puts",
+        explanation="""\
+you are passing a NULL pointer to '**{extract_function_name(highlighted_word)}**' to be printed.
+NULL is not a string, so there is nothing for '**{extract_function_name(highlighted_word)}**' to print.
+Check the pointer has been assigned a string before you print it.
+""",
+        show_note=False,
+        reproduce="""\
+#include <stdio.h>
+
+int main(void) {
+    char *p = NULL;
+    printf("%s\\n", p);
+    return 0;
+}
+""",
+    ),
+    Explanation(
         label="nonnull",
         regex=r"argument (\d+) null where non-null expected",
         explanation="""\
@@ -697,7 +753,7 @@ int main(void) {
     ),
     Explanation(
         label="h_file_not_found",
-        regex=r"s.*o.h' file not found",
+        regex=r"'s\w*o\.h' file not found",
         explanation="""\
 you are attempting to #include a file which does not exist.
 Did you mean: '**#include <stdio.h>**'
@@ -1017,6 +1073,89 @@ int main(void) {
 """,
     ),
     Explanation(
+        label="incomplete_definition_of_struct",
+        regex=r"incomplete definition of type '(struct \w+)'",
+        explanation="""\
+the definition of **{match.group(1)}** is not visible in {file}, so its fields can not be used here.
+Check you have spelled the struct name correctly and #included the file which defines it.
+If it is an ADT, its definition is deliberately hidden in the .c file which implements it,
+and you have to use the functions that ADT provides instead of accessing its fields yourself.
+""",
+        reproduce="""\
+struct card;
+
+int value(struct card *c) {
+    return c->value;
+}
+
+int main(void) {
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="struct_not_visible_outside_function",
+        regex=r"declaration of '(struct \w+)' will not be visible outside of this function",
+        explanation="""\
+**{match.group(1)}** has not been declared before it is used on line {line_number} of {file}.
+Move the definition of **{match.group(1)}** above this line,
+otherwise it is a different struct to the one of the same name elsewhere in {file}.
+""",
+        reproduce="""\
+void add_to_list(struct list *list, int value);
+
+int main(void) {
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="redefinition_as_different_kind_of_symbol",
+        regex=r"redefinition of '(\w+)' as different kind of symbol",
+        explanation="""\
+'**{match.group(1)}**' is already the name of something else, for example a type.
+Check line {line_number} of {file} for a mistake such as an extra type before '**{match.group(1)}**',
+otherwise give one of the two things a different name.
+""",
+        reproduce="""\
+typedef struct card *Card;
+
+static int Card(int game);
+
+int main(void) {
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="unterminated_conditional_directive",
+        regex=r"unterminated conditional directive",
+        explanation="""\
+you have a **#if**, **#ifdef** or **#ifndef** on line {line_number} of {file} with no matching **#endif**.
+""",
+        reproduce="""\
+#ifndef GAME_H
+#define GAME_H
+
+int main(void) {
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="endif_without_if",
+        regex=r"#endif without #if",
+        explanation="""\
+you have an **#endif** on line {line_number} of {file} with no matching **#if**, **#ifdef** or **#ifndef**.
+""",
+        reproduce="""\
+int main(void) {
+    return 0;
+}
+#endif
+""",
+    ),
+    Explanation(
         regex=r"unknown escape sequence '\\(.)'",
         explanation="""\
 if you want an actual backslash in your string use **{BACKSLASH * 2}**
@@ -1034,6 +1173,16 @@ int main(void) {
 
 def extract_function_name(string):
     return re.sub(r"\(.*", "", string)
+
+
+# gcc can rewrite a call, for example printf("%s\n", p) into __builtin_puts(p),
+# and then number the arguments of the rewritten call, not the call in the source
+def extract_rewritten_builtin(message):
+    for note in message.note_without_ansi_codes:
+        m = re.search(r"in a call to built-in function .(__builtin_)?(\w+)", note)
+        if m:
+            return m.group(2)
+    return ""
 
 
 def extract_argument_variable(string, argument_number, emphasize):

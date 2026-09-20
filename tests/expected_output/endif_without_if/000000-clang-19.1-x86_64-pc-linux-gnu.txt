@@ -1,0 +1,4 @@
+endif_without_if.c:4:2: error: #endif without #if
+    4 | #endif
+      |  ^
+dcc explanation: you have an #endif on line 4 of endif_without_if.c with no matching #if, #ifdef or #ifndef.

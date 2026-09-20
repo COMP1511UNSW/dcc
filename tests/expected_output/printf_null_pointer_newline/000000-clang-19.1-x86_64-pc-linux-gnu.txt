@@ -1,0 +1,7 @@
+printf_null_pointer_newline.c: In function ‘main’:
+printf_null_pointer_newline.c:5:5: warning: argument 1 null where non-null expected [-Wnonnull]
+    5 |     printf("%s\n", name);
+      |     ^~~~~~~~~~~~~~~~~~~~
+dcc explanation: you are passing a NULL pointer to 'printf' to be printed.
+NULL is not a string, so there is nothing for 'printf' to print.
+Check the pointer has been assigned a string before you print it.

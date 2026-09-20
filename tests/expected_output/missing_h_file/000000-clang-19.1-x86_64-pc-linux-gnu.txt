@@ -1,0 +1,3 @@
+missing_h_file.c:1:10: fatal error: 'foo.h' file not found
+    1 | #include <foo.h>
+      |          ^~~~~~~
