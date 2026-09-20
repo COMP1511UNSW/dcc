@@ -6,6 +6,7 @@ static int init_check_output(void) {
 	return 0;
 }
 
+static void __dcc_check_output(int fd, const char *buf, size_t size) MAYBE_UNUSED;
 static void __dcc_check_output(int fd, const char *buf, size_t size) {
 	(void)fd; // avoid unused parameter warning
 	(void)buf; // avoid unused parameter warning
@@ -13,6 +14,7 @@ static void __dcc_check_output(int fd, const char *buf, size_t size) {
 	expected_stdout = (unsigned char *)getenv("DCC_EXPECTED_STDOUT");
 }
 
+static void __dcc_check_close(int fd) MAYBE_UNUSED;
 static void __dcc_check_close(int fd) {
 	(void)fd; // avoid unused parameter warning
 }
@@ -155,7 +157,7 @@ static void __dcc_compare_output(unsigned char *actual, size_t size) {
 	int expected_bytes_in_line = get_next_expected_line();
 	debug_printf(2, " __dcc_compare_output() n_actual_lines_seen=%d\n", n_actual_lines_seen);
 	for (size_t i = 0; i < size; i++) {
-		if (max_stdout_bytes && (n_actual_line + n_actual_bytes_seen) > max_stdout_bytes) {
+		if (max_stdout_bytes && (n_actual_line + n_actual_bytes_seen) >= max_stdout_bytes) {
 			n_actual_lines_seen++;
 			actual_line[n_actual_line] = '\0';
 			__dcc_compare_output_error("too much output", n_actual_line, -1);
@@ -307,7 +309,8 @@ static int get_next_expected_line1(void) {
 
 static void __dcc_compare_output_error(const char *reason, int actual_column, int expected_column) {
 	debug_printf(2, "__dcc_compare_output_error(%s)\n", reason);
-	char buffer[6][128];
+	// putenv does not copy strings, so the buffers must outlive this function
+	static char buffer[6][128];
 	snprintf(buffer[0], sizeof buffer[0], "DCC_OUTPUT_ERROR=%s", reason);
 	snprintf(buffer[1], sizeof buffer[1], "DCC_ACTUAL_LINE_NUMBER=%zu", n_actual_lines_seen);
 	snprintf(buffer[2], sizeof buffer[2], "DCC_N_EXPECTED_BYTES_SEEN=%zu", n_expected_bytes_seen);
@@ -317,7 +320,7 @@ static void __dcc_compare_output_error(const char *reason, int actual_column, in
 	for (int i = 0; i < (int)(sizeof buffer / sizeof buffer[0]); i++)
 		putenvd(buffer[i]);
 
-	char line_buffer[2][128 + ACTUAL_LINE_MAX];
+	static char line_buffer[2][128 + ACTUAL_LINE_MAX];
 	snprintf(line_buffer[0], sizeof line_buffer[0], "DCC_ACTUAL_LINE=%s", actual_line);
 	snprintf(line_buffer[1], sizeof line_buffer[1], "DCC_EXPECTED_LINE=%s", expected_line);
 	for (int i = 0; i < (int)(sizeof line_buffer / sizeof line_buffer[0]); i++)

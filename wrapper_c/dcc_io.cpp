@@ -74,7 +74,8 @@ extern "C" void __dcc_replace_cin(FILE *stream) {
 extern "C" void __dcc_restore_cin(void) {
 	if (original_cin_streambuf) {
 		delete std::cin.rdbuf(original_cin_streambuf);
-	} 
+		original_cin_streambuf = NULL;
+	}
 }
 
 
@@ -87,8 +88,9 @@ extern "C" void __dcc_replace_cout(FILE *stream) {
 extern "C" void __dcc_restore_cout() {
 	if (original_cout_streambuf) {
 		std::cout << std::flush;
-		delete std::cout.rdbuf(original_cout_streambuf); 
-	} 
+		delete std::cout.rdbuf(original_cout_streambuf);
+		original_cout_streambuf = NULL;
+	}
 }
 
 
@@ -101,6 +103,7 @@ extern "C" void __dcc_replace_cerr(FILE *stream) {
 extern "C" void __dcc_restore_cerr() {
 	if (original_cerr_streambuf) {
 		std::cerr << std::flush;
-		delete std::cerr.rdbuf(original_cerr_streambuf); 
-	} 
+		delete std::cerr.rdbuf(original_cerr_streambuf);
+		original_cerr_streambuf = NULL;
+	}
 }

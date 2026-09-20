@@ -5,7 +5,9 @@ struct cookie {
 	FILE *cookie_stream;
 	int fd;
 };
+#if __N_SANITIZERS__ > 1
 static void synchronization_failed(void);
+#endif
 static FILE *open_cookie(void *cookie, const char *mode);
 
 
@@ -45,6 +47,9 @@ static void init_cookies(void) {
 	// this should be workable
 	setlinebuf(stdin);
 	setlinebuf(stdout);
+	// the replacement stderr stream must not be fully buffered, or output is
+	// delayed until the program exits; it is flushed before an error is reported
+	setlinebuf(stderr);
 #if __CPP_MODE__
 	extern void __dcc_replace_cin(FILE *stream);
 	extern void __dcc_replace_cout(FILE *stream);
@@ -132,6 +137,31 @@ int puts(const char *s) {
 #define synchronize_system_call(which, n)
 #define synchronize_system_call_result(which, value) 0
 
+static void __dcc_check_output_exit(void);
+
+// check all the expected output has been produced when the program exits
+// a destructor is needed because stdio does not close streams at exit,
+// so __dcc_cookie_close is not called for stdout
+static void __dcc_cleanup_before_exit(void) __attribute__((destructor));
+static void __dcc_cleanup_before_exit(void) {
+	debug_printf(3, "__dcc_cleanup_before_exit\n");
+	// a destructor is only run once, but guard against a second call anyway
+	static int cleanup_started;
+	if (cleanup_started) {
+		return;
+	}
+	cleanup_started = 1;
+	__dcc_check_output_exit();
+#if __CPP_MODE__
+	extern void __dcc_restore_cin(void);
+	extern void __dcc_restore_cout(void);
+	extern void __dcc_restore_cerr(void);
+	__dcc_restore_cin();
+	__dcc_restore_cout();
+	__dcc_restore_cerr();
+#endif
+}
+
 #else
 
 enum which_system_call {
@@ -205,14 +235,26 @@ static void stop_sanitizer2(void);
 #if __I_AM_SANITIZER1__
 static int sanitizer2_killed;
 
+// set by note_sanitizer2_error when sanitizer2 signals that it found an error
+// sanitizer2 has already explained the error, so only the exit status is needed
+static volatile sig_atomic_t sanitizer2_reported_error;
+
+static void note_sanitizer2_error(int signum) NO_SANITIZE;
+static void note_sanitizer2_error(int signum) {
+	(void)signum;
+	sanitizer2_reported_error = 1;
+}
+
 static void wait_for_sanitizer2_to_terminate(void) {
+	// set_signals_default leaves SIGUSR1 handled by note_sanitizer2_error
 	set_signals_default();
 	debug_printf(3, "waiting\n");
 	if (!sanitizer2_killed) {
-		// sanitizer2 sends SIGUSR1 if its printing an error
-		signal(SIGUSR1, SIG_IGN);
 		signal(SIGPIPE, SIG_IGN);
-		pid_t pid = wait(NULL);
+		pid_t pid;
+		do {
+			pid = wait(NULL);
+		} while (pid < 0 && errno == EINTR);
 		debug_printf(3, "wait returned %d\n", pid);
 		if (pid != sanitizer2_pid) {
 			stop_sanitizer2();
@@ -228,6 +270,12 @@ static void __dcc_check_output_exit(void);
 static void __dcc_cleanup_before_exit(void) __attribute__((destructor));
 static void __dcc_cleanup_before_exit(void) {
 	debug_printf(3, "__dcc_cleanup_before_exit\n");
+	// __dcc_error_exit also calls this, so it can be re-entered
+	static int cleanup_started;
+	if (cleanup_started) {
+		return;
+	}
+	cleanup_started = 1;
 	__dcc_check_output_exit();
 #if __CPP_MODE__
 	extern void __dcc_restore_cin(void);
@@ -243,6 +291,16 @@ static void __dcc_cleanup_before_exit(void) {
 	wait_for_sanitizer2_to_terminate();
 #endif
 	unlink_sanitizer2_executable();
+#if __I_AM_SANITIZER1__
+	if (sanitizer2_reported_error) {
+		// the program has an error even though main finished normally
+		// the output the program has produced is flushed first,
+		// because _exit does not flush and the error is not the program's fault
+		debug_printf(2, "sanitizer2 reported an error, exiting with status 1\n");
+		fflush(NULL);
+		_exit(1);
+	}
+#endif
 }
 
 
@@ -303,7 +361,7 @@ static void synchronize_system_call(enum which_system_call which, int64_t n) {
 	s.n = n;
 	ssize_t n_bytes_written = write(from_sanitizer2_pipe[1], &s, sizeof s);
 	if (n_bytes_written != sizeof (struct system_call)) {
-		debug_printf(1, "system_called_reached error: write returned %d != %d\n", n_bytes_written, (int)sizeof sizeof (struct system_call));
+		debug_printf(1, "system_called_reached error: write returned %d != %d\n", (int)n_bytes_written, (int)sizeof (struct system_call));
 		synchronization_failed();
 	}
 	debug_printf(3, "synchronize_system_call(%s, %d) returning\n", system_call_names[which], (int)n);
@@ -327,7 +385,7 @@ static int64_t synchronize_system_call_result(enum which_system_call which, int6
 	s.n = return_value;
 	ssize_t n_bytes_written = write(to_sanitizer2_pipe[1], &s, sizeof s);
 	if (n_bytes_written != sizeof (struct system_call)) {
-		debug_printf(1, "synchronize_system_call_result(%s) error: write returned %d != %d\n", system_call_names[which], n_bytes_written, (int)sizeof sizeof (struct system_call));
+		debug_printf(1, "synchronize_system_call_result(%s) error: write returned %d != %d\n", system_call_names[which], (int)n_bytes_written, (int)sizeof (struct system_call));
 		synchronization_failed();
 	}
 	debug_printf(3, "synchronize_system_call_result(%s) returning %d\n", system_call_names[which], (int)return_value);
@@ -339,7 +397,7 @@ static int64_t synchronize_system_call_result(enum which_system_call which) {
 	struct system_call s = {0};
 	ssize_t n_bytes_read = read(to_sanitizer2_pipe[0], &s, sizeof s);
 	if (n_bytes_read != sizeof s) {
-		debug_printf(1, "synchronize_system_call_result error: read returned %d != %d\n", n_bytes_read, (int)sizeof s);
+		debug_printf(1, "synchronize_system_call_result error: read returned %d != %d\n", (int)n_bytes_read, (int)sizeof s);
 		synchronization_failed();
 	} else if (which != s.which) {
 		debug_printf(1, "synchronize_system_call_result error: which %d != %d\n", which, s.which);
@@ -387,14 +445,22 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 	(void)v; // avoid unused parameter warning
 	ssize_t n_bytes_read = synchronize_system_call_result(sc_read);
 	if (n_bytes_read > 0) {
-		ssize_t n_bytes_actually_read = read(to_sanitizer2_pipe[0], buf, n_bytes_read);
+		// the data may arrive in several pieces if it is larger than PIPE_BUF
+		ssize_t n_bytes_actually_read = 0;
+		while (n_bytes_actually_read < n_bytes_read) {
+			ssize_t n = read(to_sanitizer2_pipe[0], buf + n_bytes_actually_read, n_bytes_read - n_bytes_actually_read);
+			if (n <= 0) {
+				break;
+			}
+			n_bytes_actually_read += n;
+		}
 		if (n_bytes_read != n_bytes_actually_read) {
 			debug_printf(1, "__dcc_cookie_read error: read returned %d != %d\n", (int)n_bytes_read, (int)n_bytes_actually_read);
 			synchronization_failed();
 		}
 	}
 #endif
-    debug_printf(5, "__dcc_save_stdin %x\n", v);
+    debug_printf(5, "__dcc_save_stdin %p\n", v);
     if (v != NULL && ((struct cookie *)v)->stream != NULL && ((struct cookie *)v)->fd == 0) {
 	    __dcc_save_stdin(buf, n_bytes_read);
 	}
@@ -689,6 +755,7 @@ static void unlink_sanitizer2_executable(void) {
 }
 #endif
 
+static int cookie_stream_to_fd(FILE *stream) MAYBE_UNUSED;
 static int cookie_stream_to_fd(FILE *stream) {
 	int fd = -1;
 	for (int i = 0; i < FOPEN_MAX; i++) {
@@ -715,6 +782,7 @@ int __wrap_fileno(FILE *stream) {
 #if __I_AM_SANITIZER1__
 	return synchronize_system_call_result(sc_fileno, cookie_stream_to_fd(stream));
 #else
+	(void)stream; // avoid unused parameter warning
 	return synchronize_system_call_result(sc_fileno);
 #endif
 }

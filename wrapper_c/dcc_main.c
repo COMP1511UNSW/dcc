@@ -82,8 +82,10 @@ int __real_main(int argc, char *argv[], char *envp[]);
 
 //static void __dcc_start(void) __attribute__((constructor)) NO_SANITIZE;
 static void __dcc_start(void) NO_SANITIZE;
-void __dcc_error_exit(void) NO_SANITIZE;
+void __dcc_error_exit(void) NO_SANITIZE __attribute__((noreturn));
 static void __dcc_signal_handler(int signum) NO_SANITIZE;
+static void __dcc_segv_handler(int signum, siginfo_t *info, void *context) NO_SANITIZE;
+static long __dcc_gettid(void) NO_SANITIZE;
 static void set_signals_default(void) NO_SANITIZE;
 static void launch_valgrind(int argc, char *argv[]) NO_SANITIZE;
 static void setenvd_int(const char *n, int v) NO_SANITIZE;
@@ -92,10 +94,10 @@ static void putenvd(const char *s) NO_SANITIZE;
 #ifndef debug_printf
 static int debug_printf(int level, const char *format, ...) NO_SANITIZE;
 #endif
-static void _explain_error(void) NO_SANITIZE;
+static void _explain_error(void) NO_SANITIZE __attribute__((noreturn));
 static void clear_stack(void) NO_SANITIZE;
 static void quick_clear_stack(void) NO_SANITIZE;
-static int __dcc_run_sanitizer1(int argc, char *argv[]);
+static int __dcc_run_sanitizer1(int argc, char *argv[]) MAYBE_UNUSED;
 
 
 #undef main
@@ -133,9 +135,17 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	__dcc_start();
 	(void)envp; // avoid unused parameter warning
 	debug_stream = stderr;
-	to_sanitizer2_pipe[0] = atoi(getenv("DCC_PIPE_TO_CHILD"));
-	from_sanitizer2_pipe[1] = atoi(getenv("DCC_PIPE_FROM_CHILD"));
-	argv[0] = getenv("DCC_ARGV0");
+	// this executable is only meant to be run by the sanitizer1 executable
+	char *pipe_to_child = getenv("DCC_PIPE_TO_CHILD");
+	char *pipe_from_child = getenv("DCC_PIPE_FROM_CHILD");
+	char *argv0 = getenv("DCC_ARGV0");
+	if (!pipe_to_child || !pipe_from_child || !argv0) {
+		fprintf(stderr, "%s: this program can not be run directly\n", argv[0]);
+		exit(1);
+	}
+	to_sanitizer2_pipe[0] = atoi(pipe_to_child);
+	from_sanitizer2_pipe[1] = atoi(pipe_from_child);
+	argv[0] = argv0;
 	init_cookies();
 	clear_stack();
 	extern char **environ;
@@ -245,9 +255,11 @@ static int __dcc_run_sanitizer1(int argc, char *argv[]) {
 	int r = __real_main(argc, argv, environ);
 
 	// in some circumstances leaks are not detected without this call
+	// the non-recoverable check is used so that leaks are reported only once:
+	// it exits if leaks are found and stops the check at exit repeating them
 #if __LEAK_CHECK_1_0__ && __SANITIZER__ == ADDRESS
-	extern int __lsan_do_recoverable_leak_check();
-	__lsan_do_recoverable_leak_check();
+	extern void __lsan_do_leak_check(void);
+	__lsan_do_leak_check();
 #endif
 
 	debug_printf(2, "__real_main returning %d\n", r);

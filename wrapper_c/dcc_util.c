@@ -2,6 +2,8 @@
 #define MEMORY_FILL_STR "aa"
 #define MEMORY_FILL_INT_STR "170"
 
+// only used when valgrind is one of the sanitizers
+static void launch_valgrind(int argc, char *argv[]) MAYBE_UNUSED;
 static void launch_valgrind(int argc, char *argv[]) {
     debug_printf(2, "command=%s\n", "__MONITOR_VALGRIND__");
 #if __N_SANITIZERS__ > 1
@@ -32,12 +34,13 @@ static void launch_valgrind(int argc, char *argv[]) {
                                        "--vgdb=yes",
                                        "--leak-check=__LEAK_CHECK_YES_NO__",
                                        "--show-leak-kinds=all",
-                                       "--suppressions=__SUPRESSIONS_FILE__",
+                                       "--suppressions=" __SUPRESSIONS_FILE__,
                                        "--max-stackframe=16000000",
                                        "--partial-loads-ok=no",
                                        "--malloc-fill=0x" MEMORY_FILL_STR,
                                        "--free-fill=0x" MEMORY_FILL_STR,
                                        "--vgdb-error=1",
+                                       "--error-exitcode=1",
                                        "--" };
 
     int valgrind_command_len =
@@ -63,6 +66,9 @@ static void launch_valgrind(int argc, char *argv[]) {
     debug_printf(1, "execvp of /usr/bin/valgrind failed");
 }
 
+// an address near the top of the stack, used to recognize a stack overflow
+static char *stack_top;
+
 static void __dcc_start(void) {
     char *debug_level_string = getenv("DCC_DEBUG");
     if (debug_level_string) {
@@ -71,13 +77,25 @@ static void __dcc_start(void) {
     debug_printf(2, "__dcc_start debug_level=%d\n", debug_level);
 
     setenvd("DCC_SANITIZER", "__SANITIZER__");
-    setenvd("DCC_PATH", "__PATH__");
+    setenvd("DCC_PATH", __PATH__);
 
     setenvd_int("DCC_PID", getpid());
 
     signal(SIGABRT, __dcc_signal_handler);
-    signal(SIGSEGV, __dcc_signal_handler);
     signal(SIGINT, __dcc_signal_handler);
+
+    // a stack overflow, e.g. from infinite recursion, leaves no stack for a
+    // signal handler to run on, so SIGSEGV is handled on an alternate stack
+    static char alternate_stack[65536];
+    stack_t alternate = { .ss_sp = alternate_stack, .ss_size = sizeof alternate_stack, .ss_flags = 0 };
+    sigaltstack(&alternate, NULL);
+    struct sigaction segv_action;
+    memset(&segv_action, 0, sizeof segv_action);
+    segv_action.sa_sigaction = __dcc_segv_handler;
+    segv_action.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&segv_action.sa_mask);
+    sigaction(SIGSEGV, &segv_action, NULL);
+    stack_top = (char *)&alternate;
     signal(SIGXCPU, __dcc_signal_handler);
     signal(SIGXFSZ, __dcc_signal_handler);
     signal(SIGFPE, __dcc_signal_handler);
@@ -124,8 +142,8 @@ void __asan_on_error(void) {
     extern int __asan_report_present();
     extern void *__asan_get_report_address();
     extern size_t __asan_get_alloc_stack(void *, void **, size_t, int *);
-    // putenv does not copy strings, we need to alloc it outside the if block scope
-    char thread_env[64];
+    // putenv does not copy strings, so the buffer must outlive this function
+    static char thread_env[64];
     if (__asan_report_present()) {
         report = __asan_get_report_description();
 
@@ -135,7 +153,7 @@ void __asan_on_error(void) {
         putenvd(thread_env);
     }
 #endif
-    char report_description[8192];
+    static char report_description[8192];
     snprintf(report_description, sizeof report_description, "DCC_ASAN_ERROR=%s",
              report);
     putenvd(report_description);
@@ -186,8 +204,9 @@ void __ubsan_on_report(void) {
     __ubsan_get_current_report_data(&OutIssueKind, &OutMessage, &OutFilename,
                                     &OutLine, &OutCol, &OutMemoryAddr);
 
-    // buffer + putenv is ugly - but safer?
-    char buffer[6][128];
+    // putenv does not copy strings, so the buffers must outlive this function
+    // the message and filename can be long so the buffers are generous
+    static char buffer[6][4096];
     snprintf(buffer[0], sizeof buffer[0], "DCC_UBSAN_ERROR_KIND=%s",
              OutIssueKind);
     snprintf(buffer[1], sizeof buffer[1], "DCC_UBSAN_ERROR_MESSAGE=%s",
@@ -199,7 +218,7 @@ void __ubsan_on_report(void) {
     snprintf(buffer[5], sizeof buffer[5], "DCC_UBSAN_ERROR_MEMORYADDR=%s",
              OutMemoryAddr);
     for (int i = 0; i < (int)(sizeof buffer / sizeof buffer[0]); i++)
-        putenv(buffer[i]);
+        putenvd(buffer[i]);
 #endif
     _explain_error();
     // not reached
@@ -210,6 +229,15 @@ const char *__ubsan_default_options(void) {
     return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__";
 }
 #endif
+
+// gettid was only added to glibc in 2.30 and does not exist on macOS
+static long __dcc_gettid(void) {
+#ifdef SYS_gettid
+    return (long)syscall(SYS_gettid);
+#else
+    return (long)getpid();
+#endif
+}
 
 static void set_signals_default(void) {
     debug_printf(2, "set_signals_default()\n");
@@ -222,13 +250,56 @@ static void set_signals_default(void) {
     signal(SIGILL, SIG_DFL);
 #if __N_SANITIZERS__ > 1
     signal(SIGPIPE, SIG_DFL);
+#if __I_AM_SANITIZER1__
+    // sanitizer2 sends SIGUSR1 when it reports an error, which must not be
+    // lost while sanitizer1 is winding down, because it sets the exit status
+    signal(SIGUSR1, note_sanitizer2_error);
+#else
     signal(SIGUSR1, SIG_IGN);
 #endif
+#endif
+}
+
+// how far from the end of the stack a fault may be and still be an overflow
+#define STACK_OVERFLOW_SLACK 1048576
+
+// set if the faulting address looks like a stack overflow
+static volatile sig_atomic_t stack_overflow_detected;
+
+// a fault just past the end of the stack is a stack overflow,
+// usually from infinite recursion
+//
+// only the main thread is recognized: stack_top is its stack and
+// sigaltstack is per-thread, so a thread which overflows its own stack
+// gets the generic explanation for an invalid memory access
+static void __dcc_segv_handler(int signum, siginfo_t *info, void *context) {
+    (void)context;
+    struct rlimit stack_limit;
+    if (info && stack_top && getrlimit(RLIMIT_STACK, &stack_limit) == 0 &&
+        stack_limit.rlim_cur != RLIM_INFINITY) {
+        char *fault_address = (char *)info->si_addr;
+        // the stack occupies [stack_top - rlim_cur, stack_top], so an overflow
+        // faults near its lowest address and not merely somewhere below stack_top
+        if (fault_address < stack_top) {
+            size_t depth = (size_t)(stack_top - fault_address);
+            size_t limit = (size_t)stack_limit.rlim_cur;
+            if (depth + STACK_OVERFLOW_SLACK > limit &&
+                depth < limit + STACK_OVERFLOW_SLACK) {
+                stack_overflow_detected = 1;
+            }
+        }
+    }
+    // the environment is set in __dcc_signal_handler, after the handlers have
+    // been reset, because putenv is not safe to call from a signal handler
+    __dcc_signal_handler(signum);
 }
 
 static void __dcc_signal_handler(int signum) {
     debug_printf(2, "received signal %d\n", signum);
     set_signals_default();
+    if (stack_overflow_detected) {
+        putenvd("DCC_STACK_OVERFLOW=1");
+    }
 #if __N_SANITIZERS__ > 1
 #if __I_AM_SANITIZER1__
     if (signum == SIGPIPE) {
@@ -245,13 +316,14 @@ static void __dcc_signal_handler(int signum) {
 #endif
 #endif
 
-    char signum_buffer[64];
+    // putenv does not copy strings, so the buffers must outlive this function
+    static char signum_buffer[64];
     snprintf(signum_buffer, sizeof signum_buffer, "DCC_SIGNAL=%d", (int)signum);
     putenvd(
         signum_buffer); // less likely? to trigger another error than direct setenv
 
-    char threadid_buffer[64];
-    snprintf(threadid_buffer, sizeof threadid_buffer, "DCC_SIGNAL_THREAD=%ld", (long)gettid());
+    static char threadid_buffer[64];
+    snprintf(threadid_buffer, sizeof threadid_buffer, "DCC_SIGNAL_THREAD=%ld", __dcc_gettid());
     putenvd(threadid_buffer);
 
     _explain_error(); // not reached
