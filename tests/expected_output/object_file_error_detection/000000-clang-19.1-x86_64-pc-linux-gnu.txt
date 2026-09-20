@@ -1,0 +1,8 @@
+dcc: note: uninitialized variables will not be detected (object files being linked)
+=================================================================
+
+Runtime error: stack buffer overflow
+dcc explanation: access past the end of a local variable.
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+Execution stopped in main() in overflow.c at line 5:

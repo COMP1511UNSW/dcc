@@ -311,6 +311,15 @@ def get_options():
                 )
             else:
                 options.sanitizers = ["address"]
+                # -c already warns, the link step was silent about
+                # AddressSanitizer alone not detecting uninitialized variables
+                if (
+                    options.object_files_being_linked
+                    and not options.incremental_compilation
+                ):
+                    options.warn(
+                        f"note: uninitialized variables will not be detected ({reason})"
+                    )
         elif search_path("valgrind"):
             options.sanitizers = ["address", "valgrind"]
         else:
