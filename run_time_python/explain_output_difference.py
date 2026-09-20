@@ -15,7 +15,7 @@ def explain_output_difference(color):
 
 def explain_output_difference1(output_stream, color):
     # values supplied for expected output for this execution
-    expected_stdout = os.environb.get(b"DCC_EXPECTED_STDOUT", "")
+    expected_stdout = os.environb.get(b"DCC_EXPECTED_STDOUT", b"")
     # 	ignore_case = getenv_boolean('DCC_IGNORE_CASE')
     # 	ignore_empty_lines = getenv_boolean('DCC_IGNORE_EMPTY_LINES')
     ignore_trailing_white_space = getenv_boolean(
@@ -31,8 +31,8 @@ def explain_output_difference1(output_stream, color):
     n_expected_bytes_seen = getenv_int("DCC_N_EXPECTED_BYTES_SEEN")
     n_actual_bytes_seen = getenv_int("DCC_N_ACTUAL_BYTES_SEEN")
 
-    expected_line = os.environb.get(b"DCC_EXPECTED_LINE", "")
-    actual_line = os.environb.get(b"DCC_ACTUAL_LINE", "")
+    expected_line = os.environb.get(b"DCC_EXPECTED_LINE", b"")
+    actual_line = os.environb.get(b"DCC_ACTUAL_LINE", b"")
     expected_column = getenv_int("DCC_EXPECTED_COLUMN")
     actual_column = getenv_int("DCC_ACTUAL_COLUMN")
 
@@ -80,9 +80,13 @@ def explain_output_difference1(output_stream, color):
 
     if reason == "too much output":
         print("program produced", danger("too much output."), file=output_stream)
-        print("Your program printed", actual_column, "bytes.")
+        # actual_column is the length of the current incomplete line, and the
+        # limit was exceeded by the byte after those counted, so this is a bound
+        n_bytes_printed = n_actual_bytes_seen + actual_column
+        print("Your program printed more than", n_bytes_printed, "bytes.", file=output_stream)
         print("Do you have an infinite loop?", file=output_stream)
-        print_line(actual_line, "last", danger, output_stream)
+        if actual_line:
+            print_line(actual_line, "last", danger, output_stream)
         return
 
     if reason == "zero byte":
@@ -175,7 +179,13 @@ def explain_output_difference1(output_stream, color):
         file=output_stream,
     )
     if not actual_line[actual_column + 1 :]:
-        if actual_line.rstrip(b"\n") + expected_byte == expected_line.rstrip(b"\n"):
+        if expected_byte is None:
+            # the expected line has been exhausted but the program printed more
+            print(
+                "Your program printed extra characters at the end of the line.",
+                file=output_stream,
+            )
+        elif actual_line.rstrip(b"\n") + expected_byte == expected_line.rstrip(b"\n"):
             print(
                 "A",
                 "'" + danger(sanitize(expected_byte)) + "'",
@@ -200,7 +210,7 @@ def explain_output_difference1(output_stream, color):
     print(correct_prefix, end="", file=output_stream)
 
     incorrect_byte = actual_line[actual_column : actual_column + 1]
-    if incorrect_byte == " ":
+    if incorrect_byte == b" ":
         print(danger(sanitize(incorrect_byte), bg="red"), end="", file=output_stream)
     else:
         print(danger(sanitize(incorrect_byte)), end="", file=output_stream)
@@ -231,9 +241,9 @@ def sanitize(line, max_line_length_shown=256):
 
 
 def check_bad_characters(line, line_number, danger, expected):
-    if re.search(rb"[\x00-\x08\x14-\x1f\x7f-\xff]", expected):
+    if re.search(rb"[\x00-\x08\x0e-\x1f\x7f-\xff]", expected):
         return None
-    m = re.search(rb"^(.*?)([\x00-\x08\x14-\x1f\x7f-\xff])", line)
+    m = re.search(rb"^(.*?)([\x00-\x08\x0e-\x1f\x7f-\xff])", line)
     if not m:
         return None
     (prefix, offending_char) = m.groups()
