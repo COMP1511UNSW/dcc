@@ -1,6 +1,6 @@
 static unsigned char *expected_stdout;
 
-#if !__CHECK_OUTPUT__ || !__I_AM_SANITIZER1__
+#if !DCC_CHECK_OUTPUT || !DCC_I_AM_SANITIZER1
 
 static int init_check_output(void) {
 	return 0;

@@ -1,4 +1,4 @@
-EMBEDDED_SOURCE = $(wildcard run_time_python/*.py wrapper_c/*.c wrapper_c/*.cpp)
+EMBEDDED_SOURCE = $(wildcard run_time_python/*.py wrapper_c/*.c wrapper_c/*.cpp wrapper_c/*.h)
 SOURCE = $(wildcard compile_time_python/*.py)
 BUILD_DIR=_build
 

@@ -2,7 +2,7 @@
 // C code to intercept runtime errors and run this program
 //
 
-#if !__DEBUG__
+#if !DCC_DEBUG_BUILD
 #define debug_printf(...)
 #endif
 
@@ -30,7 +30,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
 #include <sys/stat.h>
 #include <sys/wait.h>
 #endif
@@ -65,8 +65,6 @@ extern const char dcc_sanitizer2_data_end[];
 // 141 is what a program killed by SIGPIPE reports, which is how dcc has
 // always stopped a program in its most common configuration
 #define DCC_ERROR_EXIT_STATUS 141
-#define DCC_STRINGIFY_(x) #x
-#define DCC_STRINGIFY(x) DCC_STRINGIFY_(x)
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #define DCC_THREAD_LOCAL _Thread_local
@@ -132,7 +130,7 @@ static int __dcc_run_sanitizer1(int argc, char *argv[]) MAYBE_UNUSED;
 
 static void init_cookies(void);
 
-#if __N_SANITIZERS__ == 1
+#if DCC_N_SANITIZERS == 1
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
 	__dcc_start();
@@ -143,7 +141,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		setenvd("DCC_BINARY", mypath);
 		free(mypath);
 	}
-	__SET_EMBEDDED_ENVIRONMENT_VARIABLES__
+	DCC_SET_EMBEDDED_ENVIRONMENT_VARIABLES();
 	return __dcc_run_sanitizer1(argc, argv);
 }
 #else
@@ -151,7 +149,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 static int to_sanitizer2_pipe[2];
 static int from_sanitizer2_pipe[2];
 
-#if __I_AM_SANITIZER2__
+#if DCC_I_AM_SANITIZER2
 
 int __wrap_main(int argc, char *argv[], char *envp[]) {
 	__dcc_start();
@@ -193,7 +191,7 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 		setenvd("DCC_BINARY", mypath);
 		free(mypath);
 	}
-	__SET_EMBEDDED_ENVIRONMENT_VARIABLES__
+	DCC_SET_EMBEDDED_ENVIRONMENT_VARIABLES();
 	debug_stream = stderr;
 	if (pipe(to_sanitizer2_pipe) != 0) {
 		debug_printf(1, "pipe failed");
@@ -255,7 +253,7 @@ static void __dcc_main_sanitizer2(int argc, char *argv[], const char *sanitizer2
 	setenvd("DCC_ARGV0", argv[0]);
 	setenvd("DCC_BINARY", sanitizer2_executable_pathname);
 
-#if __SANITIZER_2__ != VALGRIND
+#if DCC_SANITIZER_2 != VALGRIND
 	execvp(sanitizer2_executable_pathname, argv);
 	debug_printf(1, "execvp %s failed", sanitizer2_executable_pathname);
 #else
@@ -271,7 +269,7 @@ static void __dcc_main_sanitizer2(int argc, char *argv[], const char *sanitizer2
 
 static int __dcc_run_sanitizer1(int argc, char *argv[]) {
 	extern char **environ;
-#if __SANITIZER__ != VALGRIND
+#if DCC_SANITIZER != VALGRIND
 	init_cookies();
 	clear_stack();
 	int r = __real_main(argc, argv, environ);
@@ -279,7 +277,7 @@ static int __dcc_run_sanitizer1(int argc, char *argv[]) {
 	// in some circumstances leaks are not detected without this call
 	// the non-recoverable check is used so that leaks are reported only once:
 	// it exits if leaks are found and stops the check at exit repeating them
-#if __LEAK_CHECK_1_0__ && __SANITIZER__ == ADDRESS
+#if DCC_LEAK_CHECK && DCC_SANITIZER == ADDRESS
 	extern void __lsan_do_leak_check(void);
 	__lsan_do_leak_check();
 #endif

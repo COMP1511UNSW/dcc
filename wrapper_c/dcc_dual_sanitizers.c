@@ -5,7 +5,7 @@ struct cookie {
 	FILE *cookie_stream;
 	int fd;
 };
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
 static void synchronization_failed(void);
 #endif
 static FILE *open_cookie(void *cookie, const char *mode);
@@ -27,7 +27,7 @@ static FILE *get_cookie(FILE *f, const char *mode) {
 		}
 	}
 	debug_printf(1, "out of fopen cookies\n");
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
 	synchronization_failed();
 #endif
 	return f;
@@ -50,7 +50,7 @@ static void init_cookies(void) {
 	// the replacement stderr stream must not be fully buffered, or output is
 	// delayed until the program exits; it is flushed before an error is reported
 	setlinebuf(stderr);
-#if __CPP_MODE__
+#if DCC_CPP_MODE
 	extern void __dcc_replace_cin(FILE *stream);
 	extern void __dcc_replace_cout(FILE *stream);
 	extern void __dcc_replace_cerr(FILE *stream);
@@ -60,7 +60,7 @@ static void init_cookies(void) {
 #endif
 }
 
-#if __USE_FUNOPEN__
+#if DCC_USE_FUNOPEN
 
 #ifndef __APPLE__
 #include <bsd/stdio.h>
@@ -132,7 +132,7 @@ int puts(const char *s) {
 #endif
 #endif
 
-#if __N_SANITIZERS__ == 1
+#if DCC_N_SANITIZERS == 1
 
 #define synchronize_system_call(which, n)
 #define synchronize_system_call_result(which, value) 0
@@ -152,7 +152,7 @@ static void __dcc_cleanup_before_exit(void) {
 	}
 	cleanup_started = 1;
 	__dcc_check_output_exit();
-#if __CPP_MODE__
+#if DCC_CPP_MODE
 	extern void __dcc_restore_cin(void);
 	extern void __dcc_restore_cout(void);
 	extern void __dcc_restore_cerr(void);
@@ -219,7 +219,7 @@ static void disconnect_sanitizers(void) {
 	if (synchronization_terminated) {
 		return;
 	}
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	close(to_sanitizer2_pipe[1]);
 	close(from_sanitizer2_pipe[0]);
 #else
@@ -232,7 +232,7 @@ static void disconnect_sanitizers(void) {
 static void stop_sanitizer2(void);
 
 // FIXME - race condition
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 static int sanitizer2_killed;
 
 // set by note_sanitizer2_error when sanitizer2 signals that it found an error
@@ -277,7 +277,7 @@ static void __dcc_cleanup_before_exit(void) {
 	}
 	cleanup_started = 1;
 	__dcc_check_output_exit();
-#if __CPP_MODE__
+#if DCC_CPP_MODE
 	extern void __dcc_restore_cin(void);
 	extern void __dcc_restore_cout(void);
 	extern void __dcc_restore_cerr(void);
@@ -287,11 +287,11 @@ static void __dcc_cleanup_before_exit(void) {
 #endif
 
 	disconnect_sanitizers();
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	wait_for_sanitizer2_to_terminate();
 #endif
 	unlink_sanitizer2_executable();
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	if (sanitizer2_reported_error) {
 		// the program has an error even though main finished normally
 		// the output the program has produced is flushed first,
@@ -306,7 +306,7 @@ static void __dcc_cleanup_before_exit(void) {
 
 static void stop_sanitizer2(void) {
 	disconnect_sanitizers();
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	if (!sanitizer2_killed) {
 		debug_printf(2, "killing sanitizer2 pid=%d and unlinking executable\n", sanitizer2_pid);
 		kill(sanitizer2_pid, SIGPIPE);
@@ -335,13 +335,13 @@ static void synchronize_system_call(enum which_system_call which, int64_t n) {
 	debug_printf(3, "synchronize_system_call(%s, %d)\n", system_call_names[which], (int)n);
 	if (synchronization_terminated) {
 		debug_printf(2, "synchronize_system_calls - synchronization_terminated\n");
-#if __I_AM_SANITIZER2__
+#if DCC_I_AM_SANITIZER2
 		__dcc_error_exit();
 #endif
 		return;
 	}
 	struct system_call s = {0};
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	int n_bytes_read = read(from_sanitizer2_pipe[0], &s, sizeof s);
 	if (n_bytes_read != sizeof s) {
 		debug_printf(1, "synchronize_system_call error(%s, %d): read returned %d != %d\n", system_call_names[which], (int)n, n_bytes_read, (int)sizeof s);
@@ -371,7 +371,7 @@ static void synchronize_system_call(enum which_system_call which, int64_t n) {
 // sanitizer 2 waits for sanitizer 1 to write a message down to_sanitizer2_pipe
 // passing result of a system call from sanitizer1 -> sanitizer2
 
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 static int64_t synchronize_system_call_result(enum which_system_call which, int64_t return_value) {
 	debug_printf(3, "synchronize_system_call_result(%s, %d)\n", system_call_names[which], (int)return_value);
 	if (synchronization_terminated) {
@@ -413,7 +413,7 @@ static int64_t synchronize_system_call_result(enum which_system_call which) {
 
 static void __dcc_save_stdin(const char *buf, size_t size);
 
-#if __USE_FUNOPEN__
+#if DCC_USE_FUNOPEN
 static int __dcc_cookie_read(void *v, char *buf, int size) {
 #else
 static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
@@ -424,14 +424,14 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 	fflush(stdout);
 
 	synchronize_system_call(sc_read, size);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	struct cookie *cookie = (struct cookie *)v;
     if (cookie == NULL || cookie->fd == -1) {
         putenvd("DCC_ASAN_ERROR=attempt to use stream after closed with fclose");
         _explain_error();
     }
 	ssize_t n_bytes_read = read(cookie->fd, buf, size);
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
 	(void)synchronize_system_call_result(sc_read, n_bytes_read);
 	if (n_bytes_read > 0  && !synchronization_terminated) {
 		ssize_t n_bytes_written = write(to_sanitizer2_pipe[1], buf, n_bytes_read);
@@ -471,13 +471,13 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 static void __dcc_check_output(int fd, const char *buf, size_t size);
 static void __dcc_check_close(int fd);
 
-#if __USE_FUNOPEN__
+#if DCC_USE_FUNOPEN
 static int __dcc_cookie_write(void *v, const char *buf, int size) {
 #else
 static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 #endif
 	synchronize_system_call(sc_write, size);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	struct cookie *cookie = (struct cookie *)v;
 	size_t n_bytes_written = write(cookie->fd, buf, size);
 
@@ -494,11 +494,11 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 }
 
 
-#if __USE_FUNOPEN__
+#if DCC_USE_FUNOPEN
 static off_t __dcc_cookie_seek(void *v, off_t offset, int whence) {
 	synchronize_system_call(sc_seek, offset);
 
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	struct cookie *cookie = (struct cookie *)v;
 	off_t result = lseek(cookie->fd, offset, whence);
 	(void)synchronize_system_call_result(sc_seek, result);
@@ -515,7 +515,7 @@ static off_t __dcc_cookie_seek(void *v, off_t offset, int whence) {
 static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 	synchronize_system_call(sc_seek, *offset);
 
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	struct cookie *cookie = (struct cookie *)v;
 	off_t result = lseek(cookie->fd, *offset, whence);
 	if (result != -1) {
@@ -539,7 +539,7 @@ static int __dcc_cookie_seek(void *v, off64_t *offset, int whence) {
 
 static int __dcc_cookie_close(void *v) {
 	synchronize_system_call(sc_close, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	struct cookie *cookie = (struct cookie *)v;
 	int result = fclose(cookie->stream);
 	__dcc_check_close(cookie->fd);
@@ -556,13 +556,13 @@ static int __dcc_cookie_close(void *v) {
 }
 
 
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
 void abort(void) {
-#if __I_AM_SANITIZER2__
+#if DCC_I_AM_SANITIZER2
 	unlink_sanitizer2_executable();
 #endif
 	synchronize_system_call(sc_abort, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	__dcc_signal_handler(SIGABRT);
 #endif
 	__dcc_error_exit();
@@ -574,7 +574,7 @@ void abort(void) {
 #undef time
 time_t __wrap_time(time_t *tloc) {
 	synchronize_system_call(sc_time, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	extern time_t __real_time(time_t *tloc);
 	return synchronize_system_call_result(sc_time, __real_time(tloc));
 #else
@@ -591,7 +591,7 @@ time_t __wrap_time(time_t *tloc) {
 #undef clock
 clock_t __wrap_clock(void) {
 	synchronize_system_call(sc_clock, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	extern clock_t __real_clock(void);
 	return synchronize_system_call_result(sc_clock, __real_clock());
 #else
@@ -605,7 +605,7 @@ clock_t __wrap_clock(void) {
 #undef remove
 int __wrap_remove(const char *pathname) {
 	synchronize_system_call(sc_remove, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	extern int __real_remove(const char *pathname);
 	return synchronize_system_call_result(sc_remove, __real_remove(pathname));
 #else
@@ -619,7 +619,7 @@ int __wrap_remove(const char *pathname) {
 #undef rename
 int __wrap_rename(const char *oldpath, const char *newpath) {
 	synchronize_system_call(sc_rename, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	extern int __real_rename(const char *oldpath, const char *newpath);
 	return synchronize_system_call_result(sc_rename, __real_rename(oldpath, newpath));
 #else
@@ -635,7 +635,7 @@ int __wrap_rename(const char *oldpath, const char *newpath) {
 #undef system
 int __wrap_system(const char *command) {
 	synchronize_system_call(sc_system, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	int __real_system(const char *command);
 	return synchronize_system_call_result(sc_system, __real_system(command));
 #else
@@ -646,7 +646,7 @@ int __wrap_system(const char *command) {
 
 
 static FILE *fopen_helper(FILE *f, const char *mode, enum which_system_call system_call) {
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	FILE *f1 = get_cookie(f, mode);
 	(void)synchronize_system_call_result(system_call, !!f1);
 	return f1;
@@ -664,7 +664,7 @@ static FILE *fopen_helper(FILE *f, const char *mode, enum which_system_call syst
 #undef popen
 FILE *__wrap_popen(const char *command, const char *type) {
 	synchronize_system_call(sc_popen, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	extern FILE *__real_popen(const char *command, const char *type);
 	FILE *f = __real_popen(command, type);
 #else
@@ -678,7 +678,7 @@ FILE *__wrap_popen(const char *command, const char *type) {
 #undef fopen
 FILE *__wrap_fopen(const char *pathname, const char *mode) {
 	synchronize_system_call(sc_fopen, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	extern FILE *__real_fopen(const char *pathname, const char *mode);
 	FILE *f = __real_fopen(pathname, mode);
 #else
@@ -691,7 +691,7 @@ FILE *__wrap_fopen(const char *pathname, const char *mode) {
 #undef fdopen
 FILE *__wrap_fdopen(int fd, const char *mode) {
 	synchronize_system_call(sc_fdopen, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	extern FILE *__real_fdopen(int fd, const char *mode);
 	FILE *f = __real_fdopen(fd, mode);
 #else
@@ -704,7 +704,7 @@ FILE *__wrap_fdopen(int fd, const char *mode) {
 #undef freopen
 FILE *__wrap_freopen(const char *pathname, const char *mode, FILE *stream) {
 	synchronize_system_call(sc_freopen, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	if (!pathname || !mode || !stream) {
 		(void)synchronize_system_call_result(sc_freopen, 0);
 		return NULL;
@@ -773,13 +773,13 @@ static int cookie_stream_to_fd(FILE *stream) {
 	return fd;
 }
 
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
 
 #undef fileno
 
 int __wrap_fileno(FILE *stream) {
 	synchronize_system_call(sc_fileno, 0);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
 	return synchronize_system_call_result(sc_fileno, cookie_stream_to_fd(stream));
 #else
 	(void)stream; // avoid unused parameter warning

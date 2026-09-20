@@ -5,14 +5,14 @@
 // only used when valgrind is one of the sanitizers
 static void launch_valgrind(int argc, char *argv[]) MAYBE_UNUSED;
 static void launch_valgrind(int argc, char *argv[]) {
-    debug_printf(2, "command=%s\n", "__MONITOR_VALGRIND__");
+    debug_printf(2, "command=%s\n", DCC_MONITOR_VALGRIND);
     // the watcher reads exactly this many bytes of tar file from its stdin
     setenvd_int("DCC_TAR_N_BYTES", (int)DCC_TAR_N_BYTES);
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
     extern FILE *__real_popen(const char *command, const char *type);
-    FILE *valgrind_error_pipe = __real_popen("__MONITOR_VALGRIND__", "w");
+    FILE *valgrind_error_pipe = __real_popen(DCC_MONITOR_VALGRIND, "w");
 #else
-    FILE *valgrind_error_pipe = popen("__MONITOR_VALGRIND__", "w");
+    FILE *valgrind_error_pipe = popen(DCC_MONITOR_VALGRIND, "w");
 #endif
     int valgrind_error_fd = 2;
     if (valgrind_error_pipe) {
@@ -22,7 +22,7 @@ static void launch_valgrind(int argc, char *argv[]) {
         extern int __real_fileno(FILE *stream);
         valgrind_error_fd = (int)__real_fileno(valgrind_error_pipe);
     } else {
-        debug_printf(2, "popen __MONITOR_VALGRIND__ failed");
+        debug_printf(2, "popen %s failed", DCC_MONITOR_VALGRIND);
         return;
     }
     setenvd("DCC_VALGRIND_RUNNING", "1");
@@ -33,9 +33,9 @@ static void launch_valgrind(int argc, char *argv[]) {
                                        fd_buffer,
                                        "-q",
                                        "--vgdb=yes",
-                                       "--leak-check=__LEAK_CHECK_YES_NO__",
+                                       "--leak-check=" DCC_LEAK_CHECK_YES_NO,
                                        "--show-leak-kinds=all",
-                                       "--suppressions=" __SUPRESSIONS_FILE__,
+                                       "--suppressions=" DCC_SUPPRESSIONS_FILE,
                                        "--max-stackframe=16000000",
                                        "--partial-loads-ok=no",
                                        "--malloc-fill=0x" MEMORY_FILL_STR,
@@ -78,8 +78,8 @@ static void __dcc_start(void) {
     }
     debug_printf(2, "__dcc_start debug_level=%d\n", debug_level);
 
-    setenvd("DCC_SANITIZER", "__SANITIZER__");
-    setenvd("DCC_PATH", __PATH__);
+    setenvd("DCC_SANITIZER", DCC_SANITIZER_NAME);
+    setenvd("DCC_PATH", DCC_PATH_LITERAL);
 
     setenvd_int("DCC_PID", getpid());
 
@@ -102,7 +102,7 @@ static void __dcc_start(void) {
     signal(SIGXFSZ, __dcc_signal_handler);
     signal(SIGFPE, __dcc_signal_handler);
     signal(SIGILL, __dcc_signal_handler);
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
     signal(SIGPIPE, __dcc_signal_handler);
     signal(SIGUSR1, __dcc_signal_handler);
 #endif
@@ -114,11 +114,11 @@ void __dcc_error_exit(void) {
     disable_check_output();
     debug_printf(2, "__dcc_error_exit()\n");
 
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
     __dcc_cleanup_before_exit();
 #endif
 
-#if __SANITIZER__ != VALGRIND
+#if DCC_SANITIZER != VALGRIND
     // use kill instead of exit or _exit because
     // exit or _exit keeps executing sanitizer code - including perhaps superfluous output
     // but not with valgrind which will catch signal and start gdb
@@ -139,7 +139,7 @@ void __asan_on_error(void) {
     debug_printf(2, "__asan_on_error\n");
 
     const char *report = "";
-#if __SANITIZER__ == ADDRESS && __CLANG_VERSION_MAJOR__ >= 6
+#if DCC_SANITIZER == ADDRESS && DCC_CLANG_VERSION_MAJOR >= 6
     extern char *__asan_get_report_description();
     extern int __asan_report_present();
     extern void *__asan_get_report_address();
@@ -171,19 +171,19 @@ void _Unwind_Backtrace(void *a, ...) {
     _explain_error();
 }
 
-#if __SANITIZER__ == ADDRESS
+#if DCC_SANITIZER == ADDRESS
 const char *__asan_default_options(void) {
     // NOTE setting detect_stack_use_after_return here stops
     // clear_stack pre-initializing stack frames to MEMORY_FILL_HEX
 
     // exitcode is the status LeakSanitizer uses when it reports a leak
-    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0:detect_stack_use_after_return=__STACK_USE_AFTER_RETURN__:exitcode=" DCC_STRINGIFY(DCC_ERROR_EXIT_STATUS) ":malloc_fill_byte=" MEMORY_FILL_INT_STR;
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=" DCC_STRINGIFY(DCC_LEAK_CHECK) ":max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0:detect_stack_use_after_return=" DCC_STRINGIFY(DCC_STACK_USE_AFTER_RETURN) ":exitcode=" DCC_STRINGIFY(DCC_ERROR_EXIT_STATUS) ":malloc_fill_byte=" MEMORY_FILL_INT_STR;
 }
 #endif
 
-#if __SANITIZER__ == MEMORY
+#if DCC_SANITIZER == MEMORY
 const char *__msan_default_options(void) {
-    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__:exitcode=" DCC_STRINGIFY(DCC_ERROR_EXIT_STATUS);
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=" DCC_STRINGIFY(DCC_LEAK_CHECK) ":exitcode=" DCC_STRINGIFY(DCC_ERROR_EXIT_STATUS);
 }
 #endif
 
@@ -193,7 +193,7 @@ const char *__msan_default_options(void) {
 void __ubsan_on_report(void) {
     debug_printf(2, "__ubsan_on_report\n");
 
-#if __UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__ && __CLANG_VERSION_MAJOR__ >= 7
+#if DCC_UBSAN_IN_USE && DCC_CLANG_VERSION_MAJOR >= 7
     char *OutIssueKind;
     char *OutMessage;
     char *OutFilename;
@@ -227,9 +227,9 @@ void __ubsan_on_report(void) {
     // not reached
 }
 
-#if __UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__
+#if DCC_UBSAN_IN_USE
 const char *__ubsan_default_options(void) {
-    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__";
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=" DCC_STRINGIFY(DCC_LEAK_CHECK);
 }
 #endif
 
@@ -251,9 +251,9 @@ static void set_signals_default(void) {
     signal(SIGXFSZ, SIG_DFL);
     signal(SIGFPE, SIG_DFL);
     signal(SIGILL, SIG_DFL);
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
     signal(SIGPIPE, SIG_DFL);
-#if __I_AM_SANITIZER1__
+#if DCC_I_AM_SANITIZER1
     // sanitizer2 sends SIGUSR1 when it reports an error, which must not be
     // lost while sanitizer1 is winding down, because it sets the exit status
     signal(SIGUSR1, note_sanitizer2_error);
@@ -303,8 +303,8 @@ static void __dcc_signal_handler(int signum) {
     if (stack_overflow_detected) {
         putenvd("DCC_STACK_OVERFLOW=1");
     }
-#if __N_SANITIZERS__ > 1
-#if __I_AM_SANITIZER1__
+#if DCC_N_SANITIZERS > 1
+#if DCC_I_AM_SANITIZER1
     if (signum == SIGPIPE) {
         if (!synchronization_terminated) {
             stop_sanitizer2();
@@ -348,7 +348,7 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 
 static void _explain_error(void) {
     __dcc_clearing_stack_suppressed = 0;
-#if __N_SANITIZERS__ > 1 && __I_AM_SANITIZER1__
+#if DCC_N_SANITIZERS > 1 && DCC_I_AM_SANITIZER1
     stop_sanitizer2();
 #endif
     // output the program has buffered but not written is lost here:
@@ -368,7 +368,7 @@ static void _explain_error(void) {
 #endif
 
     debug_printf(2, "running %s\n", run_tar_file);
-#if __N_SANITIZERS__ > 1
+#if DCC_N_SANITIZERS > 1
     extern FILE *__real_popen(const char *command, const char *type);
     FILE *python_pipe = __real_popen(run_tar_file, "w");
 #else
@@ -384,7 +384,7 @@ static void _explain_error(void) {
     __dcc_error_exit();
 }
 
-#if !__STACK_USE_AFTER_RETURN__
+#if !DCC_STACK_USE_AFTER_RETURN
 static void _memset_shim(void *p, int byte, size_t size) NO_SANITIZE
 #if __has_attribute(noinline)
     __attribute__((noinline))
@@ -443,12 +443,12 @@ static void quick_clear_stack(void)
 // memcheck reports a conditional jump depending on uninitialized values if
 // the stack is examined, unless it has first been told the memory is defined
 // by a client request, which needs valgrind's headers when the program is compiled
-#if __SANITIZER__ == VALGRIND && defined(__has_include)
+#if DCC_SANITIZER == VALGRIND && defined(__has_include)
 #if __has_include(<valgrind/memcheck.h>)
 #include <valgrind/memcheck.h>
 #define QUICK_CLEAR_STACK_SCAN 1
 #endif
-#elif __SANITIZER__ != VALGRIND
+#elif DCC_SANITIZER != VALGRIND
 #define QUICK_CLEAR_STACK_SCAN 1
 #endif
 #ifndef QUICK_CLEAR_STACK_SCAN
@@ -515,7 +515,7 @@ static void quick_clear_stack(void) {
     int n_consecutive_clean_chunks = 0;
     while (chunk > a) {
         chunk -= QUICK_CLEAR_STACK_CHUNK_BYTES;
-#if __SANITIZER__ == VALGRIND
+#if DCC_SANITIZER == VALGRIND
         // the chunk is examined below so tell memcheck its contents are defined
         // this does not affect error detection because memcheck marks the stack
         // undefined again whenever a function later allocates a frame there
@@ -589,9 +589,9 @@ static int debug_printf(int level, const char *format, ...) {
     if (level > debug_level) {
         return 0;
     }
-#if __N_SANITIZERS__ > 1
-    fprintf(debug_stream ? debug_stream : stderr, "__WHICH_SANITIZER__: ");
-#if __I_AM_SANITIZER2__
+#if DCC_N_SANITIZERS > 1
+    fprintf(debug_stream ? debug_stream : stderr, DCC_WHICH_SANITIZER ": ");
+#if DCC_I_AM_SANITIZER2
     fprintf(debug_stream ? debug_stream : stderr, "\t");
 #endif
 #endif
@@ -603,7 +603,7 @@ static int debug_printf(int level, const char *format, ...) {
 }
 #endif
 
-#if __WRAP_POSIX_SPAWN__
+#if DCC_WRAP_POSIX_SPAWN
 
 #include <spawn.h>
 #include <sys/stat.h>

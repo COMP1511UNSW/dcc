@@ -8,6 +8,7 @@
 # extra warnings enabled catches such problems early.
 
 dcc=$(readlink -f "${1:-./dcc}")
+wrapper_c=$(readlink -f "$(dirname "$0")/../wrapper_c")
 temp_dir=$(mktemp -d) || exit 1
 trap 'rm -fr "$temp_dir"' EXIT
 cd "$temp_dir" || exit 1
@@ -18,6 +19,38 @@ printf '#include <iostream>\nint main() { std::cout << "hello\\n"; }\n' >hello.c
 
 status=0
 n_compiled=0
+
+# The wrapper sources are ordinary C: they compile with only the defaults in
+# wrapper_c/dcc_defines.h, without dcc generating anything.  That is what lets
+# an editor or an analyser read them, so it is checked here.
+check_sources_compile_on_their_own() {
+	for settings in \
+		"" \
+		"-DDCC_SANITIZER=MEMORY" \
+		"-DDCC_SANITIZER=VALGRIND" \
+		"-DDCC_N_SANITIZERS=2 -DDCC_I_AM_SANITIZER2=1 -DDCC_I_AM_SANITIZER1=0" \
+		"-DDCC_LEAK_CHECK=1" \
+		"-DDCC_STACK_USE_AFTER_RETURN=1" \
+		"-DDCC_CPP_MODE=1" \
+		"-DDCC_CHECK_OUTPUT=0"
+	do
+		for compiler in clang gcc; do
+			command -v "$compiler" >/dev/null || continue
+			# shellcheck disable=SC2086
+			cat "$wrapper_c"/dcc_main.c "$wrapper_c"/dcc_dual_sanitizers.c \
+				"$wrapper_c"/dcc_util.c "$wrapper_c"/dcc_check_output.c \
+				"$wrapper_c"/dcc_save_stdin.c |
+			"$compiler" -fsyntax-only -Wall -Wextra -Werror -D_GNU_SOURCE $settings \
+				-include "$wrapper_c/dcc_defines.h" -x c - || {
+				echo "$0: $compiler can not compile the wrapper sources with: ${settings:-the defaults}" 1>&2
+				status=1
+			}
+			n_compiled=$((n_compiled + 1))
+		done
+	done
+}
+
+check_sources_compile_on_their_own
 
 # compile the generated wrapper files left by DCC_DEBUG=2 with extra warnings
 # the commands recorded in tmp_dcc.sh give the flags each file is compiled with

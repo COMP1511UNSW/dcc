@@ -211,7 +211,15 @@ def embedded_blob_object(options, symbol, contents):
 
 # customize wrapper source for a particular sanitizer
 def update_wrapper_source(sanitizer, sanitizer_n, src, options):
-    src = src.replace("__SANITIZER__", sanitizer.upper())
+    """add the definitions particular to one of the two sanitizers"""
+    definitions = {
+        "DCC_SANITIZER": sanitizer.upper(),
+        "DCC_SANITIZER_NAME": c_repr(sanitizer.upper()),
+        "DCC_I_AM_SANITIZER1": int(sanitizer_n == 1),
+        "DCC_I_AM_SANITIZER2": int(sanitizer_n == 2),
+        "DCC_WHICH_SANITIZER": c_repr(f"sanitizer{sanitizer_n}"),
+        "DCC_UBSAN_IN_USE": 0,
+    }
     if sanitizer == "valgrind":
         sanitizer_args = []
     elif sanitizer == "memory":
@@ -223,7 +231,7 @@ def update_wrapper_source(sanitizer, sanitizer_n, src, options):
     if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
         # FIXME if we enable '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
         # which would be preferable here we get uninitialized variable error message for undefined errors
-        src = src.replace("__UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__", "1")
+        definitions["DCC_UBSAN_IN_USE"] = 1
         sanitizer_args += ["-fsanitize=undefined"]
     if sanitizer == "address":
         sanitizer_args += ["-ftrivial-auto-var-init=pattern"]
@@ -240,21 +248,16 @@ def update_wrapper_source(sanitizer, sanitizer_n, src, options):
         if os.path.exists(lib_dir):
             sanitizer_args += ["-shared-libasan", "-Wl,-rpath," + lib_dir]
 
-    src = src.replace("__LEAK_CHECK_YES_NO__", "yes" if options.leak_check else "no")
+    definitions["DCC_LEAK_CHECK_YES_NO"] = c_repr(
+        "yes" if options.leak_check else "no"
+    )
     leak_check = options.leak_check
     if leak_check and options.sanitizers[1:] == ["valgrind"]:
         # do leak checking in valgrind (only) for (currently) better messages
         leak_check = False
-    src = src.replace("__LEAK_CHECK_1_0__", "1" if leak_check else "0")
-    src = src.replace("__USE_FUNOPEN__", "1" if options.use_funopen else "0")
+    definitions["DCC_LEAK_CHECK"] = int(bool(leak_check))
 
-    src = src.replace("__I_AM_SANITIZER1__", "1" if sanitizer_n == 1 else "0")
-    src = src.replace("__I_AM_SANITIZER2__", "1" if sanitizer_n == 2 else "0")
-    src = src.replace(
-        "__WHICH_SANITIZER__", "sanitizer2" if sanitizer_n == 2 else "sanitizer1"
-    )
-
-    return src, sanitizer_args
+    return source_for_definitions(definitions) + src, sanitizer_args
 
 
 def execute_compiler(
@@ -612,6 +615,7 @@ def get_wrapper_code(options):
     wrapper_source = "".join(
         pkgutil.get_data("embedded_src", f).decode("utf8")
         for f in [
+            "dcc_defines.h",
             "dcc_main.c",
             "dcc_dual_sanitizers.c",
             "dcc_util.c",
@@ -619,8 +623,9 @@ def get_wrapper_code(options):
             "dcc_save_stdin.c",
         ]
     )
-    wrapper_source = add_constants_to_source_code(wrapper_source, options)
-    wrapper_source = add_embedded_tarfile_handling_to_source_code(wrapper_source)
+    wrapper_source = (
+        source_for_definitions(definitions_for_source_code(options)) + wrapper_source
+    )
     wrapper_cpp_source = ""
     if options.cpp_mode:
         wrapper_cpp_source = "".join(
@@ -632,52 +637,65 @@ def get_wrapper_code(options):
     return wrapper_source, wrapper_cpp_source
 
 
-def add_constants_to_source_code(src, options):
-    # these values become C string literals so they must be escaped
-    src = src.replace("__PATH__", c_repr(options.dcc_path))
-    src = src.replace("__SUPRESSIONS_FILE__", c_repr(options.suppressions_file))
-    src = src.replace(
-        "__STACK_USE_AFTER_RETURN__", "1" if options.stack_use_after_return else "0"
-    )
-    src = src.replace("__CHECK_OUTPUT__", "1" if options.check_output else "0")
-    src = src.replace("__SAVE_STDIN_BUFFER_SIZE__", str(options.save_stdin_buffer_size))
-    src = src.replace("__CPP_MODE__", "1" if options.cpp_mode else "0")
-    src = src.replace(
-        "__WRAP_POSIX_SPAWN__", "1" if options.valgrind_fix_posix_spawn else "0"
-    )
-    src = src.replace("__CLANG_VERSION_MAJOR__", str(options.clang_version_major))
-    src = src.replace("__CLANG_VERSION_MINOR__", str(options.clang_version_minor))
-    src = src.replace("__N_SANITIZERS__", str(len(options.sanitizers)))
-    src = src.replace("__DEBUG__", "1" if options.debug else "0")
-    src = src.replace(
-        "__SET_EMBEDDED_ENVIRONMENT_VARIABLES__", embeded_environment_variables(options)
-    )
+def definitions_for_source_code(options):
+    """the choices dcc has made, as #defines for wrapper_c/dcc_defines.h
+
+    They are definitions rather than text substituted into the code, so that
+    the code is ordinary C which a compiler or an editor can read on its own.
+    """
+    definitions = {
+        "DCC_PATH_LITERAL": c_repr(options.dcc_path),
+        "DCC_SUPPRESSIONS_FILE": c_repr(options.suppressions_file),
+        "DCC_STACK_USE_AFTER_RETURN": int(bool(options.stack_use_after_return)),
+        "DCC_CHECK_OUTPUT": int(bool(options.check_output)),
+        "DCC_SAVE_STDIN_BUFFER_SIZE": options.save_stdin_buffer_size,
+        "DCC_CPP_MODE": int(bool(options.cpp_mode)),
+        "DCC_USE_FUNOPEN": int(bool(options.use_funopen)),
+        "DCC_WRAP_POSIX_SPAWN": int(bool(options.valgrind_fix_posix_spawn)),
+        "DCC_CLANG_VERSION_MAJOR": options.clang_version_major or 0,
+        "DCC_N_SANITIZERS": len(options.sanitizers),
+        "DCC_DEBUG_BUILD": int(bool(options.debug)),
+        "DCC_MONITOR_VALGRIND": c_repr(valgrind_watcher_command()),
+        "DCC_SET_EMBEDDED_ENVIRONMENT_VARIABLES()": embedded_environment_variables(
+            options
+        ),
+    }
     if len(options.sanitizers) > 1:
-        src = src.replace("__SANITIZER_2__", options.sanitizers[1].upper())
-    return src
+        definitions["DCC_SANITIZER_2"] = options.sanitizers[1].upper()
+    return definitions
 
 
-def add_embedded_tarfile_handling_to_source_code(src):
-    # the size of the tar file is passed in the environment, because the
-    # bytes are linked in rather than being part of this source
-    watcher = r"""PATH=$PATH:/bin:/usr/bin:/usr/local/bin exec python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
-with tempfile.TemporaryDirectory() as temp_dir:\n\
- n = int(os.environ['DCC_TAR_N_BYTES'])\n\
- buffer = io.BytesIO(sys.stdin.buffer.raw.read(n))\n\
- if len(buffer.getbuffer()) == n:\n\
-  k = {'filter':'data'} if hasattr(tarfile, 'data_filter') else {}\n\
-  tarfile.open(fileobj=buffer, bufsize=n, mode='r|xz').extractall(temp_dir, **k)\n\
-  os.environ['DCC_PWD'] = os.getcwd()\n\
-  os.chdir(temp_dir)\n\
-  exec(open('watch_valgrind.py').read())\n\
-\""""
-    return src.replace("__MONITOR_VALGRIND__", watcher)
+def source_for_definitions(definitions):
+    return "".join(f"#define {name} {value}\n" for name, value in definitions.items())
 
 
-def embeded_environment_variables(options):
-    ev = options.embedded_environment_variables
-    assignments = [f"setenvd({c_repr(k)}, {c_repr(v)});" for (k, v) in ev]
-    return "\n".join(assignments)
+def valgrind_watcher_command():
+    """the shell command which reads valgrind's output and explains it
+
+    The size of the tar file it is sent reaches it in the environment,
+    because those bytes are linked into the program rather than being part
+    of the source which holds this command.
+    """
+    return """PATH=$PATH:/bin:/usr/bin:/usr/local/bin exec python3 -E -c "import io,os,sys,tarfile,tempfile
+with tempfile.TemporaryDirectory() as temp_dir:
+ n = int(os.environ['DCC_TAR_N_BYTES'])
+ buffer = io.BytesIO(sys.stdin.buffer.raw.read(n))
+ if len(buffer.getbuffer()) == n:
+  k = {'filter':'data'} if hasattr(tarfile, 'data_filter') else {}
+  tarfile.open(fileobj=buffer, bufsize=n, mode='r|xz').extractall(temp_dir, **k)
+  os.environ['DCC_PWD'] = os.getcwd()
+  os.chdir(temp_dir)
+  exec(open('watch_valgrind.py').read())
+"
+"""
+
+
+def embedded_environment_variables(options):
+    assignments = "".join(
+        f"setenvd({c_repr(name)}, {c_repr(value)});"
+        for (name, value) in options.embedded_environment_variables
+    )
+    return "do { " + assignments + " } while (0)"
 
 
 def c_repr(s):
