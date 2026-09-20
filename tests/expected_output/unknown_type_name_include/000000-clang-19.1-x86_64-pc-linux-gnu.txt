@@ -1,0 +1,5 @@
+unknown_type_name_include.c:1:1: error: unknown type name 'include'
+    1 | include <stdio.h>
+      | ^
+dcc explanation: you appear to have left out a '#'.
+Use #include to include a file, for example: #include <stdio.h>

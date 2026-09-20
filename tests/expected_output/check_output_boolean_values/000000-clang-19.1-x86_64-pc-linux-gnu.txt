@@ -1,0 +1,46 @@
+*** DCC_IGNORE_CASE=1 is true
+output accepted
+*** DCC_IGNORE_CASE=yes is true
+output accepted
+*** DCC_IGNORE_CASE=true is true
+output accepted
+*** DCC_IGNORE_CASE=Y is true
+output accepted
+*** DCC_IGNORE_CASE=T is true
+output accepted
+*** DCC_IGNORE_CASE=y is true
+output accepted
+*** DCC_IGNORE_CASE=t is true
+output accepted
+*** DCC_IGNORE_CASE='0' is false
+output rejected
+*** DCC_IGNORE_CASE='no' is false
+output rejected
+*** DCC_IGNORE_CASE='false' is false
+output rejected
+*** DCC_IGNORE_CASE='NO' is false
+output rejected
+*** DCC_IGNORE_CASE='n' is false
+output rejected
+*** DCC_IGNORE_CASE='N' is false
+output rejected
+*** DCC_IGNORE_CASE='f' is false
+output rejected
+*** DCC_IGNORE_CASE='F' is false
+output rejected
+*** DCC_IGNORE_CASE='0yes' is false
+output rejected
+*** DCC_IGNORE_CASE='' is false
+output rejected
+*** DCC_IGNORE_TRAILING_WHITE_SPACE defaults to true
+output accepted
+*** DCC_IGNORE_TRAILING_WHITE_SPACE=no
+output rejected
+*** expected output with \r\n line ending always accepted
+output accepted
+*** DCC_IGNORE_CHARACTERS overrides DCC_COMPARE_ONLY_CHARACTERS
+output accepted
+*** DCC_IGNORE_WHITE_SPACE overrides DCC_COMPARE_ONLY_CHARACTERS
+output accepted
+*** DCC_COMPARE_ONLY_CHARACTERS can not ignore newlines
+output rejected

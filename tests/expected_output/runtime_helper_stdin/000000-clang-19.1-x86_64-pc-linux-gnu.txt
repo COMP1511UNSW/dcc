@@ -1,0 +1,26 @@
+
+Runtime error: index 7 out of bounds for type 'int[4]'
+dcc explanation: You are using an illegal array index: 7
+  Valid indices for an array of size 4 are 0..3
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in main() in runtime_helper_stdin.c at line 8:
+
+int main(void) {
+    int n;
+    int a[4] = {0};
+    if (scanf("%d", &n) != 1) {
+        return 1;
+    }
+--> return a[n];
+}
+
+Values when execution stopped:
+
+a = {0, 0, 0, 0}
+n = 7
+
+helper: stdin=[7
+] truncated=False valid_utf8=True
+helper: json has stdin: 1

@@ -1,0 +1,9 @@
+is_uninitialized_when_used_here.c:5:20: warning: variable 'x' is uninitialized when used here [-Wuninitialized]
+    5 |     printf("%d\n", x);
+      |                    ^
+is_uninitialized_when_used_here.c:4:10: note: initialize the variable 'x' to silence this warning
+    4 |     int x;
+      |          ^
+      |           = 0
+dcc explanation: you are using variable 'x' before it has been assigned a value.
+Be sure to assign a value to 'x' before trying to use its value.

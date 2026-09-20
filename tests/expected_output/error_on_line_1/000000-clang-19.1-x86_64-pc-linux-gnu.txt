@@ -1,0 +1,17 @@
+
+Runtime error: index 10 out of bounds for type 'int[10]'
+dcc explanation: You are using an illegal array index: 10
+  Valid indices for an array of size 10 are 0..9
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in main() in error_on_line_1.c at line 1:
+
+-->int main(void) { int a[10] = {0}; int i = 10; return a[i]; }
+    // an error on the first line must not show lines from the end of the file
+    // (a negative line number would index the end of the file)
+
+Values when execution stopped:
+
+a = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+

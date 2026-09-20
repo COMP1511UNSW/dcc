@@ -1,0 +1,5 @@
+unknown_escape_sequence_space_before_n.c:2:13: warning: unknown escape sequence '\ ' [-Wunknown-escape-sequence]
+    2 |     return "\ n"[0];
+      |             ^
+dcc explanation: you have a space after a backslash which is not permitted. 
+Did you mean '\n'?

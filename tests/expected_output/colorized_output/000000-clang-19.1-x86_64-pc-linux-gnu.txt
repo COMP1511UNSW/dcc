@@ -1,0 +1,27 @@
+<ESC>[1mcolorized_compile.c:2:12: <ESC>[0m<ESC>[0;1;31merror: <ESC>[0m<ESC>[1muse of undeclared identifier 'y'<ESC>[0m
+    2 |     <ESC>[0;34mreturn<ESC>[0m y;<ESC>[0m
+      | <ESC>[0;1;32m           ^<ESC>[0m
+<ESC>[36mdcc explanation:<ESC>[0m  you have used the name '<ESC>[1my<ESC>[0m' on line 2 of colorized_compile.c without previously declaring it.
+If you meant to use '<ESC>[1my<ESC>[0m' as a variable, check you have declared it by specifying its type
+Also  check you have spelled '<ESC>[1my<ESC>[0m' correctly everywhere.
+
+<ESC>[31mRuntime error: index 10 out of bounds for type 'int[10]'<ESC>[0m
+<ESC>[36mdcc explanation: <ESC>[0mYou are using an illegal array index: <ESC>[31m10<ESC>[0m
+  Valid indices for an array of size <ESC>[31m10<ESC>[0m are <ESC>[31m0<ESC>[0m..<ESC>[31m9<ESC>[0m
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in <ESC>[3mmain<ESC>[0m() in <ESC>[1mcolorized_runtime.c<ESC>[0m at <ESC>[1mline 4<ESC>[0m:
+
+int main(void) {
+    int a[10] = {0};
+    int i = 10;
+<ESC>[31m--> return a[i];
+<ESC>[0m}
+<ESC>[36m
+Values when execution stopped:<ESC>[0m
+
+a = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+i = 10
+
+escapes without DCC_COLORIZE_OUTPUT: 0

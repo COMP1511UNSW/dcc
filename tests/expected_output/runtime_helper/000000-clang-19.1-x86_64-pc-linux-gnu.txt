@@ -1,0 +1,25 @@
+
+Runtime error: index 10 out of bounds for type 'int[10]'
+dcc explanation: You are using an illegal array index: 10
+  Valid indices for an array of size 10 are 0..9
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in main() in runtime_helper.c at line 4:
+
+int main(void) {
+    int a[10] = {0};
+    int i = 10;
+--> return a[i];
+}
+
+Values when execution stopped:
+
+a = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+i = 10
+
+helper: file=runtime_helper.c line=4 col=12
+helper: explanation starts: Runtime error: index 10 out of bounds for type 'int[10]'
+helper: variables: a = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0} i = 10  
+helper: json has file: 1
+helper: working directory is not DCC_PWD: yes

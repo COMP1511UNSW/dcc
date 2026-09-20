@@ -1,0 +1,14 @@
+uninitialized_local_variable.c:5:16: warning: variable 's' is used uninitialized whenever 'if' condition is false [-Wsometimes-uninitialized]
+    5 |     } else if (argc < 2) {
+      |                ^~~~~~~~
+uninitialized_local_variable.c:9:12: note: uninitialized use occurs here
+    9 |     return s;
+      |            ^
+uninitialized_local_variable.c:5:12: note: remove the 'if' if its condition is always true
+    5 |     } else if (argc < 2) {
+      |            ^~~~~~~~~~~~~
+uninitialized_local_variable.c:2:10: note: initialize the variable 's' to silence this warning
+    2 |     int s;
+      |          ^
+      |           = 0
+dcc explanation: you are using the value of the variable s before assigning a value to s.

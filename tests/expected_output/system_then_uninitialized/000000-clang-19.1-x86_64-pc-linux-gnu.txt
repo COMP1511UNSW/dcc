@@ -1,0 +1,24 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in system_then_uninitialized.c at line 20:
+
+    fflush(stdout);
+    int status = system("echo from a child process");
+    printf("system returned %d\n", status);
+    printf("clock available %d\n", clock_is_available());
+    int a[2];
+    a[0] = 0;
+--> if (a[argc] > 0) {
+        printf("uninitialized positive\n");
+    }
+    printf("after\n");
+
+Values when execution stopped:
+
+a = {0, <uninitialized value>}
+argc = 1
+status = 0
+a[0] = 0
+a[argc] = <uninitialized value>
+

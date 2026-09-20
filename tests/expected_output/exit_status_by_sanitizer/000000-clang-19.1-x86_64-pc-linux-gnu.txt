@@ -1,0 +1,24 @@
+*** dcc (default sanitizers)
+  status_asan: stopped with a failure status
+  status_uninitialized: stopped with a failure status
+  status_assert: stopped with a failure status
+  status_correct: exit status 42
+  status_leak: stopped with a failure status
+*** dcc -fsanitize=address
+  status_asan: stopped with a failure status
+  status_uninitialized: not detected with these sanitizers
+  status_assert: stopped with a failure status
+  status_correct: exit status 42
+  status_leak: stopped with a failure status
+*** dcc -fsanitize=valgrind
+  status_asan: stopped with a failure status
+  status_uninitialized: stopped with a failure status
+  status_assert: stopped with a failure status
+  status_correct: exit status 42
+  status_leak: stopped with a failure status
+*** dcc -fsanitize=memory
+  status_asan: not detected with these sanitizers
+  status_uninitialized: stopped with a failure status
+  status_assert: stopped with a failure status
+  status_correct: exit status 42
+  status_leak: not detected with these sanitizers

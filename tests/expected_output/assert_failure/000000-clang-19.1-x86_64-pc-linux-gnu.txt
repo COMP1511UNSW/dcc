@@ -1,0 +1,19 @@
+a.out: assert_failure.c:9: int main(int, char **): Assertion `x == argc' failed.
+
+Execution stopped by a call to abort().
+A failed assert() calls abort().
+Execution stopped in main() in assert_failure.c at line 9:
+
+int main(int argc, char *argv[]) {
+    int x = 5;
+    printf("before assert\n");
+--> assert(x == argc);
+    printf("after assert\n");
+    return 0;
+}
+
+Values when execution stopped:
+
+argc = 1
+x = 5
+

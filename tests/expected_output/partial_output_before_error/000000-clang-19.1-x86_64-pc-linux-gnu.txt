@@ -1,0 +1,10 @@
+*** partial_signal
+Execution stopped because of an invalid pointer or string.
+partial_signal: explained and stopped
+*** partial_recursion
+Execution stopped by a stack overflow.
+partial_recursion: explained and stopped
+*** partial_output_check
+each line of output printed once:
+1 line1
+1 wrong
