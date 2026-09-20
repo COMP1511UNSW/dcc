@@ -29,10 +29,15 @@ public:
 	    	// just get one character to avoid introducing inappropriate buffering
 	    	// bufferring will still be happening in stdio
            	int c = fgetc(stdio_stream);
-            if (c != EOF) {
+            if (c == EOF) {
+            	// leave the get area empty, otherwise the character read
+            	// before this one is returned again, and again, and the
+            	// stream never reports end of file
+            	setg(buffer, b, b);
+            } else {
              	b[0] = c;
+            	setg(buffer, b, b + 1);
             }
-            setg(buffer, b, b + 1);
         }
         return gptr() == egptr() ? traits_type::eof() : traits_type::to_int_type(*gptr());
     }
