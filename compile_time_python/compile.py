@@ -1,7 +1,6 @@
-import io, json, os, pkgutil, platform, re, subprocess, sys, tarfile, tempfile
+import io, json, os, pkgutil, re, subprocess, sys, tarfile, tempfile
 import colors
 
-from version import VERSION
 from options import get_options
 from explain_compiler_output import explain_compiler_output
 
@@ -48,16 +47,14 @@ def main():
                 explanation_labels = [e.label for e in explanations if e and e.label]
             else:
                 print(p.stdout, end="", file=sys.stderr)
-        if p:
-            run_compile_time_logger(p, explanation_labels, options)
-            sys.exit(p.returncode)
-        else:
-            sys.exit(1)
+        run_compile_time_logger(p, explanation_labels, options)
+        sys.exit(p.returncode)
 
 
 def compile_user_program(options):
     wrapper_source, tar_source, wrapper_cpp_source = get_wrapper_code(options)
     executable_source = ""
+    executable_n_bytes = 0
 
     if options.debug > 1:
         try:
@@ -76,31 +73,36 @@ def compile_user_program(options):
             "#undef _GNU_SOURCE\n#define _GNU_SOURCE 1\n#include <stdint.h>\n"
             + sanitizer2_wrapper_source
         )
-        try:
-            # can't use tempfile.NamedTemporaryFile because may be multiple opens of file
-            executable = tempfile.mkstemp(prefix="dcc_sanitizer2")[1]
-            p = execute_compiler(
-                options.c_compiler,
-                options.dcc_supplied_compiler_args
-                + sanitizer2_sanitizer_args
-                + ["-o", executable],
-                options,
-                wrapper_C_source=sanitizer2_wrapper_source,
-                wrapper_cpp_source=wrapper_cpp_source,
-                wrapper_extra_options=[opt for opt in sanitizer2_sanitizer_args if opt.startswith("-f")],
-                debug_C_wrapper_file="tmp_dcc_sanitizer2.c",
-            )
-            if p.returncode != 0:
-                return p
-            with open(executable, "rb") as f:
-                (
-                    executable_n_bytes,
-                    executable_source,
-                ) = source_for_sanitizer2_executable(f.read())
-            os.unlink(executable)
-        except OSError:
-            # compiler may unlink temporary file resulting in this exception
-            return None
+        # the executable is placed in dcc's temporary directory
+        # so it is removed even if compilation fails
+        executable = os.path.join(options.temporary_directory, "dcc_sanitizer2")
+        p = execute_compiler(
+            options.c_compiler,
+            options.dcc_supplied_compiler_args
+            + sanitizer2_sanitizer_args
+            + ["-o", executable],
+            options,
+            wrapper_C_source=sanitizer2_wrapper_source,
+            wrapper_cpp_source=wrapper_cpp_source,
+            wrapper_extra_options=[
+                opt for opt in sanitizer2_sanitizer_args if opt.startswith("-f")
+            ],
+            debug_C_wrapper_file="tmp_dcc_sanitizer2.c",
+        )
+        if p.returncode != 0:
+            return p
+        if os.path.exists(executable):
+            try:
+                with open(executable, "rb") as f:
+                    (
+                        executable_n_bytes,
+                        executable_source,
+                    ) = source_for_sanitizer2_executable(f.read())
+            except OSError as e:
+                options.die(f"internal error: can not read {executable}: {e.strerror}")
+        else:
+            # no executable is produced by e.g. -fsyntax-only, so embed an empty one
+            executable_n_bytes, executable_source = source_for_sanitizer2_executable(b"")
 
     # leave leak checking to valgrind if it is running
     # because it currently gives better errors
@@ -118,7 +120,7 @@ def compile_user_program(options):
         if options.object_pathname != "a.out":
             command += ["-o", options.object_pathname]
         options.debug_print("incremental compilation, running: ", " ".join(command))
-        return subprocess.run(command)
+        return subprocess.run(command, check=False)
 
     if executable_source:
         wrapper_source = wrapper_source.replace(
@@ -221,9 +223,10 @@ def execute_compiler(
     debug_C_wrapper_file="tmp_dcc_sanitizer1.c",
     rename_functions=True,
     wrapper_cpp_source="",
-    wrapper_extra_options=[],
+    wrapper_extra_options=None,
     debug_cpp_wrapper_file="tmp_dcc_sanitizer1.cpp",
 ):
+    wrapper_extra_options = wrapper_extra_options or []
     extra_c_arguments, extra_c_arguments_debug = compile_wrapper_source(
         wrapper_C_source,
         options,
@@ -258,11 +261,17 @@ def execute_compiler(
             + options.user_supplied_compiler_args
             + options.dcc_supplied_linker_args
         )
+        # files in the temporary directory are recorded by basename
+        # so the debug script can be re-run after the directory is removed
+        debug_command = [
+            os.path.basename(a) if a.startswith(options.temporary_directory) else a
+            for a in debug_command
+        ]
         append_debug_compile(debug_command)
     p = run(command, options)
 
     # avoid a confusing mess of linker errors
-    if "undefined reference to `main" in p.stdout:
+    if linker_reports_missing_main(p.stdout):
         p.stdout = "error: your program does not contain a main function - a C program must contain a main function"
         p.returncode = 1
         return p
@@ -295,9 +304,17 @@ def execute_compiler(
             wrapper_C_source=wrapper_C_source,
             debug_C_wrapper_file=debug_C_wrapper_file,
             wrapper_cpp_source=wrapper_cpp_source,
+            wrapper_extra_options=wrapper_extra_options,
             debug_cpp_wrapper_file=debug_cpp_wrapper_file,
         )
     return p
+
+
+def linker_reports_missing_main(linker_output):
+    """return True if GNU ld or lld reports that main is undefined"""
+    return bool(
+        re.search(r"undefined (reference to `|symbol: )main(['\s]|$)", linker_output, re.M)
+    )
 
 
 def compile_wrapper_source(
@@ -306,10 +323,11 @@ def compile_wrapper_source(
     debug_wrapper_file,
     cpp=False,
     rename_functions=True,
-    wrapper_extra_options=[],
+    wrapper_extra_options=None,
 ):
     if not source:
         return [], []
+    wrapper_extra_options = wrapper_extra_options or []
     rename_arguments, source = get_rename_arguments(source, options, rename_functions)
     relocatable_basename = (
         "dcc_cpp_wrapper_source.o" if cpp else "dcc_c_wrapper_source.o"
@@ -333,7 +351,7 @@ def compile_wrapper_source(
             debug_wrapper_file,
             "-o",
             relocatable_basename,
-        ] + WRAPPER_SOURCE_COMPILER_ARGS
+        ] + WRAPPER_SOURCE_COMPILER_ARGS + wrapper_extra_options
         append_debug_compile(debug_command)
     command = [
         compiler,
@@ -345,7 +363,7 @@ def compile_wrapper_source(
         relocatable_pathname,
     ] + WRAPPER_SOURCE_COMPILER_ARGS + wrapper_extra_options
     options.debug_print("wrapper options", wrapper_extra_options)
-    process = run(command, options, input=source)
+    process = run(command, options, input_text=source)
     if process.stdout or process.returncode != 0:
         options.die("Internal error\n" + process.stdout)
     return rename_arguments + [relocatable_pathname], rename_arguments + [
@@ -417,16 +435,6 @@ def append_debug_compile(command):
         print(e, file=sys.stderr)
 
 
-def get_wrapper_cpp_code(options):
-    wrapper_source = "".join(
-        pkgutil.get_data("embedded_src", f).decode("utf8")
-        for f in [
-            "dcc_io.c",
-        ]
-    )
-    return add_constants_to_source_code(wrapper_source, options)
-
-
 def get_wrapper_code(options):
     wrapper_source = "".join(
         pkgutil.get_data("embedded_src", f).decode("utf8")
@@ -454,11 +462,9 @@ def get_wrapper_code(options):
 
 
 def add_constants_to_source_code(src, options):
-    src = src.replace("__PATH__", options.dcc_path)
-    src = src.replace("__DCC_VERSION__", '"' + VERSION + '"')
-    src = src.replace("__HOSTNAME__", '"' + platform.node() + '"')
-    src = src.replace("__CLANG_VERSION__", f'"{options.clang_version}"')
-    src = src.replace("__SUPRESSIONS_FILE__", options.suppressions_file)
+    # these values become C string literals so they must be escaped
+    src = src.replace("__PATH__", c_repr(options.dcc_path))
+    src = src.replace("__SUPRESSIONS_FILE__", c_repr(options.suppressions_file))
     src = src.replace(
         "__STACK_USE_AFTER_RETURN__", "1" if options.stack_use_after_return else "0"
     )
@@ -502,16 +508,25 @@ def embeded_environment_variables(options):
     return "\n".join(assignments)
 
 
-def c_repr(str):
-    return (
-        '"' + str.replace("\\", r"\\").replace(r'"', r"\"").replace("\n", r"\n") + '"'
-    )
+def c_repr(s):
+    """return s as a C string literal"""
+    literal = '"'
+    for c in s:
+        if c in '"\\?':
+            # ? is escaped so that ?? can not form a trigraph
+            literal += "\\" + c
+        elif " " <= c <= "~":
+            literal += c
+        else:
+            # octal escapes are at most 3 digits so a following digit is safe
+            literal += "".join(f"\\{b:03o}" for b in c.encode("utf-8", "surrogateescape"))
+    return literal + '"'
 
 
 def run(
     command,
     options,
-    input="",
+    input_text="",
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
@@ -521,7 +536,7 @@ def run(
     options.debug_print(" ".join(command))
     return subprocess.run(
         command,
-        input=input,
+        input=input_text,
         stdout=stdout,
         stderr=stderr,
         text=text,
@@ -542,7 +557,7 @@ def source_for_embedded_tarfile(options):
     for file in FILES_EMBEDDED_IN_BINARY:
         contents = pkgutil.get_data("embedded_src", file)
         if file.endswith(".py"):
-            contents = minify(contents, options)
+            contents = minify(contents)
         add_tar_file(options.tar, file, contents)
     options.tar.close()
     n_bytes = options.tar_buffer.tell()
@@ -570,33 +585,12 @@ def bytes2hex64_initializers(b):
     return ",".join(hex_int64)
 
 
-# Do some brittle shrinking of Python source  before embedding in binary.
-# Very limited benefits as source is xz compressed before embedded in binary
-def minify(python_source_bytes, options):
+# Remove comment lines from Python source before embedding it in the binary.
+# Very limited benefit as the source is xz compressed before being embedded.
+def minify(python_source_bytes):
     python_source = python_source_bytes.decode("utf-8")
-    lines = python_source.splitlines()
-    lines1 = []
-    while lines:
-        line = lines.pop(0)
-        if is_doc_string_delimiter(line):
-            line = lines.pop(0)
-            while not is_doc_string_delimiter(line):
-                line = lines.pop(0)
-            line = lines.pop(0)
-        if is_comment(line):
-            continue
-        if not options.debug:
-            line = re.sub(r"^(\s*)debug_print.*", r"\1pass", line)
-        # removing white-space is probably safe but with xz it get us nothing
-        # if line.startswith('\t') and '"' not in line and "'" not in line:
-        # 	line = re.sub(r' *([=,+\-*/%:]) *', r'\1', line)
-        lines1.append(line)
-    python_source = "\n".join(lines1) + "\n"
-    return python_source.encode("utf-8")
-
-
-def is_doc_string_delimiter(line):
-    return re.match(r'^(\t|	   )"""\s*$', line)
+    lines = [line for line in python_source.splitlines() if not is_comment(line)]
+    return ("\n".join(lines) + "\n").encode("utf-8")
 
 
 def is_comment(line):
@@ -630,10 +624,10 @@ def run_compile_time_logger(process, explanation_labels, options):
     source_file = stdout_first_line.split(":")[0]
     try:
         if (
-            source_file.endswith(".c")
+            source_file.endswith((".c", ".cpp", ".cc", ".cxx", ".c++"))
             and os.path.getsize(source_file) < MAX_BYTES_LOG_SOURCE_FILE
         ):
-            with open(source_file) as f:
+            with open(source_file, encoding="utf-8", errors="replace") as f:
                 logger_info["source"] = f.read(MAX_BYTES_LOG_SOURCE_FILE)
     except OSError:
         pass
@@ -650,7 +644,7 @@ def run_compile_time_logger(process, explanation_labels, options):
     try:
         sys.stdout.flush()
         sys.stderr.flush()
-        subprocess.run([options.compile_logger])
+        subprocess.run([options.compile_logger], check=False)
     except OSError as e:
         if options.debug:
             print(e)

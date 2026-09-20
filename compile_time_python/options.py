@@ -1,6 +1,6 @@
-import io, os, platform, re, subprocess, sys, tarfile
+import io, os, platform, re, shlex, subprocess, sys, tarfile
 from version import VERSION
-from util import search_path
+from util import debug_level_from_environment, search_path
 
 
 # on some platforms -Wno-unused-result is needed
@@ -35,6 +35,51 @@ IMPLICIT_LINKER_ARGS = "-lm".split()
 
 COMPILE_HELPER_BASENAME = "dcc-compile-helper"
 
+USAGE = """\
+Usage: {program} [options] [clang-options] <source-files>
+
+Compile C programs with clang, adding run-time error checking and
+explanations of errors suitable for novice programmers.
+
+Options:
+  -fsanitize=<list>        address, memory or valgrind, optionally with undefined,
+                           comma-separated (default: address and valgrind,
+                           or address and memory if valgrind is not installed)
+  --memory, --valgrind     deprecated: same as -fsanitize=memory or -fsanitize=valgrind
+  --leak-check             report memory leaks when the program exits
+  --no-explanations        do not add explanations to compiler messages
+  --use-after-return       detect use of a local variable after its function returns
+  --suppressions=<file>    valgrind suppressions file
+  --c-compiler=<compiler>  compiler to run (default: clang, or clang++ for C++)
+  --compile_helper=<program>
+                           run <program> after a compiler warning or error
+  --compile_logger=<program>
+                           run <program> after every compilation
+  --embedded_environment_variable=<name>=<value>
+                           set <name> in the environment of the compiled program
+  --shared-libasan, --no-shared-libasan
+                           link AddressSanitizer as a shared library, or not
+  --valgrind-fix-posix-spawn, --no-valgrind-fix-posix-spawn
+                           work around posix_spawn under valgrind, or not
+  --ifdef-main             rename main with a macro instead of linker wrapping
+  --use-funopen            use funopen instead of fopencookie
+  -o <file>                write the executable to <file> (default: a.out)
+  -v, --version            print the dcc version and exit
+  --help                   print this message and exit
+
+All other options are passed to clang.
+
+Environment variables:
+  DCC_DEBUG                level of debugging output (default: 0)
+  DCC_COLORIZE_OUTPUT      if not empty, colorize output even if stderr is not a terminal
+  DCC_COMPILE_HELPER       program to run after a compiler warning or error
+  DCC_COMPILE_LOGGER       program to run after every compilation"""
+
+
+def usage():
+    return USAGE.format(program=os.path.basename(sys.argv[0]))
+
+
 COMPILE_LOGGER_BASENAME = "dcc-compile-logger"
 
 
@@ -63,7 +108,7 @@ GCC_ONLY_ARGS = """
 
 class Options:
     def __init__(self):
-        self.debug = int(os.environ.get("DCC_DEBUG", "0"))
+        self.debug = debug_level_from_environment()
 
         # macOS has clang renamed as gcc - but it doesn't take gcc options
         self.also_run_gcc = sys.platform != "darwin" and search_path("gcc")
@@ -176,6 +221,11 @@ class Options:
         )
         self.embedded_environment_variables = []
 
+        # set by get_options
+        self.unsafe_system_includes = []
+        # set by compile.main
+        self.temporary_directory = ""
+
     def die(self, *args, **kwargs):
         self.warn(*args, **kwargs)
         # if the tar is not closed an execption is raised on exit by python 3.9
@@ -233,7 +283,7 @@ def get_options():
             reason = "incremental compilation"
         elif options.object_files_being_linked:
             reason = "object files being linked"
-        elif options.object_files_being_linked:
+        elif options.libraries_being_linked:
             reason = "library other than C standard library used"
         elif options.threads_used:
             reason = "threads used"
@@ -257,6 +307,13 @@ def get_options():
             options.debug_print(
                 "warning: valgrind does not seem be installed, using MemorySanitizer instead"
             )
+
+    if "valgrind" in options.sanitizers and options.suppressions_file != os.devnull:
+        if os.path.isdir(options.suppressions_file) or not os.access(
+            options.suppressions_file, os.R_OK
+        ):
+            # valgrind would fail to start and its checking would be silently lost
+            options.die(f"can not read suppressions file {options.suppressions_file}")
 
     if options.valgrind_fix_posix_spawn is None and "valgrind" in options.sanitizers:
         options.valgrind_fix_posix_spawn = sys.platform == "linux"
@@ -304,19 +361,20 @@ def get_options():
 def parse_args(commandline_args):
     options = Options()
     if not commandline_args:
-        print(
-            f"Usage: {sys.argv[0]} [-fsanitize=sanitizer1,sanitizer2] [--leak-check] [clang-arguments] <c-files>",
-            file=sys.stderr,
-        )
+        print(usage(), file=sys.stderr)
         sys.exit(1)
 
     while commandline_args:
         arg = commandline_args.pop(0)
         if arg.startswith("@"):
-            with open(arg[1:], encoding="utf-8") as argfile:
-                commandline_args = [
-                    ext_arg for line in argfile for ext_arg in line[:-1].split(" ")
-                ] + commandline_args
+            # a response file - its contents replace the argument
+            # it must not be passed on to clang which would expand it again
+            try:
+                with open(arg[1:], encoding="utf-8") as argfile:
+                    commandline_args = shlex.split(argfile.read()) + commandline_args
+            except (OSError, ValueError) as e:
+                options.die(f"can not read response file {arg[1:]}: {e}")
+            continue
         parse_arg(arg, commandline_args, options)
 
     return options
@@ -345,7 +403,8 @@ def parse_arg(arg, remaining_args, options):
     elif arg == "--leak-check" or arg == "--leakcheck":
         options.leak_check = True
     elif arg.startswith("--suppressions="):
-        options.suppressions_file = arg[len("--suppressions=") :]
+        # the program may be run from a different directory
+        options.suppressions_file = os.path.abspath(arg[len("--suppressions=") :])
     elif (
         arg == "--explanations" or arg == "--no_explanation"
     ):  # backwards compatibility
@@ -377,8 +436,7 @@ def parse_arg(arg, remaining_args, options):
         options.compile_logger = arg[len("--compile_logger=") :]
     elif arg.startswith("--embedded_environment_variable="):
         name_value = arg[len("--embedded_environment_variable=") :]
-        name = name_value.split("=")[0]
-        value = "=".join(name_value.split("=")[1:])
+        name, _, value = name_value.partition("=")
         options.embedded_environment_variables.append((name, value))
     elif arg == "-fcolor-diagnostics":
         options.colorize_output = True
@@ -386,9 +444,11 @@ def parse_arg(arg, remaining_args, options):
         options.colorize_output = False
     elif arg == "-v" or arg == "--version":
         print("dcc version", VERSION)
+        options.tar.close()
         sys.exit(0)
     elif arg == "--help":
-        print()
+        print(usage())
+        options.tar.close()
         sys.exit(0)
     elif arg.startswith("-o"):
         if arg == "-o":
@@ -399,8 +459,16 @@ def parse_arg(arg, remaining_args, options):
         op = options.object_pathname
         if (op.endswith(".c") or op.endswith(".h")) and os.path.exists(op):
             options.die(f"will not overwrite {op} with machine code")
+    elif arg == "-l":
+        # separated form of -l<library>
+        if not remaining_args:
+            options.die("argument to '-l' is missing")
+        library = remaining_args.pop(0)
+        options.user_supplied_compiler_args += [arg, library]
+        if library not in ["m", "c"]:
+            options.libraries_being_linked = True
     elif arg in ["-", "/dev/stdin"]:
-        options.die(f"compilation of stdin not supported")
+        options.die("compilation of stdin not supported")
     else:
         parse_clang_arg(arg, options)
 
@@ -417,6 +485,9 @@ def parse_clang_arg(arg, options):
             "warning: -Weverything not compatible with dcc, replaced with Wextra"
         )
         arg = "-Wextra"
+    if arg == "-pthreads":
+        # gcc, which is run for extra checking, only accepts -pthread
+        arg = "-pthread"
     options.user_supplied_compiler_args.append(arg)
     if arg == "-c":
         options.warn(
@@ -425,11 +496,12 @@ def parse_clang_arg(arg, options):
             "Signficant parts of dcc error detection do not work with incremental compilation."
         )
         options.incremental_compilation = True
-    elif arg.startswith("-l"):
+    elif arg.startswith("-l") and arg[2:] not in ["m", "c"]:
+        # libm & libc are part of the C library so don't affect dual sanitizers
         options.libraries_being_linked = True
     elif arg == "-Werror":
         options.treat_warnings_as_errors = True
-    elif arg == "-pthreads":
+    elif arg == "-pthread":
         options.threads_used = True
     else:
         process_possible_source_file(arg, options, set())
@@ -519,7 +591,7 @@ def test_clang_version_exists(compiler, options):
             return True
         else:
             if options.debug:
-                print("can not parse clang version '{clang_version_string}'")
+                print(f"can not parse clang version '{clang_version_string}'")
 
     except OSError as e:
         if options.debug:
