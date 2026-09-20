@@ -35,13 +35,37 @@
 #include <sys/wait.h>
 #endif
 
+#include <sys/resource.h>
+
 #ifdef __linux__
 # include <sys/prctl.h>
+# include <sys/syscall.h>
 #endif
 
 static int debug_level = 0;
 static FILE *debug_stream = NULL;
 
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define DCC_THREAD_LOCAL _Thread_local
+#elif defined(__GNUC__)
+#define DCC_THREAD_LOCAL __thread
+#else
+#define DCC_THREAD_LOCAL
+#endif
+
+// non-zero while a library function dcc overrides is running
+//
+// those functions clear the stack when they return, and they reach the stdio
+// callbacks which would otherwise clear it again for the same call
+static DCC_THREAD_LOCAL int __dcc_clearing_stack_suppressed;
+
+// for functions & parameters only used in some builds of this code
+#if __has_attribute(unused)
+#define MAYBE_UNUSED __attribute__((unused))
+#else
+#define MAYBE_UNUSED
+#endif
 
 #if __has_attribute(no_sanitize)
 #ifdef __clang__

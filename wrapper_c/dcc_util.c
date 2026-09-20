@@ -272,9 +272,14 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 \"";
 
 static void _explain_error(void) {
+    __dcc_clearing_stack_suppressed = 0;
 #if __N_SANITIZERS__ > 1 && __I_AM_SANITIZER1__
     stop_sanitizer2();
 #endif
+    // output the program has buffered but not written is lost here:
+    // flushing it is not safe on this path, because the stdio cookies
+    // re-enter the output checker, use far more stack than a signal handler
+    // has, and in sanitizer2 can block on the pipes to the other process
     // if a program has exhausted file descriptors then we need to close some to run gdb etc,
     // so as a precaution we close a pile of file descriptors which may or may not be open
     for (int i = 4; i < 32; i++) {
@@ -314,7 +319,7 @@ static void _memset_shim(void *p, int byte, size_t size) NO_SANITIZE
     __attribute__((optnone))
 #endif
     ;
-    
+
 static void clear_stack(void)
 #if __has_attribute(noinline)
     __attribute__((noinline))
@@ -324,7 +329,6 @@ static void clear_stack(void)
 #endif
     ;
 
-    
 static void quick_clear_stack(void)
 #if __has_attribute(noinline)
     __attribute__((noinline))
@@ -333,6 +337,49 @@ static void quick_clear_stack(void)
     __attribute__((optnone))
 #endif
     ;
+
+// with -ftrivial-auto-var-init=pattern the compiler fills local arrays on function entry,
+// which would double the cost of the functions below, so their arrays opt out
+#if __has_attribute(uninitialized)
+#define UNINITIALIZED __attribute__((uninitialized))
+#else
+#define UNINITIALIZED
+#endif
+
+// bytes of stack cleared when the program starts
+#define CLEAR_STACK_BYTES 4096000
+
+// most bytes quick_clear_stack will clear
+#define QUICK_CLEAR_STACK_MAX_BYTES 262144
+
+// quick_clear_stack examines and clears the stack in chunks of this size
+#define QUICK_CLEAR_STACK_CHUNK_BYTES 4096
+
+// quick_clear_stack stops when this many consecutive chunks are found clean
+// a returned frame holding a large untouched array can leave a clean gap
+// above deeper dirt, so this is several chunks rather than one
+// dirt below a gap larger than this many chunks is not re-cleared
+// (a larger value costs every stdio call: 16 chunks measured 65% slower)
+#define QUICK_CLEAR_STACK_CLEAN_CHUNKS_TO_STOP 8
+
+// bytes cleared by quick_clear_stack when running under valgrind
+// if valgrind's headers were not available when the program was compiled
+#define QUICK_CLEAR_STACK_VALGRIND_BYTES 256000
+
+// memcheck reports a conditional jump depending on uninitialized values if
+// the stack is examined, unless it has first been told the memory is defined
+// by a client request, which needs valgrind's headers when the program is compiled
+#if __SANITIZER__ == VALGRIND && defined(__has_include)
+#if __has_include(<valgrind/memcheck.h>)
+#include <valgrind/memcheck.h>
+#define QUICK_CLEAR_STACK_SCAN 1
+#endif
+#elif __SANITIZER__ != VALGRIND
+#define QUICK_CLEAR_STACK_SCAN 1
+#endif
+#ifndef QUICK_CLEAR_STACK_SCAN
+#define QUICK_CLEAR_STACK_SCAN 0
+#endif
 
 // hack to initialize (most of) stack to MEMORY_FILL_HEX
 // so uninitialized values are more obvious in output
@@ -344,18 +391,91 @@ static void quick_clear_stack(void)
 // but not other stack space so this is still is helpful when
 // values from invalid accesses are printed
 
-
 static void clear_stack(void) {
-    char a[4096000];
+    char a[CLEAR_STACK_BYTES] UNINITIALIZED;
     debug_printf(3, "initialized %p to %p\n", a, a + sizeof a);
     _memset_shim(a, MEMORY_FILL_HEX, sizeof a);
 }
+
+// quick_clear_stack re-initializes the stack below the current frame
+// after a library call has dirtied it, so uninitialized variables in
+// functions called later are still filled with MEMORY_FILL_HEX
+//
+// it is called after every stdio operation so it must be cheap
+
+#if !QUICK_CLEAR_STACK_SCAN
+
+// under valgrind without its headers a fixed amount is cleared
 
 static void quick_clear_stack(void) {
-    char a[256000];
+    if (__dcc_clearing_stack_suppressed) {
+        return;
+    }
+    char a[QUICK_CLEAR_STACK_VALGRIND_BYTES] UNINITIALIZED;
     debug_printf(3, "initialized %p to %p\n", a, a + sizeof a);
     _memset_shim(a, MEMORY_FILL_HEX, sizeof a);
 }
+
+#else
+
+static int _is_filled(const void *p, size_t size) NO_SANITIZE
+#if __has_attribute(noinline)
+    __attribute__((noinline))
+#endif
+    ;
+
+// The stack dirtied by the preceding library call is at the top of the array
+// below, and glibc's stdio functions use only a few kilobytes.  Dirt left by
+// the program's own earlier calls may lie deeper, separated by clean gaps.
+// The array is examined and cleared a chunk at a time from the top down,
+// stopping when QUICK_CLEAR_STACK_CLEAN_CHUNKS_TO_STOP consecutive chunks are
+// found still filled with MEMORY_FILL_HEX, so the cost is proportional to
+// the depth of the dirt rather than to the size of the array.
+
+static void quick_clear_stack(void) {
+    if (__dcc_clearing_stack_suppressed) {
+        return;
+    }
+    char a[QUICK_CLEAR_STACK_MAX_BYTES] UNINITIALIZED;
+    char *chunk = a + sizeof a;
+    int n_consecutive_clean_chunks = 0;
+    while (chunk > a) {
+        chunk -= QUICK_CLEAR_STACK_CHUNK_BYTES;
+#if __SANITIZER__ == VALGRIND
+        // the chunk is examined below so tell memcheck its contents are defined
+        // this does not affect error detection because memcheck marks the stack
+        // undefined again whenever a function later allocates a frame there
+        VALGRIND_MAKE_MEM_DEFINED(chunk, QUICK_CLEAR_STACK_CHUNK_BYTES);
+#endif
+        if (_is_filled(chunk, QUICK_CLEAR_STACK_CHUNK_BYTES)) {
+            n_consecutive_clean_chunks++;
+            if (n_consecutive_clean_chunks == QUICK_CLEAR_STACK_CLEAN_CHUNKS_TO_STOP) {
+                break;
+            }
+        } else {
+            n_consecutive_clean_chunks = 0;
+            _memset_shim(chunk, MEMORY_FILL_HEX, QUICK_CLEAR_STACK_CHUNK_BYTES);
+        }
+    }
+    debug_printf(3, "initialized %p to %p\n", chunk, a + sizeof a);
+}
+
+// return 1 if the size bytes at p are all MEMORY_FILL_HEX
+// the bytes are uninitialized as far as the compiler is concerned,
+// so they are examined in a separate function which is not inlined,
+// to stop the compiler making assumptions about their values
+// the loop has no early exit so the compiler can vectorize it
+
+static int _is_filled(const void *p, size_t size) {
+    const unsigned char *bytes = p;
+    unsigned char difference = 0;
+    for (size_t i = 0; i < size; i++) {
+        difference |= bytes[i] ^ MEMORY_FILL_HEX;
+    }
+    return difference == 0;
+}
+
+#endif
 
 // hide memset in a function with optimization turned off
 // to avoid calls being removed by optimizations
@@ -368,6 +488,9 @@ static void clear_stack(void) {
 static void quick_clear_stack(void) {
 }
 static void _memset_shim(void *p, int byte, size_t size) {
+    (void)p;
+    (void)byte;
+    (void)size;
 }
 #endif
 
@@ -486,7 +609,10 @@ int __wrap_posix_spawnp(pid_t *pid, const char *path,
 int fprintf(FILE *restrict stream, const char *restrict format, ...) {
 	va_list args;
 	va_start(args, format);
+	int suppressed = __dcc_clearing_stack_suppressed;
+	__dcc_clearing_stack_suppressed = 1;
 	int done = vfprintf(stream, format, args);
+	__dcc_clearing_stack_suppressed = suppressed;
 	va_end(args);
 	quick_clear_stack();
 	return done;
@@ -495,7 +621,10 @@ int fprintf(FILE *restrict stream, const char *restrict format, ...) {
 int printf(const char *restrict format, ...) {
 	va_list args;
 	va_start(args, format);
+	int suppressed = __dcc_clearing_stack_suppressed;
+	__dcc_clearing_stack_suppressed = 1;
 	int done = vfprintf(stdout, format, args);
+	__dcc_clearing_stack_suppressed = suppressed;
 	va_end(args);
 	quick_clear_stack();
 	return done;
