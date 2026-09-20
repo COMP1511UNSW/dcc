@@ -649,6 +649,8 @@ static int debug_printf(int level, const char *format, ...) {
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
+#include <limits.h>
 
 int __real_posix_spawn(pid_t *pid, const char *path,
                        const posix_spawn_file_actions_t *file_actions,
@@ -659,6 +661,66 @@ int __real_posix_spawnp(pid_t *pid, const char *path,
                         const posix_spawn_file_actions_t *file_actions,
                         const posix_spawnattr_t *attrp, char *const argv[],
                         char *const envp[]) NO_SANITIZE;
+
+// the errno posix_spawn reports when path can not be executed, or 0 if it can
+static int _dcc_spawn_error(const char *path) {
+    struct stat s;
+    if (stat(path, &s) != 0) {
+        return errno;
+    }
+    if (!S_ISREG(s.st_mode)) {
+        // execve reports EACCES for a directory, as posix_spawn does natively
+        return EACCES;
+    }
+    if (faccessat(AT_FDCWD, path, X_OK, AT_EACCESS) != 0) {
+        return errno;
+    }
+    return 0;
+}
+
+// the same for posix_spawnp, which searches $PATH unless file contains a '/'
+static int _dcc_spawnp_error(const char *file) {
+    // an empty name is ENOENT natively, and the $PATH search below would
+    // instead report EACCES for the directories it would build from it
+    if (!file || !*file) {
+        return ENOENT;
+    }
+    if (strchr(file, '/')) {
+        return _dcc_spawn_error(file);
+    }
+    const char *search = getenv("PATH");
+    if (!search) {
+        search = "/bin:/usr/bin";
+    }
+    size_t file_length = strlen(file);
+    int error = ENOENT;
+    for (;;) {
+        const char *colon = strchr(search, ':');
+        size_t length = colon ? (size_t)(colon - search) : strlen(search);
+        char candidate[PATH_MAX];
+        // a PATH element too long to hold is simply not considered
+        if (length + file_length + 2 <= sizeof candidate) {
+            memcpy(candidate, search, length);
+            // an empty PATH element means the current directory
+            if (length > 0 && candidate[length - 1] != '/') {
+                candidate[length++] = '/';
+            }
+            memcpy(candidate + length, file, file_length + 1);
+            int candidate_error = _dcc_spawn_error(candidate);
+            if (candidate_error == 0) {
+                return 0;
+            }
+            // execvp reports EACCES if a candidate existed but was not executable
+            if (candidate_error == EACCES) {
+                error = EACCES;
+            }
+        }
+        if (!colon) {
+            return error;
+        }
+        search = colon + 1;
+    }
+}
 
 static int
 _dcc_posix_spawn_helper(int is_posix_spawn, pid_t *pid, const char *path,
@@ -679,19 +741,19 @@ _dcc_posix_spawn_helper(int is_posix_spawn, pid_t *pid, const char *path,
         *(const unsigned char *)attrp && argv && argv[0] && envp && envp[0]) {
     }
 #endif
+    // posix_spawn with valgrind-3.14.0 returns 0 if path can not be executed
+    // crude work-around so it returns the errno it does when executed directly
+    //
+    // file_actions may chdir, so only the child can resolve a relative path
+    int spawn_error =
+        file_actions && (!path || path[0] != '/') ? 0
+        : is_posix_spawn ? _dcc_spawn_error(path) : _dcc_spawnp_error(path);
+    if (spawn_error) {
+        return spawn_error;
+    }
+
     if (is_posix_spawn) {
-        // posix_spawn with valgrind-3.14.0 returns 0 if path can not be executed
-        // crude work-around so it returns 2 as it does when executed directly
-
-        struct stat s;
-        if (stat(path, &s) == 0 && S_ISREG(s.st_mode) &&
-            faccessat(AT_FDCWD, path, X_OK, AT_EACCESS) == 0) {
-            return __real_posix_spawn(pid, path, file_actions, attrp, argv,
-                                      envp);
-        } else {
-            return 2;
-        }
-
+        return __real_posix_spawn(pid, path, file_actions, attrp, argv, envp);
     } else {
         return __real_posix_spawnp(pid, path, file_actions, attrp, argv, envp);
     }

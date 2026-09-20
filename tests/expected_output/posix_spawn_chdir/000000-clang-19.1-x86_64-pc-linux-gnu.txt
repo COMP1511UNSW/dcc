@@ -1,0 +1,4 @@
+ran the child
+ran the child
+posix_spawn after chdir 0
+posix_spawnp after chdir 0
