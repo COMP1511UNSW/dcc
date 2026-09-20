@@ -16,7 +16,7 @@ $ ./a.out
 9
 $ dcc count_zero.c
 $ ./a.out
-count_zero.c.c:7:7: runtime error - index 10 out of bounds for type 'int [10]'
+Runtime error: index 10 out of bounds for type 'int[10]'
 dcc explanation: You are using an illegal array index: 10
   Valid indices for an array of size 10 are 0..9
   Make sure the size of your array is correct.
@@ -47,7 +47,7 @@ $ a.out
 Segmentation fault (core dumped)
 $ dcc linked_list.c
 $ a.out
-linked_list.c:12:15: runtime error - accessing a field via a NULL pointer
+Runtime error: accessing a field via a NULL pointer
 dcc explanation: You are using a pointer which is NULL
   A common error is  using p->field when p == NULL.
 Execution stopped in main() in linked_list.c at line 12:
@@ -75,7 +75,7 @@ $ a.out
 $ dcc uninitialised_variable.c
 $ a.out
 Runtime error: uninitialized variable accessed.
-Execution stopped in main() in uninitialised_variable.c at required:
+Execution stopped in main() in uninitialised_variable.c at line 6:
 
 int main(void) {
     int numbers[10];
@@ -110,7 +110,10 @@ The synchronisation of the 2 processes is only effective for the standard C libr
 which should include almost all typical programs written by novice programmers.
 If synchronisation is lost the 2nd process should terminate silently.
 
-If libraries other the standard C library are used, uninitialized variables does not occur.
+Detection of uninitialized variables needs this second process, so it is disabled when the program
+uses a library other than the C standard library (`-l`, apart from `-lm` and `-lc`), threads (`-pthread`), incremental compilation (`-c`),
+object files, or a system header outside the C standard library (such as `unistd.h` or `signal.h`),
+and on macOS.  Only AddressSanitizer is then used.
  
 # Leak checking
 
@@ -129,21 +132,28 @@ After reporting a runtime error an executable produced by `dcc`  can optionally 
 After reporting a runtime error a `dcc` executable checks if an executable
 named **dcc-runtime-helper** exists in `$PATH` and if so runs it.
 
-An alternate name for the executable file can be supplied in the environment variable `DCC_RUNTIME_HELPER`
+An alternate name for the executable file can be supplied in the environment variable `DCC_RUNTIME_HELPER`,
+which takes precedence over the search of `$PATH` (relative directories in `$PATH` are resolved
+against the program's original working directory).  The helper is not run if the location of the error could not be determined.
 
 The helper executable is run with a different working directory to the orignal executable.
 It is run in a temporary directory created by the dcc executable which contains the source
 to the original executable and dcc infrastructure files.
 
-These environment variable are supplied to the helper script. They may be empty.
+These environment variables are supplied to the helper script. They may be empty.
 
 - `DCC_PWD` - the original directory where the executable was run
-- `HELPER_FILENAME` - source filename where error occurred
-- `HELPER_LINE_NUMBER` - source line number where error occurred
-- `HELPER_COLUMN`  - source column where error occurred
-- `HELPER_SOURCE` - source lines surrounding error
-- `HELPER_CALL_STACK` - function call stack 
+- `HELPER_FILE` - source filename where error occurred
+- `HELPER_LINE` - source line number where error occurred
+- `HELPER_COL`  - source column where error occurred
+- `HELPER_EXPLANATION` - dcc's explanation of the error
+- `HELPER_SOURCE` - the program's source (or the source lines surrounding the error if the file is large)
+- `HELPER_CALL_STACK` - function call stack
 - `HELPER_VARIABLES` - current values of variables near the error location
+- `HELPER_ARGV` - the program's command line arguments
+- `HELPER_STDIN` - the most recent input read from stdin, if it was valid UTF-8
+- `HELPER_STDIN_TRUNCATED` - True if the input was longer than the buffer keeping it
+- `HELPER_STDIN_VALID_UTF8` - False if the input was not valid UTF-8
 - `HELPER_JSON` - above variables encoded as JSON
 
 # Compile Helper Script
@@ -153,32 +163,41 @@ After reporting a compiler message `dcc`  can optionally run an external program
 After reporting a compiler message `dcc`  checks if an executable
 named **dcc-compile-helper** exists in `$PATH` and if so runs it.
 
-An alternate name for the executable file can be supplied in the environment variable `DCC_COMPILE_HELPER`
+An alternate name for the executable file can be supplied in the environment variable `DCC_COMPILE_HELPER`,
+or with the option `--compile_helper=`, which takes precedence.  The directory containing `dcc`, and the standard system directories, are searched
+before `$PATH`.  The helper is run for warnings as well as errors, and not at all with `--no-explanations`.
 
-These environment variable are supplied to the helper script. They may be empty.
+These environment variables are supplied to the helper script. They may be empty.
 
-- `LOGGER_ARGV` - compiler command-line arguments
-- `LOGGER_RETURNCODE` - compiler exit status
-- `LOGGER_JSON` - above variables encoded as JSON
+- `HELPER_COMPILER_MESSAGE` - compiler message
+- `HELPER_TYPE` - message type (e.g. warning)
+- `HELPER_FILE` - source filename where error occurred
+- `HELPER_LINE` - source line number where error occurred
+- `HELPER_COL`  - source column where error occurred
+- `HELPER_EXPLANATION` - dcc text explaining error
+- `HELPER_LABEL` - a short identifier for the explanation
+- `HELPER_SOURCE` - the program's source (or the source lines surrounding the error if the file is large)
+- `HELPER_JSON` - above variables encoded as JSON
 
 # Compile Logger Script
 
-After completing a compilation message `dcc`  can optionally log the details.
+After completing a compilation `dcc`  can optionally log the details.
 
-After reporting a compiler message `dcc`  checks if an executable
+After a compilation `dcc`  checks if an executable
 named **dcc-compile-logger** exists in `$PATH` and if so runs it.
 
-An alternate name for the executable file can be supplied in the environment variable `DCC_COMPILE_LOGGER`
+An alternate name for the executable file can be supplied in the environment variable `DCC_COMPILE_LOGGER`,
+or with the option `--compile_logger=`, which takes precedence.  The directory containing `dcc`,
+and the standard system directories, are searched before `$PATH`.
 
-These environment variable are supplied to the helper script. They may be empty.
+These environment variables are supplied to the logger script. They may be empty.
 
-- `HELPER_COMPILER_MESSAGE` - compiler message
-- `HELPER_MESSAGE_TYPE` - message type (e.g warning)
-- `HELPER_FILENAME` - source filename where error occurred
-- `HELPER_LINE_NUMBER` - source line number where error occurred
-- `HELPER_COLUMN`  - source column where error occurred
-- `HELPER_EXPLANATION` - dcc text explaining error
-- `HELPER_JSON` - above variables encoded as JSON
+- `DCC_LOGGER_ARGV` - compiler command-line arguments
+- `DCC_LOGGER_EXIT` - compiler exit status
+- `DCC_LOGGER_FIRST_LINE` - the first line of the compiler's output
+- `DCC_LOGGER_LABELS` - the identifiers of the explanations given
+- `DCC_LOGGER_SOURCE` - the source file named in the first line of output, if it is small
+- `DCC_LOGGER_JSON` - above variables encoded as JSON
 
 # Output checking
 
@@ -200,20 +219,26 @@ If `DCC_IGNORE_CASE` is true, case is ignored when checking expected output.  De
 
 `DCC_IGNORE_CHARACTERS` and `DCC_IGNORE_WHITE_SPACE`  take precedence over `DCC_COMPARE_ONLY_CHARACTERS`
 
-Environment variables are considered true if their value is a non-empty string starting with a character other than '0', 'f' or 'F'.  They are considered false otherwise.
+`DCC_MAX_STDOUT_BYTES` is set to a number, the program is stopped if it prints more than that many bytes.  Default no limit.
+
+Environment variables are considered true if their value is a non-empty string starting with a character other than '0', 'f', 'F', 'n' or 'N'.  They are considered false otherwise.
+
+Output is compared line by line, so newlines can not be ignored, but a Windows line ending (`\r\n`) is treated as a newline.
+A line longer than 65536 bytes or a zero byte in the output is always an error.
+Output checking only happens when `DCC_EXPECTED_STDOUT` is set.
 
 # Local Variable Use After Function Return Detection
 
 ```
 $ dcc --use-after-return bad_function.c
 $ ./a.out
-bad_function.c:22 runtime error - stack use after return
+Runtime error: stack use after return
 
 dcc explanation: You have used a pointer to a local variable that no longer exists.
   When a function returns its local variables are destroyed.
 
 For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html
-Execution stopped here in main() in bad_function at line 22:
+Execution stopped in main() in bad_function.c at line 22:
 
 
 	int *a = f(42);
@@ -233,7 +258,7 @@ When a function returns its local variables are destroyed.
 For more information see: https://comp1511unsw.github.io/dcc//stack_use_after_return.html'
 
 
-Execution stopped here in main() in tests/run_time/bad_function.c at line 22:
+Execution stopped in main() in bad_function.c at line 22:
 
 
 int main(void) {
@@ -325,9 +350,9 @@ sudo ln  -sf dcc /usr/local/bin/d++
 
 * dcc embeds in the binary produced a xz-compressed tar file (see [compile.py]) containing the C source files for the program and some Python code which is executed if a runtime error occurs.
 
-* Sanitizer errors are intercepted by a shim for the function `__asan_on_error` in [dcc_util.c].
+* Sanitizer errors are intercepted by shims for the functions `__asan_on_error` and `__ubsan_on_report` in [dcc_util.c].
 
-* A set of signals produced by runtime errors are trapped by `_signal_handler` in [dcc_util.c].
+* A set of signals produced by runtime errors (SIGABRT, SIGSEGV, SIGINT, SIGXCPU, SIGXFSZ, SIGFPE and SIGILL, and SIGPIPE and SIGUSR1 when two sanitizers are used) are trapped by `__dcc_signal_handler` in [dcc_util.c].  SIGSEGV is handled on an alternate stack so that a stack overflow from infinite recursion can be explained.
 
 * Both functions call `_explain_error` in [dcc_util.c] which creates a temporary directory,
 extracts into it the program source and Python from the embedded tar file, and executes the Python code, which:
@@ -342,23 +367,24 @@ Linux initializes stack pages to zero.  As a consequence novice programmers  wri
 are likely to find zero in uninitialized local variables.  This often results in apparently correct behaviour from a
 invalid program with uninitialized local variables.
 
-dcc embeds code in the binary which initializes the first few megabytes of the stack to 0xbe (see `clear-stack` in [dcc_util.c].
+dcc embeds code in the binary which initializes the first few megabytes of the stack to 0xaa (see `clear_stack` in [dcc_util.c].
 
-For valgrind dcc uses its malloc-fill and --free-fill options to achieve the same result see [dcc_util.c].  AddressSanitizer & MemorySanitizer use a malloc which does this by default.
+For valgrind dcc uses its malloc-fill and --free-fill options to achieve the same result see [dcc_util.c].  AddressSanitizer is configured to do the same in `__asan_default_options`.
+With `--use-after-return` the stack is not initialized, because AddressSanitizer then keeps local variables elsewhere; local variables are still filled by clang's `-ftrivial-auto-var-init=pattern`.
 
-When printing variable values, dcc prints ints, doubles & pointers consisting of 0xbe bytes as "<uninitialized>". 
+When printing variable values, dcc prints ints, doubles & pointers consisting of 0xaa bytes as "<uninitialized value>".
 
-Indirection using pointers consisting of 0xbe bytes will produced an unaligned access error from  UndefinedBehaviourSanitizer, unless the pointer is to char.  dcc intercepts these and explanations suitable for novice programmers (see  explain_ubsan_error in [drive_gdb.py])
+Indirection using pointers consisting of 0xaa bytes will produced an unaligned access error from  UndefinedBehaviourSanitizer, unless the pointer is to char.  dcc intercepts these and explanations suitable for novice programmers (see explain_ubsan_error in [explain_error.py])
 
 ```
 $ dcc dereference_uninitialized.c
 $ ./a.out
-tests/run_time/dereference_uninitialized_with_arrow.c:9:14: runtime error - accessing a field via an uninitialized pointer
+Runtime error: accessing a field via an uninitialized pointer
 
 dcc explanation: You are using a pointer which has not been initialized
   A common error is using p->field without first assigning a value to p.
 
-Execution stopped here in main() in dereference_uninitialized.c at line 9:
+Execution stopped in main() in dereference_uninitialized.c at line 9:
 
 int main(void) {
     struct list_node *a = malloc(sizeof *a);
@@ -378,6 +404,26 @@ cd dcc
 make
 cp -p ./dcc /usr/local/bin/dcc
 ```
+
+# Testing
+
+`make check` runs the static checks and the Python unit tests:
+
+* pylint (configured by `.pylintrc`), mypy, and a compile with warnings made fatal, on the Python
+* shellcheck on the shell scripts
+* `tests/check_wrapper_warnings.sh`, which compiles the C code embedded in every program with
+  `-Wall -Wextra -Werror` using clang and gcc, for each combination of sanitizers.
+  dcc refuses to compile a program if this code produces any diagnostic, so a warning
+  enabled by default in a new compiler version would break every compilation
+* `tests/python_unit_tests.py`
+
+`make tests` runs the end-to-end tests in `tests/`.  Each test is a C program or a shell script;
+dcc's output is compared with the accepted outputs in `tests/expected_output`, which are kept per
+clang version because compiler messages change.  A new or changed output is shown and can be
+accepted interactively.  The tests for compile-time explanations are generated from the
+`reproduce` programs in `compile_time_python/compiler_explanations.py`.
+
+Both are run by the GitHub Actions workflow in `.github/workflows/ci.yml`.
 
 # Compilation Diagram
 
@@ -410,7 +456,7 @@ Assumes the default option of AddressSanitizer + valgrind run in parallel.
 ```mermaid
 flowchart
     user1[user runs binary from dcc] --> main
-    main[execute dcc wrapper code in binary]  --> |stack pages initialized to 0xbe| Sanitizer1["execute user's code in binary<br>(compiled with AddressSanitizer)"]
+    main[execute dcc wrapper code in binary]  --> |stack pages initialized to 0xaa| Sanitizer1["execute user's code in binary<br>(compiled with AddressSanitizer)"]
     main --> |extract embedded binary<br>to temporary file & fork| Sanitizer2["valgrind executes user's code in temporary file<br>(not compiled with sanitizers)"]
     main --> |fork| Watcher[valgrind watcher]
     
