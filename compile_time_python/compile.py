@@ -409,12 +409,139 @@ def compile_wrapper_source(
         relocatable_pathname,
     ] + WRAPPER_SOURCE_COMPILER_ARGS + wrapper_extra_options
     options.debug_print("wrapper options", wrapper_extra_options)
-    process = run(command, options, input_text=source)
-    if process.stdout or process.returncode != 0:
-        options.die("Internal error\n" + process.stdout)
+    cached_pathname = cached_wrapper_object(options, source, command)
+    if cached_pathname:
+        relocatable_pathname = cached_pathname
+    else:
+        process = run(command, options, input_text=source)
+        if process.stdout or process.returncode != 0:
+            options.die("Internal error\n" + process.stdout)
+        save_wrapper_object(options, source, command, relocatable_pathname)
     return rename_arguments + [relocatable_pathname], rename_arguments + [
         relocatable_basename
     ]
+
+
+# This code is the same for every program compiled by the same dcc with the
+# same compiler and options, so the object file is kept and re-used.  A miss
+# only costs the time to compile it, so anything unexpected is treated as one.
+
+# how many objects are kept before the least recently used are removed
+MAX_CACHED_WRAPPER_OBJECTS = 20
+
+
+def wrapper_object_cache_pathname(options, source, command):
+    """return where the object for this source and command belongs, or None"""
+    if os.environ.get("DCC_NO_WRAPPER_CACHE"):
+        return None
+    try:
+        # the compiler is identified by its version and by the file itself, so
+        # that upgrading it can not re-use an object the old one produced
+        compiler = shutil.which(command[0]) or command[0]
+        information = os.stat(compiler)
+        key = hashlib.sha256()
+        for part in (
+            VERSION,
+            platform.system(),
+            platform.machine(),
+            options.clang_version,
+            compiler,
+            str(information.st_size),
+            str(information.st_mtime_ns),
+            " ".join(command_without_output_pathname(command)),
+            source,
+        ):
+            key.update(part.encode("utf-8", "surrogateescape") + b"\0")
+        directory = os.environ.get("XDG_CACHE_HOME") or os.path.join(
+            os.path.expanduser("~"), ".cache"
+        )
+        return os.path.join(directory, "dcc", "wrapper-" + key.hexdigest() + ".o")
+    except (OSError, TypeError) as e:
+        options.debug_print("wrapper object cache unavailable:", e)
+        return None
+
+
+def command_without_output_pathname(command):
+    """the command with -o and its argument left out
+
+    The object is written to a new temporary directory on every compilation,
+    so its pathname must not be part of what identifies the compilation.
+    """
+    arguments = []
+    skip = False
+    for argument in command:
+        if skip:
+            skip = False
+        elif argument == "-o":
+            skip = True
+        else:
+            arguments.append(argument)
+    return arguments
+
+
+def cached_wrapper_object(options, source, command):
+    """return the pathname of a usable cached object, or None"""
+    pathname = wrapper_object_cache_pathname(options, source, command)
+    if not pathname:
+        return None
+    try:
+        information = os.lstat(pathname)
+        # a file which is not an ordinary file of our own could have been put
+        # there by anyone, and a damaged one would fail at the linker
+        if not stat.S_ISREG(information.st_mode) or information.st_uid != os.getuid():
+            options.debug_print("ignoring cached object not owned by us", pathname)
+            return None
+        with open(pathname, "rb") as f:
+            contents = f.read()
+        with open(pathname + ".sha256", encoding="ascii") as f:
+            expected_digest = f.read().strip()
+        if hashlib.sha256(contents).hexdigest() != expected_digest:
+            options.debug_print("ignoring damaged cached object", pathname)
+            return None
+    except OSError:
+        return None
+    options.debug_print("using cached object", pathname)
+    os.utime(pathname, None)
+    return pathname
+
+
+def save_wrapper_object(options, source, command, relocatable_pathname):
+    """keep the object just compiled so the next compilation can re-use it"""
+    pathname = wrapper_object_cache_pathname(options, source, command)
+    if not pathname:
+        return
+    try:
+        directory = os.path.dirname(pathname)
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+        with open(relocatable_pathname, "rb") as f:
+            contents = f.read()
+        # written under a private name and renamed, so another compilation
+        # running at the same time never sees a half-written object
+        unique = pathname + f".{os.getpid()}"
+        with open(unique + ".sha256", "w", encoding="ascii") as f:
+            f.write(hashlib.sha256(contents).hexdigest())
+        with open(unique, "wb") as f:
+            f.write(contents)
+        os.replace(unique + ".sha256", pathname + ".sha256")
+        os.replace(unique, pathname)
+        options.debug_print("cached object", pathname)
+        remove_least_recently_used_objects(directory)
+    except OSError as e:
+        options.debug_print("can not cache object:", e)
+
+
+def remove_least_recently_used_objects(directory):
+    objects = [os.path.join(directory, f) for f in os.listdir(directory)]
+    objects = [f for f in objects if f.endswith(".o")]
+    if len(objects) <= MAX_CACHED_WRAPPER_OBJECTS:
+        return
+    objects.sort(key=lambda f: os.stat(f).st_mtime)
+    for pathname in objects[: len(objects) - MAX_CACHED_WRAPPER_OBJECTS]:
+        for f in (pathname, pathname + ".sha256"):
+            try:
+                os.unlink(f)
+            except OSError:
+                pass
 
 
 def get_rename_arguments(source, options, rename_functions=True):
