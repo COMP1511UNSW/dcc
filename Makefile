@@ -46,8 +46,17 @@ check:
 	tests/check_wrapper_warnings.sh ./dcc
 	python3 tests/python_unit_tests.py
 
+# run the tests with every clang installed, so that a version which words a
+# message differently is found before students meet it
 tests_all_clang_versions: dcc
-	for compiler in /usr/bin/clang-[1-24-9]* ; do echo $$compiler;tests/do_tests.sh ./dcc $$compiler; echo; done
+	@status=0; \
+	for compiler in /usr/bin/clang-[0-9]*; do \
+		version=$${compiler#/usr/bin/clang-}; \
+		test -x "/usr/bin/clang++-$$version" || continue; \
+		echo "=== clang-$$version"; \
+		tests/do_tests.sh ./dcc "$$compiler" "/usr/bin/clang++-$$version" </dev/null || status=1; \
+	done; \
+	exit $$status
 
 
 VERSION=$(shell git describe --tags|sed 's/-/./;s/-.*//')
