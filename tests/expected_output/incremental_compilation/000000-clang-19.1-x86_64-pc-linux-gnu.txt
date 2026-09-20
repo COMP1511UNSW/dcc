@@ -1,0 +1,6 @@
+dcc: warning: using incremental compilation (-c) is not recommended with dcc
+Signficant parts of dcc error detection do not work with incremental compilation.
+dcc: warning: using incremental compilation (-c) is not recommended with dcc
+Signficant parts of dcc error detection do not work with incremental compilation.
+incremental compilation works
+incremental compilation works

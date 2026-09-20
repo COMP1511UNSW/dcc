@@ -1,5 +1,4 @@
 //dcc_flags=
-//dcc_flags=-fsanitize=memory
 //dcc_flags=-fsanitize=address,memory
 //dcc_flags=-fsanitize=valgrind
 
@@ -10,3 +9,4 @@ int main(int argc, char **argv) {
         a[43] = 43;
     }
 }
+// not run with -fsanitize=memory alone: the values displayed for a are not deterministic
