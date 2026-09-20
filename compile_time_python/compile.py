@@ -1,5 +1,5 @@
 import hashlib, io, json, os, pkgutil, platform, re, shutil, stat
-import subprocess, sys, tarfile, tempfile
+import shlex, subprocess, sys, tarfile, tempfile
 import colors
 
 from version import VERSION
@@ -723,8 +723,21 @@ def valgrind_watcher_command():
     The size of the tar file it is sent reaches it in the environment,
     because those bytes are linked into the program rather than being part
     of the source which holds this command.
+
+    The interpreter dcc is running under is tried before the one in PATH,
+    because if no python3 can be run the program valgrind is watching waits
+    for a debugger this command would have started, and never says why.
     """
-    return """PATH=$PATH:/bin:/usr/bin:/usr/local/bin exec python3 -E -c "import io,os,sys,tarfile,tempfile
+    python3 = shlex.quote(sys.executable or "python3")
+    return (
+        "PATH=$PATH:/bin:/usr/bin:/usr/local/bin\n"
+        f"for dcc_python3 in {python3} python3\n"
+        + """do
+ dcc_python3=$(command -v "$dcc_python3") || continue
+ # a candidate can exist and still fail to run, e.g. a shim for a removed
+ # version, so it is tried before the shell is replaced
+ "$dcc_python3" -E -c "" </dev/null >/dev/null 2>&1 || continue
+ exec "$dcc_python3" -E -c "import io,os,sys,tarfile,tempfile
 with tempfile.TemporaryDirectory() as temp_dir:
  n = int(os.environ['DCC_TAR_N_BYTES'])
  buffer = io.BytesIO(sys.stdin.buffer.raw.read(n))
@@ -735,7 +748,19 @@ with tempfile.TemporaryDirectory() as temp_dir:
   os.chdir(temp_dir)
   exec(open('watch_valgrind.py').read())
 "
+done
+echo "dcc: python3 can not be run, so errors will not be explained" >&2
+head -c "$DCC_TAR_N_BYTES" >/dev/null
+while read -r dcc_error_line
+do
+ echo "$dcc_error_line" >&2
+ case "$dcc_error_line" in
+ # valgrind is now waiting for the debugger which was not started
+ *"vgdb me"*) kill -9 "$PPID"; exit 1;;
+ esac
+done
 """
+    )
 
 
 def embedded_environment_variables(options):
