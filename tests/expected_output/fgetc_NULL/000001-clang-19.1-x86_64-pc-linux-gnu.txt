@@ -5,6 +5,3 @@ fgetc_NULL.c:5:5: warning: argument 1 null where non-null expected [-Wnonnull]
 dcc explanation: you are passing the variable f which always contains NULL as argument 1 to 'fgetc'.
 Argument 1 to 'fgetc' should never be NULL.
 In file included from fgetc_NULL.c:1:
-/usr/include/stdio.h:575:12: note: in a call to function ‘fgetc’ declared ‘nonnull’
-  575 | extern int fgetc (FILE *__stream) __nonnull ((1));
-      |            ^~~~~[0m

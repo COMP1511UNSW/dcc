@@ -1,7 +1,0 @@
-uninitialized-local-variable.c: In function ‘main’:
-uninitialized-local-variable.c:3:13: warning: ‘a’ is used uninitialized [-Wuninitialized]
-    3 |     return a[0];
-      |            ~^~~
-uninitialized-local-variable.c:2:9: note: ‘a’ declared here
-    2 |     int a[1];
-      |         ^[0m
