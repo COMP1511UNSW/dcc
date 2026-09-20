@@ -156,12 +156,19 @@ def compile_user_program(options):
         and not options.object_files_being_linked
     ):
         options.debug_print("compiling with gcc for extra checking")
-        return execute_compiler(
+        gcc_p = execute_compiler(
             "g++" if options.cpp_mode else "gcc",
             options.gcc_args,
             options,
             rename_functions=False,
         )
+        # gcc links libgcc only, so a multiplication function clang took from
+        # compiler-rt is undefined for gcc - which says nothing about the
+        # program clang has already compiled
+        if UNDEFINED_MULTIPLICATION_REFERENCE in gcc_p.stdout:
+            options.debug_print("ignoring gcc pass, it can not link compiler-rt")
+            return p
+        return gcc_p
 
     return p
 
@@ -266,6 +273,18 @@ def update_wrapper_source(sanitizer, sanitizer_n, src, options):
     return source_for_definitions(definitions) + src, sanitizer_args
 
 
+# what the linker says when the program needs a function only compiler-rt has
+UNDEFINED_MULTIPLICATION_REFERENCE = "undefined reference to `__mul"
+
+# -lgcc and -lgcc_s are still needed for unwinding
+COMPILER_RT_ARGUMENTS = ["--rtlib=compiler-rt", "-lgcc", "-lgcc_s"]
+
+
+def source_without_ubsan(source):
+    """the wrapper source with the undefined behaviour sanitizer turned off"""
+    return source.replace("#define DCC_UBSAN_IN_USE 1", "#define DCC_UBSAN_IN_USE 0")
+
+
 def execute_compiler(
     compiler,
     dcc_supplied_arguments,
@@ -330,18 +349,41 @@ def execute_compiler(
         p.returncode = 1
         return p
 
-    # workaround for  https://github.com/android-ndk/ndk/issues/184
-    # when not triggered earlier
-    if "undefined reference to `__mul" in p.stdout:
-        command = [
-            c
-            for c in command
-            if c
-            not in ["-fsanitize=undefined", "-fno-sanitize-recover=undefined,integer"]
-        ]
-        options.debug_print("undefined reference to `__mulodi4'")
-        options.debug_print("recompiling", " ".join(command))
-        p = run(command, options)
+    # on some architectures clang emits calls to the overflow-checking
+    # multiplication functions of its own run-time library, which the libgcc
+    # it links by default does not have
+    # https://github.com/android-ndk/ndk/issues/184
+    if UNDEFINED_MULTIPLICATION_REFERENCE in p.stdout:
+        # compiler-rt is already the default run-time library on macOS
+        if "clang" in compiler and sys.platform != "darwin":
+            options.debug_print("relinking with", " ".join(COMPILER_RT_ARGUMENTS))
+            relinked = run(command + COMPILER_RT_ARGUMENTS, options)
+            # an install without compiler-rt must keep the original error,
+            # which is accurate, and still reach the fallback below
+            if relinked.returncode == 0:
+                p = relinked
+        if (
+            UNDEFINED_MULTIPLICATION_REFERENCE in p.stdout
+            and "-fsanitize=undefined" in dcc_supplied_arguments
+        ):
+            # the wrapper is compiled again as well as the program, because a
+            # wrapper compiled for the sanitizer would say it was in use and
+            # its calls to the sanitizer's run-time library would be undefined
+            options.debug_print("recompiling without -fsanitize=undefined")
+            return execute_compiler(
+                compiler,
+                [a for a in dcc_supplied_arguments if a != "-fsanitize=undefined"],
+                options,
+                wrapper_C_source=source_without_ubsan(wrapper_C_source),
+                debug_C_wrapper_file=debug_C_wrapper_file,
+                rename_functions=rename_functions,
+                wrapper_cpp_source=source_without_ubsan(wrapper_cpp_source),
+                wrapper_extra_options=[
+                    a for a in wrapper_extra_options if a != "-fsanitize=undefined"
+                ],
+                debug_cpp_wrapper_file=debug_cpp_wrapper_file,
+                embedded_objects=embedded_objects,
+            )
 
     # a user call to a renamed unistd.h function appears to be undefined
     # so recompile without renames
