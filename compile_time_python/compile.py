@@ -227,7 +227,13 @@ def update_wrapper_source(sanitizer, sanitizer_n, src, options):
     else:
         sanitizer_args = ["-fsanitize=address"]
 
-    # 	if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
+    # the valgrind process of a pair is deliberately built without the
+    # undefined behaviour sanitizer, which is why dcc misses some uninitialized
+    # values dcc --valgrind reports: memcheck only complains when such a value
+    # reaches a branch, and an undefined behaviour check is often the only
+    # branch on it.  Building it with the sanitizer is not a fix -- a program
+    # compiled with --use-after-return is then killed by SIGKILL and prints
+    # nothing at all, which is worse than the values it would catch.  See #58.
     if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
         # FIXME if we enable '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
         # which would be preferable here we get uninitialized variable error message for undefined errors
