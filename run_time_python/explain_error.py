@@ -5,6 +5,9 @@ from explain_output_difference import explain_output_difference
 
 RUNTIME_HELPER_BASENAME = "dcc-runtime-helper"
 
+# the most stack frames fetched from gdb
+MAX_STACK_FRAMES = 100
+
 
 def explain_error(output_stream, color):
     dprint(2, "explain_error() in drive_gdb.py starting")
@@ -21,20 +24,23 @@ def explain_error(output_stream, color):
     elif "DCC_SIGNAL_THREAD" in os.environ:
         # signal gives us the Linux TID, gdb calls this the LWP
         threads = gdb_interface.gdb_execute("info threads").split("\n")
-        lwp = int(os.environ.get("DCC_SIGNAL_THREAD"))
+        lwp = os.environ.get("DCC_SIGNAL_THREAD")
         # should only be one thread
-        thread_entry = [line for line in threads if f"(LWP {lwp})" in line][0]
-        thread_id = int(thread_entry[2:].split(" ")[0])
-        gdb_interface.gdb_execute(f"thread {thread_id}")
+        for line in threads:
+            if f"(LWP {lwp})" in line:
+                m = re.match(r"^[\s*]*(\d+)", line)
+                if m:
+                    gdb_interface.gdb_execute(f"thread {m.group(1)}")
+                break
 
-    stack = parse_stack()
+    stack, stack_truncated = parse_stack()
     location = stack[0] if stack else None
     signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
     explanation = ""
-    if signal_number != signal.SIGABRT:
+    if "DCC_SIGNAL" in os.environ:
         explanation = explain_signal(signal_number)
     elif "DCC_ASAN_ERROR" in os.environ:
-        explanation = explain_asan_error(location, color)
+        explanation = explain_asan_error(color)
     elif "DCC_UBSAN_ERROR_KIND" in os.environ:
         explanation, location = explain_ubsan_error(location, color)
     elif "DCC_OUTPUT_ERROR" in os.environ:
@@ -52,7 +58,9 @@ def explain_error(output_stream, color):
     if not "DCC_VALGRIND_ERROR" in os.environ:
         print(explanation, file=output_stream)
 
-    variable_addresses = explain_context.get_variable_addresses(stack)
+    variable_addresses = explain_context.get_variable_addresses(
+        stack, truncated=stack_truncated
+    )
     variables = ""
     if location:
         where = explain_context.explain_location(location, variable_addresses, color)
@@ -69,7 +77,7 @@ def explain_error(output_stream, color):
     stack_explanation = ""
     if len(stack) > 1:
         stack_explanation = explain_context.explain_stack(
-            stack, variable_addresses, color
+            stack, variable_addresses, color, truncated=stack_truncated
         )
         print(color("\nFunction call traceback:\n", "cyan"), file=output_stream)
         print(stack_explanation, file=output_stream)
@@ -232,7 +240,7 @@ def explain_ubsan_error(loc, color):
     return report, loc
 
 
-def explain_asan_error(loc, color):
+def explain_asan_error(color):
     asan_error = os.environ.get("DCC_ASAN_ERROR")
     if asan_error:
         asan_error = asan_error.replace("-", " ")
@@ -280,6 +288,10 @@ ASAN_EXPLANATIONS = [
 
 
 def explain_signal(signal_number):
+    if signal_number == signal.SIGSEGV and os.environ.get("DCC_STACK_OVERFLOW"):
+        return "Execution stopped by a stack overflow.\nA common cause of this error is infinite recursion."
+    if signal_number == signal.SIGABRT:
+        return "Execution stopped by a call to abort().\nA failed assert() calls abort()."
     if signal_number == signal.SIGINT:
         return "Execution was interrupted"
     elif signal_number == signal.SIGFPE:
@@ -297,6 +309,8 @@ def explain_signal(signal_number):
 def run_runtime_helper(
     loc, explanation, variables, stack_explanation, stack, output_stream
 ):
+    # dcc's report is complete, so it is written before anything else is tried
+    output_stream.flush()
     if not loc:
         return
     color = lambda text, _: text
@@ -316,7 +330,7 @@ def run_runtime_helper(
     source = ""
     try:
         if os.path.getsize(loc.filename) < util.MAX_FILE_SIZE_PASSED_TO_HELPER:
-            with open(loc.filename) as f:
+            with open(loc.filename, encoding="utf-8", errors="replace") as f:
                 source = f.read(util.MAX_FILE_SIZE_PASSED_TO_HELPER)
     except OSError:
         pass
@@ -358,7 +372,7 @@ def run_runtime_helper(
 
     dprint(2, f"running {helper}")
     try:
-        subprocess.run([helper], stdout=output_stream, stderr=output_stream)
+        subprocess.run([helper], stdout=output_stream, stderr=output_stream, check=False)
     except OSError as e:
         dprint(1, e)
 
@@ -386,6 +400,9 @@ def get_saved_stdin():
 
 
 def get_argv(stack):
+    if not stack or stack[-1].function != "main":
+        # the outermost frame was not reached, e.g. the stack was too deep
+        return []
     #    only in recent gdb
     #    current_level = gdb_interface.gdb_get_frame()
     current_level = stack[0].frame_number
@@ -399,7 +416,8 @@ def get_argv(stack):
             for i in range(argc)
         ]
 
-    except (IndexError, ValueError):
+    except Exception:  # pylint: disable=broad-exception-caught
+        # the command line arguments are extra information, never essential
         argv = []
     gdb_interface.gdb_set_frame(current_level)
     return argv
@@ -409,8 +427,10 @@ def get_argv(stack):
 
 
 def parse_stack():
+    """return the stack frames in user code, and whether gdb left frames out"""
     try:
-        stack = gdb_interface.gdb_execute("where")
+        # a very deep stack, e.g. from infinite recursion, takes gdb a long time to print
+        stack = gdb_interface.gdb_execute(f"where {MAX_STACK_FRAMES}")
         dprint(3, "\nStack:\n", stack, "\n")
         stack_lines = stack.splitlines()
         reversed_stack_lines = reversed(stack_lines)
@@ -430,11 +450,16 @@ def parse_stack():
             gdb_interface.gdb_set_frame(frames[0].frame_number)
         else:
             dprint(3, "gdb_set_frame no frame number")
-        return frames
+        # gdb reports at most this many frames, so on a deeper stack the
+        # outermost calls were left out unless main is among those reported
+        truncated = len(stack_lines) >= MAX_STACK_FRAMES and (
+            not frames or frames[-1].function != "main"
+        )
+        return frames, truncated
     except Exception:
         if util.get_debug_level():
             traceback.print_exc(file=sys.stderr)
-        return None
+        return [], False
 
 
 def parse_gdb_stack_frame(line):

@@ -18,9 +18,30 @@ def explain_location(location, variable_addresses, color):
     return where
 
 
-def explain_stack(stack, variable_addresses, color):
+# the most function calls shown in a traceback, the innermost first
+MAX_CALLS_SHOWN = 10
+
+
+def shown_calls(n_frames, truncated):
+    """indexes of the calls a traceback shows, with None where calls are left out"""
+    if truncated:
+        # gdb did not report the outermost calls, so they can not be shown
+        return list(range(min(n_frames, MAX_CALLS_SHOWN))) + [None]
+    if n_frames > MAX_CALLS_SHOWN + 1:
+        # show the innermost calls and the outermost, which is main
+        return list(range(MAX_CALLS_SHOWN)) + [None, n_frames - 1]
+    return list(range(n_frames))
+
+
+def explain_stack(stack, variable_addresses, color, truncated=False):
     call_stack = ""
-    for frame, caller in zip(stack, stack[1:] + [None]):
+    for index in shown_calls(len(stack), truncated):
+        if index is None:
+            call_stack += "...\n"
+            continue
+        frame = stack[index]
+        # the call which made it, which is still known if calls were left out
+        caller = stack[index + 1] if index + 1 < len(stack) else None
         call = explain_function_call(
             frame.function, frame.params, variable_addresses, color
         )
@@ -40,6 +61,9 @@ def explain_function_call(function, params, variable_addresses, color):
     for p in params.split(", "):
         if m := re.search(r"^(\w+)=(.*)", p):
             variable, value = m.groups()
+            if "<error reading variable" in value:
+                # e.g. the arguments of the call which overflowed the stack
+                value = "<unknown>"
             # should we check variable type here?
             value = convert_variable_address(value, variable_addresses, color)
             value = clarify_values(value, color, variable_addresses)
@@ -65,7 +89,7 @@ def relevant_variables(c_source_lines, color, variable_addresses):
         expressions += extract_expressions(line)
 
     # avoid trying to evaluate types/keywords for efficiency/clarity
-    done = KEYWORDS
+    done = set(KEYWORDS)
     explanation = ""
     dprint(3, "relevant_variables expressions=", c_source_lines, expressions)
     for expression in sorted(
@@ -212,7 +236,7 @@ def extract_expressions(c_source):
     return []
 
 
-def get_variable_addresses(stack):
+def get_variable_addresses(stack, truncated=False):
     if not stack:
         return []
     addresses = []
@@ -220,7 +244,12 @@ def get_variable_addresses(stack):
     #    only in recent gdb
     #    current_level = gdb_interface.gdb_get_frame()
     current_level = stack[0].frame_number
-    for frame in stack[1:]:
+    # only the calls the traceback shows, so no value is labelled with a
+    # variable from a function the student can not see
+    for index in shown_calls(len(stack), truncated):
+        if index is None or index == 0:
+            continue
+        frame = stack[index]
         gdb_interface.gdb_set_frame(frame.frame_number)
         get_variables(frame.function, addresses)
     gdb_interface.gdb_set_frame(current_level)
@@ -354,12 +383,6 @@ def clarify_values(values, color, variable_addresses):
     )
     values = re.sub(rf'<uninitialized value>((\{MEMORY_FILL["int8_char"]})+)', lambda m: f"<{len(m.group(1)) // 4 + 1} uninitialized values>", values)
     values = re.sub(rf'((\{MEMORY_FILL["int8_char"]})+)', lambda m: f"<{len(m.group(1)) // 4} uninitialized values>", values)
-    # convert "\376\376\376" ->  <3 uninitialized values>
-    values = re.sub(
-        rf"((\376)+)",
-        lambda m: f"<{len(m.group(1)) // 4} uninitialized values>",
-        values,
-    )
     values = values.replace("<1 uninitialized values>", "<uninitialized value>")
 
     values = re.sub(

@@ -1,6 +1,9 @@
 import os, re
 from util import dprint
 
+# the gdb module, supplied by drive_gdb.py which runs inside gdb
+gdb = None
+
 
 def set_interface(interface):
     global gdb

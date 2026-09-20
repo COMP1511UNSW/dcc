@@ -8,22 +8,22 @@ MAX_FILE_SIZE_PASSED_TO_HELPER = 8192
 # order matters long values should be first
 # tests/run_time_errors/uninitialized-types.c test most of these values
 MEMORY_FILL = {
-	"gdb_unknown": "(unknown: 0xaaaaaaaa)",
-	"gdb_ascii" : "-86 (not valid ASCII)",
-	"gdb_int8" : "-86 '\\252'",
-	"gdb_uint8" : "170 '\\252'",
-	"clang_float" : "-nan(0x7fffff)",
-	"clang_double" : "-nan(0xfffffffffffff)",
-	"int64_hex" : "0xaaaaaaaaaaaaaaaa",
-	"int64" : "-6148914691236517206",
-	"uint64" : "12297829382473034410",
-	"float" : "-3.03164883e-13",
-	"double" : "-3.7206620809969885e-103",
-	"int32_hex" : "0xaaaaaaaa",
-	"int32" : "-1431655766",
-	"uint32" : "2863311530",
-	"int8_hex" : "0xaa",
-	"int8_char" : '\\252',
+    "gdb_unknown": "(unknown: 0xaaaaaaaa)",
+    "gdb_ascii": "-86 (not valid ASCII)",
+    "gdb_int8": "-86 '\\252'",
+    "gdb_uint8": "170 '\\252'",
+    "clang_float": "-nan(0x7fffff)",
+    "clang_double": "-nan(0xfffffffffffff)",
+    "int64_hex": "0xaaaaaaaaaaaaaaaa",
+    "int64": "-6148914691236517206",
+    "uint64": "12297829382473034410",
+    "float": "-3.03164883e-13",
+    "double": "-3.7206620809969885e-103",
+    "int32_hex": "0xaaaaaaaa",
+    "int32": "-1431655766",
+    "uint32": "2863311530",
+    "int8_hex": "0xaa",
+    "int8_char": '\\252',
 }
 
 
@@ -71,19 +71,11 @@ class Location:
     def __str__(self):
         return f"Location({self.filename},{self.line_number},column={self.column},function={self.function},params={self.params},variable={self.variable})"
 
-    def location(self, color):
-        return (
-            color(self.filename, "red")
-            + " at "
-            + color("line " + str(self.line_number), "red")
-        )
-
     def source_line(self):
         return fileline(self.filename, self.line_number)
 
     def surrounding_source(self, color, radius=2, clean=False, markMiddle=False):
         lines = []
-        marked_line = None
         for offset in range(-3 * radius, 2 * radius):
             line = fileline(self.filename, self.line_number + offset)
 
@@ -91,7 +83,6 @@ class Location:
                 lines = []
 
             if markMiddle and offset == 0 and line:
-                marked_line = line
                 line = color(re.sub(r"^ {0,3}", "-->", line), "red")
 
             lines.append(clean_c_source(line) if clean else line)
@@ -105,9 +96,6 @@ class Location:
         while lines and re.match(r"^[\s{]*$", lines[-1]):
             lines.pop()
 
-        if len(lines) == 1 and not marked_line:
-            return ""
-
         return lines
 
     def is_user_location(self):
@@ -120,8 +108,15 @@ class Location:
         return True
 
 
-def fileline(filename, line_number, cached_source_files={}):
+# the lines of source files already read, keyed by filename
+cached_source_files: dict[str, list[str]] = {}
+
+
+def fileline(filename, line_number):
     line_number = int(line_number)
+    if line_number < 1:
+        # a negative index would wrap around to lines at the end of the file
+        return ""
     try:
         if filename in cached_source_files:
             return cached_source_files[filename][line_number - 1]
@@ -143,9 +138,9 @@ def fileline(filename, line_number, cached_source_files={}):
 
 # remove comments and truncate strings & character constants to zero-length
 def clean_c_source(c_source, leave_white_space=False):
-    c_source = re.sub("\\[\"']", "", c_source)
-    c_source = re.sub(r'".*?"', "", c_source)
-    c_source = re.sub(r"'.*?'", "", c_source)
+    # remove string & character literals, allowing for escaped characters inside them
+    c_source = re.sub(r'"(?:\\.|[^"\\\n])*"', "", c_source)
+    c_source = re.sub(r"'(?:\\.|[^'\\\n])*'", "", c_source)
     c_source = re.sub(r"/[/\*].*", "", c_source)
     if leave_white_space:
         return c_source
@@ -156,19 +151,26 @@ debug_level = 0
 debug_stream = sys.stderr
 
 
-def set_debug_level(level=int(os.environ.get("DCC_DEBUG", "0"))):
+def debug_level_from_environment():
+    """the value of DCC_DEBUG, or 0 if it is not an integer"""
+    try:
+        return int(os.environ.get("DCC_DEBUG", "0"))
+    except ValueError:
+        return 0
+
+
+def set_debug_level(level=None):
     global debug_level
-    debug_level = level
+    debug_level = debug_level_from_environment() if level is None else level
 
 
 def get_debug_level():
-    global debug_level
     return debug_level
 
 
 def set_debug_stream(stream=sys.stderr):
     global debug_stream
-    debug_stream = sys.stderr
+    debug_stream = stream
 
 
 def dprint(level, *args, **kwargs):

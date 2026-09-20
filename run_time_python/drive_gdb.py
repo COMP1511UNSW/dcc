@@ -7,9 +7,11 @@ import colors, gdb_interface, explain_error, util
 # a beginner programmer
 #
 
-# workaround - avoid warning message from analysers
-if 0:
-    gdb = None
+# this file is executed by gdb's embedded Python, where the gdb module exists
+try:
+    import gdb
+except ImportError:
+    gdb = None  # type: ignore[assignment]
 
 
 def drive_gdb():

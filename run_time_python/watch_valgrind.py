@@ -7,10 +7,39 @@
 
 
 import os, re, sys, signal
-from start_gdb import start_gdb, kill_all, kill
-from util import explanation_url
+from start_gdb import start_gdb, kill_all, kill, kill_env
+from util import debug_level_from_environment, explanation_url
 from explain_error import runtime_error_prefix
 import colors
+
+
+# a line of valgrind output which starts a report rather than continuing one
+VALGRIND_REPORT_RE = re.compile(r"^==\d+== [A-Z]")
+
+# the stack frames valgrind prints beneath a report, which its purely
+# informational messages do not have
+VALGRIND_STACK_FRAME_RE = re.compile(r"^==\d+==\s+(at|by) 0x")
+
+# lines valgrind prints which are not reporting an error
+VALGRIND_NOT_AN_ERROR = (
+    "TO DEBUG THIS PROCESS",
+    "For lists of detected and suppressed errors",
+    "ERROR SUMMARY",
+    "HEAP SUMMARY",
+    "LEAK SUMMARY",
+    "All heap blocks were freed",
+    "in use at exit",
+    "total heap usage",
+    "Command:",
+    "Copyright",
+    "Using Valgrind",
+    "Memcheck,",
+)
+
+# a report valgrind made which dcc did not recognise, and whether valgrind
+# printed a stack trace beneath it, which only a real error has
+unrecognised_output: list = []
+unrecognised_has_stack_frames = [False]
 
 
 def watch_valgrind():
@@ -22,14 +51,53 @@ def watch_valgrind():
     else:
         color = lambda text, color_name: text
 
-    debug_level = int(os.environ.get("DCC_DEBUG", "0"))
+    debug_level = debug_level_from_environment()
     if debug_level > 1:
         print("watch_valgrind() running", file=sys.stderr)
     while read_line(color, debug_level):
         pass
+    report_unrecognised_output(color)
     if debug_level > 1:
         print("watch_valgrind() - exiting", file=sys.stderr)
     sys.exit(0)
+
+
+def note_unrecognised_line(line):
+    """remember a report from valgrind which dcc has no explanation for"""
+    if unrecognised_output and VALGRIND_STACK_FRAME_RE.match(line):
+        unrecognised_has_stack_frames[0] = True
+    if not VALGRIND_REPORT_RE.match(line):
+        return
+    if any(text in line for text in VALGRIND_NOT_AN_ERROR):
+        return
+    if len(unrecognised_output) < 20:
+        unrecognised_output.append(line)
+
+
+def report_unrecognised_output(color):
+    """
+    report an error valgrind found which dcc has no explanation for
+
+    Without this a valgrind message dcc does not know about is discarded and
+    the program exits as if it were correct, so a valgrind release which
+    renames a message would silently switch off that kind of checking.
+    """
+    if not unrecognised_output or not unrecognised_has_stack_frames[0]:
+        # valgrind prints informational messages too, and only a real error
+        # report has a stack trace beneath it
+        return
+    error = runtime_error_prefix("error detected by valgrind", color)
+    print("\n" + error, file=sys.stderr)
+    print(
+        "dcc does not have an explanation for this error."
+        " This is what valgrind reported:\n",
+        file=sys.stderr,
+    )
+    for line in unrecognised_output:
+        print("   ", line.rstrip(), file=sys.stderr)
+    print(file=sys.stderr, flush=True)
+    kill_env("DCC_SANITIZER1_PID", which_signal=signal.SIGUSR1)
+    kill_all()
 
 
 def read_line(color, debug_level):
@@ -128,6 +196,7 @@ A common cause of this error is infinite recursion.
             error_text = "Error: memory allocated not de-allocated."
         call_start_gdb = False
     else:
+        note_unrecognised_line(line)
         return 1
 
     full_error = runtime_error_prefix(runtime_error, color) + error_text
@@ -137,6 +206,10 @@ A common cause of this error is infinite recursion.
     if call_start_gdb:
         start_gdb()
     else:
+        if full_error:
+            # tell the other process an error was found, so that a program
+            # whose only error is reported here does not exit successfully
+            kill_env("DCC_SANITIZER1_PID", which_signal=signal.SIGUSR1)
         if valgrind_pid:
             kill(valgrind_pid)
         kill_all()
