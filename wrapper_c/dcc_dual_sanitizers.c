@@ -296,9 +296,9 @@ static void __dcc_cleanup_before_exit(void) {
 		// the program has an error even though main finished normally
 		// the output the program has produced is flushed first,
 		// because _exit does not flush and the error is not the program's fault
-		debug_printf(2, "sanitizer2 reported an error, exiting with status 1\n");
+		debug_printf(2, "sanitizer2 reported an error, exiting\n");
 		fflush(NULL);
-		_exit(1);
+		_exit(DCC_ERROR_EXIT_STATUS);
 	}
 #endif
 }
@@ -566,7 +566,7 @@ void abort(void) {
 	__dcc_signal_handler(SIGABRT);
 #endif
 	__dcc_error_exit();
-	_exit(1); //not reached
+	_exit(DCC_ERROR_EXIT_STATUS); //not reached
 }
 
 // pass results of a time call sanitizer 1 -> sanitizer 2

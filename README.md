@@ -199,6 +199,16 @@ These environment variables are supplied to the logger script. They may be empty
 - `DCC_LOGGER_SOURCE` - the source file named in the first line of output, if it is small
 - `DCC_LOGGER_JSON` - above variables encoded as JSON
 
+# Exit Status
+
+A program stopped by an error dcc detected exits with status **141**, whichever
+sanitizers are in use and whichever kind of error it is: an illegal array index
+or pointer, an uninitialized value, a failed assert, a memory leak reported with
+`--leak-check`, or output which did not match `DCC_EXPECTED_STDOUT`.
+
+A program dcc did not stop keeps its own exit status, so a marking script can
+tell an error dcc detected from a program which failed on its own.
+
 # Output checking
 
 dcc can check a program's output is correct.  If a program outputs an incorrect line, the program is stopped.  A description of why the output is incorrect is printed.  The current execution location is shown with the current values of variables & expressions.

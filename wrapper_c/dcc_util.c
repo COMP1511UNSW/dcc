@@ -40,7 +40,8 @@ static void launch_valgrind(int argc, char *argv[]) {
                                        "--malloc-fill=0x" MEMORY_FILL_STR,
                                        "--free-fill=0x" MEMORY_FILL_STR,
                                        "--vgdb-error=1",
-                                       "--error-exitcode=1",
+                                       "--error-exitcode=" DCC_STRINGIFY(
+                                           DCC_ERROR_EXIT_STATUS),
                                        "--" };
 
     int valgrind_command_len =
@@ -125,7 +126,7 @@ void __dcc_error_exit(void) {
     kill(getpid(), SIGPIPE);
 #endif
 
-    _exit(1);
+    _exit(DCC_ERROR_EXIT_STATUS);
 }
 
 // is __asan_on_error  address sanitizer only??
@@ -174,13 +175,14 @@ const char *__asan_default_options(void) {
     // NOTE setting detect_stack_use_after_return here stops
     // clear_stack pre-initializing stack frames to MEMORY_FILL_HEX
 
-    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0:detect_stack_use_after_return=__STACK_USE_AFTER_RETURN__:malloc_fill_byte=" MEMORY_FILL_INT_STR;
+    // exitcode is the status LeakSanitizer uses when it reports a leak
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__:max_malloc_fill_size=4096000:quarantine_size_mb=16:verify_asan_link_order=0:detect_stack_use_after_return=__STACK_USE_AFTER_RETURN__:exitcode=" DCC_STRINGIFY(DCC_ERROR_EXIT_STATUS) ":malloc_fill_byte=" MEMORY_FILL_INT_STR;
 }
 #endif
 
 #if __SANITIZER__ == MEMORY
 const char *__msan_default_options(void) {
-    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__";
+    return "verbosity=0:print_stacktrace=1:halt_on_error=1:detect_leaks=__LEAK_CHECK_1_0__:exitcode=" DCC_STRINGIFY(DCC_ERROR_EXIT_STATUS);
 }
 #endif
 

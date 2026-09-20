@@ -46,6 +46,16 @@ static int debug_level = 0;
 static FILE *debug_stream = NULL;
 
 
+// the exit status of a program stopped by an error dcc detected
+//
+// it is the same for every error and every combination of sanitizers, so that
+// a marking script can tell a detected error from the program's own failure
+// 141 is what a program killed by SIGPIPE reports, which is how dcc has
+// always stopped a program in its most common configuration
+#define DCC_ERROR_EXIT_STATUS 141
+#define DCC_STRINGIFY_(x) #x
+#define DCC_STRINGIFY(x) DCC_STRINGIFY_(x)
+
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #define DCC_THREAD_LOCAL _Thread_local
 #elif defined(__GNUC__)
