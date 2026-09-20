@@ -33,6 +33,17 @@ CLANG_ONLY_ARGS = """
 
 IMPLICIT_LINKER_ARGS = "-lm".split()
 
+# ELF, the Mach-O variants and their universal binary, and the DOS stub of a PE
+EXECUTABLE_MAGIC_NUMBERS = [
+    b"\x7fELF",
+    b"\xce\xfa\xed\xfe",
+    b"\xcf\xfa\xed\xfe",
+    b"\xfe\xed\xfa\xce",
+    b"\xfe\xed\xfa\xcf",
+    b"\xca\xfe\xba\xbe",
+    b"MZ\x90\x00",
+]
+
 COMPILE_HELPER_BASENAME = "dcc-compile-helper"
 
 USAGE = """\
@@ -516,9 +527,15 @@ def process_possible_source_file(pathname, options, processed_files):
         return
     processed_files.add(pathname)
     extension = os.path.splitext(pathname)[1]
-    if extension.lower() in [".a", ".o", ".so"]:
+    # versioned shared libraries (libm.so.6) and macOS dylibs are linked too
+    if re.search(r"\.(a|o|so|dylib)(\.\d+)*$", pathname, flags=re.IGNORECASE):
         options.object_files_being_linked = True
         return
+    if is_compiled_program(pathname):
+        options.die(
+            f"'{pathname}' is a compiled program, not source code\n"
+            f"if you want to create the program '{pathname}', use: -o {pathname}"
+        )
     if extension.lower() in [".cpp", ".c++"]:
         options.cpp_mode = True
     try:
