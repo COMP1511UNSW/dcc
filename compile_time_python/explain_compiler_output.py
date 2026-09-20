@@ -11,6 +11,7 @@ def explain_compiler_output(output, args):
     errors_explained = 0
     messages = []
     explanations = []
+    unexplained_lines = []
     if args.colorize_output:
         color = colors.color
     else:
@@ -22,7 +23,15 @@ def explain_compiler_output(output, args):
         if args.debug > 2:
             print("message", message, file=sys.stderr)
         if not message:
-            print(lines.pop(0), file=sys.stderr)
+            unexplained_lines.append(lines.pop(0))
+            continue
+
+        print_collapsing_repeats(unexplained_lines)
+        unexplained_lines = []
+
+        if message.type == "note" and is_system_header(message.file):
+            # a note about a library header tells a novice nothing they can act
+            # on, and an include chain line leaves it leading its own message
             continue
 
         if (
@@ -120,6 +129,8 @@ def explain_compiler_output(output, args):
                 )
             break
 
+    print_collapsing_repeats(unexplained_lines)
+
     if messages:
         m = messages[-1] if messages[-1].type == "error" else messages[0]
         run_compile_time_helper(m, args)
@@ -160,9 +171,52 @@ class Message:
 # a note pointing into one of these is about the library, not the student's code
 SYSTEM_HEADER_RE = re.compile(r"^(/usr/|/Library/|/opt/|.*/include/)")
 
+INCLUDED_FROM_RE = re.compile(r"^(In file included from|\s+from)\s")
+
+# a bound on cost: looking for a repeating block is quadratic in its size, so a
+# cycle whose chain is longer than this is left uncollapsed
+MAX_REPEATED_BLOCK_LINES = 32
+
 
 def is_system_header(pathname):
     return bool(SYSTEM_HEADER_RE.match(pathname))
+
+
+def print_unexplained_line(line):
+    if "\x1b" in line and INCLUDED_FROM_RE.match(colors.strip_color(line)):
+        # these used to be printed as messages, which reset the colour for them
+        line += ANSI_DEFAULT
+    print(line, file=sys.stderr)
+
+
+def print_collapsing_repeats(lines):
+    """
+    print lines, replacing a consecutively repeated block with a single copy
+    a cyclic #include makes the compiler repeat an include chain ~100 times
+    """
+    index = 0
+    while index < len(lines):
+        longest = min(MAX_REPEATED_BLOCK_LINES, (len(lines) - index) // 2)
+        for size in range(1, longest + 1):
+            block = lines[index : index + size]
+            repeats = 1
+            while lines[index + repeats * size : index + (repeats + 1) * size] == block:
+                repeats += 1
+            # collapse only if that removes more lines than the note it adds
+            if (repeats - 1) * size >= 2:
+                for line in block:
+                    print_unexplained_line(line)
+                what = "line" if size == 1 else f"{size} lines"
+                times = "time" if repeats == 2 else "times"
+                print(
+                    f"# previous {what} repeated {repeats - 1} more {times}",
+                    file=sys.stderr,
+                )
+                index += repeats * size
+                break
+        else:
+            print_unexplained_line(lines[index])
+            index += 1
 
 
 def get_next_message(lines):
@@ -171,7 +225,9 @@ def get_next_message(lines):
     line = lines[0]
     colorless_line = convert_smart_quotes_to_dumb_quotes(colors.strip_color(line))
     m = re.match(r"^(\S.*?):(\d+):", colorless_line)
-    if not m:
+    if not m or INCLUDED_FROM_RE.match(colorless_line):
+        # "In file included from x.c:1:" looks like a message but only names
+        # the chain the next message arrived through
         return (None, lines)
     lines.pop(0)
     e = Message()
@@ -206,7 +262,7 @@ def get_next_message(lines):
         if colorless_next_line.endswith(" generated."):
             break
 
-        if re.match(r"^(In file included from|\s+from)\s", colorless_next_line):
+        if INCLUDED_FROM_RE.match(colorless_next_line):
             # this names the header a message came through, not the student's mistake
             continue
 

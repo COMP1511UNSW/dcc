@@ -274,6 +274,46 @@ class CompilerOutputTests(unittest.TestCase):
             self.assertIn("dcc explanation:", output)
             self.assertNotIn("\x1b", output)
 
+    def test_a_repeated_include_chain_is_collapsed(self):
+        # a cyclic #include makes the compiler repeat the chain ~100 times
+        chain = (
+            "In file included from prog.c:1:\nIn file included from ./prog.h:1:\n" * 100
+        )
+        output = self.output_for(
+            chain + "./prog.h:1:10: error: #include nested too deeply\n"
+        )
+        self.assertEqual(output.count("In file included from"), 2)
+        self.assertIn("# previous 2 lines repeated 99 more times", output)
+        self.assertIn("#include nested too deeply", output)
+
+    def test_an_unrepeated_include_chain_is_left_alone(self):
+        chain = (
+            "In file included from prog.c:1:\n"
+            "In file included from ./a.h:1:\n"
+            "In file included from ./b.h:1:\n"
+        )
+        output = self.output_for(
+            chain + "./c.h:1:22: error: use of undeclared identifier 'x'\n"
+        )
+        self.assertEqual(output.count("In file included from"), 3)
+        self.assertNotIn("# previous", output)
+
+    def test_a_system_header_note_after_an_include_chain_is_not_printed(self):
+        # the chain line leaves the note leading its own message
+        output = self.output_for(
+            "prog.c:5:5: warning: argument 1 null where non-null expected [-Wnonnull]\n"
+            "    5 |     fgetc(f);\n"
+            "      |     ^~~~~~~~\n"
+            "In file included from prog.c:1:\n"
+            "/usr/include/stdio.h:575:12: note: in a call to function 'fgetc'"
+            " declared 'nonnull'\n"
+            "  575 | extern int fgetc (FILE *__stream) __nonnull ((1));\n"
+            "      |            ^~~~~\n"
+        )
+        self.assertIn("In file included from prog.c:1:", output)
+        self.assertNotIn("/usr/include/stdio.h", output)
+        self.assertNotIn("__nonnull", output)
+
 
 class RuntimeExplanationTests(unittest.TestCase):
     """explanations of signals"""
