@@ -30,10 +30,9 @@ def make_release(token, tag):
 	return _json['id']
 
 def upload_file(token, pathname, release_id):
-	with open(pathname, 'br') as myfile:
+	with open(pathname, 'rb') as myfile:
 		content = myfile.read()
 	print('pathname', pathname)
-	print('token', token)
 	print('url', URL_TEMPLATE.format('uploads') + '/' + str(release_id) + '/assets?' \
 		  + urlencode({'name': os.path.split(pathname)[1]}))
 	json.loads(urlopen(Request(
@@ -52,11 +51,11 @@ def run(command):
 	subprocess.check_call(command)
 
 def update_readme(tag):
-	with open('README.md') as f:
+	with open('README.md', encoding='utf-8') as f:
 		contents = f.read()
 	contents = re.sub(r'dcc/releases/download/[^/]+', 'dcc/releases/download/' + tag, contents)
 	contents = re.sub(r'dcc_[\w\.]+_all.deb', f'dcc_{tag}_all.deb', contents)
-	with open('README.md', 'w') as f:
+	with open('README.md', 'w', encoding='utf-8') as f:
 		f.write(contents)
 
 def main():
@@ -66,8 +65,9 @@ def main():
 	tag = sys.argv[1]            # e.g 1.0'
 	description = sys.argv[2]    # description
 	token = os.environ.get('GITHUB_TOKEN', '')
-	with open(os.path.join(os.environ.get('HOME', ''), '.github_token')) as f:
-		token = f.read().strip()
+	if not token:
+		with open(os.path.join(os.environ.get('HOME', ''), '.github_token'), encoding='utf-8') as f:
+			token = f.read().strip()
 	update_readme(tag)
 	run(['git', 'commit', 'README.md', '--allow-empty', '-m', 'release ' + tag])
 	run(['git', 'tag', '-a', tag, '-m', description])
