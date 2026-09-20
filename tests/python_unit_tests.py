@@ -85,10 +85,48 @@ class CReprTests(unittest.TestCase):
 class EmbeddingTests(unittest.TestCase):
     """helpers used to embed files and the second executable in the compiled program"""
 
-    def test_bytes2hex64_initializers(self):
-        one = int.from_bytes(b"\x01" + bytes(7), sys.byteorder)
-        self.assertEqual(dcc_compile.bytes2hex64_initializers(b"\x01"), hex(one))
-        self.assertEqual(dcc_compile.bytes2hex64_initializers(bytes(range(16))).count(","), 1)
+    def test_the_object_cache_key_ignores_where_the_object_is_written(self):
+        # the object goes to a new temporary directory on every compilation,
+        # so including its pathname would mean the cache never hit
+        command = ["clang", "-c", "-x", "c", "-", "-o", "/tmp/one/w.o", "-O3"]
+        self.assertEqual(
+            dcc_compile.command_without_output_pathname(command),
+            ["clang", "-c", "-x", "c", "-", "-O3"],
+        )
+
+    def test_the_object_cache_key_follows_what_was_compiled(self):
+        fake_options = types.SimpleNamespace(
+            clang_version="19.1.7", debug=0, debug_print=lambda *a, **k: None
+        )
+        command = ["clang", "-c", "-", "-o", "/tmp/a/w.o", "-O3"]
+        key = dcc_compile.wrapper_object_cache_pathname(fake_options, "source", command)
+        self.assertIsNotNone(key)
+        # the same compilation in a different temporary directory is the same
+        elsewhere = ["clang", "-c", "-", "-o", "/tmp/b/w.o", "-O3"]
+        self.assertEqual(
+            key, dcc_compile.wrapper_object_cache_pathname(fake_options, "source", elsewhere)
+        )
+        # a different source, option or compiler version is not
+        for other in [
+            dcc_compile.wrapper_object_cache_pathname(fake_options, "other", command),
+            dcc_compile.wrapper_object_cache_pathname(
+                fake_options, "source", ["clang", "-c", "-", "-o", "/tmp/a/w.o", "-O0"]
+            ),
+        ]:
+            self.assertNotEqual(key, other)
+        fake_options.clang_version = "18.1.0"
+        self.assertNotEqual(
+            key, dcc_compile.wrapper_object_cache_pathname(fake_options, "source", command)
+        )
+
+    def test_the_object_cache_can_be_turned_off(self):
+        fake_options = types.SimpleNamespace(
+            clang_version="19.1.7", debug=0, debug_print=lambda *a, **k: None
+        )
+        with mock.patch.dict(os.environ, {"DCC_NO_WRAPPER_CACHE": "1"}):
+            self.assertIsNone(
+                dcc_compile.wrapper_object_cache_pathname(fake_options, "s", ["clang", "-c"])
+            )
 
     def test_minify_removes_only_comment_lines(self):
         source = b"# comment\nx = 1  # trailing comment kept\n    # indented comment\ny = '#'\n"

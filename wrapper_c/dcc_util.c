@@ -6,6 +6,8 @@
 static void launch_valgrind(int argc, char *argv[]) MAYBE_UNUSED;
 static void launch_valgrind(int argc, char *argv[]) {
     debug_printf(2, "command=%s\n", "__MONITOR_VALGRIND__");
+    // the watcher reads exactly this many bytes of tar file from its stdin
+    setenvd_int("DCC_TAR_N_BYTES", (int)DCC_TAR_N_BYTES);
 #if __N_SANITIZERS__ > 1
     extern FILE *__real_popen(const char *command, const char *type);
     FILE *valgrind_error_pipe = __real_popen("__MONITOR_VALGRIND__", "w");
@@ -14,8 +16,7 @@ static void launch_valgrind(int argc, char *argv[]) {
 #endif
     int valgrind_error_fd = 2;
     if (valgrind_error_pipe) {
-        fwrite(tar_data, sizeof tar_data[0],
-               sizeof tar_data / sizeof tar_data[0], valgrind_error_pipe);
+        fwrite(dcc_tar_data, 1, DCC_TAR_N_BYTES, valgrind_error_pipe);
         fflush(valgrind_error_pipe);
         setbuf(valgrind_error_pipe, NULL);
         extern int __real_fileno(FILE *stream);
@@ -373,12 +374,11 @@ static void _explain_error(void) {
 #else
     FILE *python_pipe = popen(run_tar_file, "w");
 #endif
-    size_t n_items = sizeof tar_data / sizeof tar_data[0];
-    size_t items_written =
-        fwrite(tar_data, sizeof tar_data[0], n_items, python_pipe);
-    if (items_written != n_items) {
+    size_t n_bytes = DCC_TAR_N_BYTES;
+    size_t n_bytes_written = fwrite(dcc_tar_data, 1, n_bytes, python_pipe);
+    if (n_bytes_written != n_bytes) {
         debug_printf(1, "fwrite bad return %d returned %d expected\n",
-                     (int)items_written, (int)n_items);
+                     (int)n_bytes_written, (int)n_bytes);
     }
     pclose(python_pipe);
     __dcc_error_exit();

@@ -46,6 +46,18 @@ static int debug_level = 0;
 static FILE *debug_stream = NULL;
 
 
+// The Python which explains errors, and in dual-sanitizer mode the second
+// executable, are linked in as their own object file rather than written into
+// this source as array initializers, which the compiler would have to parse
+// on every compilation.  dcc defines these symbols around their contents.
+extern const char dcc_tar_data[];
+extern const char dcc_tar_data_end[];
+#define DCC_TAR_N_BYTES ((size_t)(dcc_tar_data_end - dcc_tar_data))
+
+extern const char dcc_sanitizer2_data[];
+extern const char dcc_sanitizer2_data_end[];
+#define DCC_SANITIZER2_N_BYTES ((size_t)(dcc_sanitizer2_data_end - dcc_sanitizer2_data))
+
 // the exit status of a program stopped by an error dcc detected
 //
 // it is the same for every error and every combination of sanitizers, so that
@@ -200,9 +212,9 @@ int __wrap_main(int argc, char *argv[], char *envp[]) {
 	}
 	chmod(sanitizer2_executable_pathname, S_IRWXU);
 	setenvd("DCC_UNLINK", sanitizer2_executable_pathname);
-	int n_bytes_written = write(sanitizer2_executable_fd, sanitizer2_executable, __EXECUTABLE_N_BYTES__);
-	if (n_bytes_written != __EXECUTABLE_N_BYTES__) {
-		debug_printf(1, "write sanitizer2_executable %d != %d\n", n_bytes_written, __EXECUTABLE_N_BYTES__);
+	ssize_t n_bytes_written = write(sanitizer2_executable_fd, dcc_sanitizer2_data, DCC_SANITIZER2_N_BYTES);
+	if (n_bytes_written != (ssize_t)DCC_SANITIZER2_N_BYTES) {
+		debug_printf(1, "write sanitizer2_executable %d != %d\n", (int)n_bytes_written, (int)DCC_SANITIZER2_N_BYTES);
 		__dcc_error_exit();
 	}
 	close(sanitizer2_executable_fd);

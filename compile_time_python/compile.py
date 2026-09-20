@@ -1,6 +1,8 @@
-import io, json, os, pkgutil, re, subprocess, sys, tarfile, tempfile
+import hashlib, io, json, os, pkgutil, platform, re, shutil, stat
+import subprocess, sys, tarfile, tempfile
 import colors
 
+from version import VERSION
 from options import get_options
 from explain_compiler_output import explain_compiler_output
 
@@ -52,9 +54,11 @@ def main():
 
 
 def compile_user_program(options):
-    wrapper_source, tar_source, wrapper_cpp_source = get_wrapper_code(options)
-    executable_source = ""
-    executable_n_bytes = 0
+    wrapper_source, wrapper_cpp_source = get_wrapper_code(options)
+    # the Python which explains errors travels in the binary as a tar file
+    embedded_objects = [
+        embedded_blob_object(options, "dcc_tar_data", embedded_tarfile_bytes(options))
+    ]
 
     if options.debug > 1:
         try:
@@ -67,7 +71,7 @@ def compile_user_program(options):
 
     if len(options.sanitizers) == 2:
         sanitizer2_wrapper_source, sanitizer2_sanitizer_args = update_wrapper_source(
-            options.sanitizers[1], 2, wrapper_source, tar_source, options
+            options.sanitizers[1], 2, wrapper_source, options
         )
         sanitizer2_wrapper_source = (
             "#undef _GNU_SOURCE\n#define _GNU_SOURCE 1\n#include <stdint.h>\n"
@@ -88,26 +92,27 @@ def compile_user_program(options):
                 opt for opt in sanitizer2_sanitizer_args if opt.startswith("-f")
             ],
             debug_C_wrapper_file="tmp_dcc_sanitizer2.c",
+            embedded_objects=embedded_objects,
         )
         if p.returncode != 0:
             return p
-        if os.path.exists(executable):
-            try:
-                with open(executable, "rb") as f:
-                    (
-                        executable_n_bytes,
-                        executable_source,
-                    ) = source_for_sanitizer2_executable(f.read())
-            except OSError as e:
-                options.die(f"internal error: can not read {executable}: {e.strerror}")
-        else:
-            # no executable is produced by e.g. -fsyntax-only, so embed an empty one
-            executable_n_bytes, executable_source = source_for_sanitizer2_executable(b"")
+        # this executable travels inside the one which is about to be built
+        # nothing is produced by e.g. -fsyntax-only, which embeds an empty one
+        try:
+            with open(executable, "rb") as f:
+                executable_bytes = f.read()
+        except FileNotFoundError:
+            executable_bytes = b""
+        except OSError as e:
+            options.die(f"internal error: can not read {executable}: {e.strerror}")
+        embedded_objects.append(
+            embedded_blob_object(options, "dcc_sanitizer2_data", executable_bytes)
+        )
 
     # leave leak checking to valgrind if it is running
     # because it currently gives better errors
     wrapper_source, sanitizer_args = update_wrapper_source(
-        options.sanitizers[0], 1, wrapper_source, tar_source, options
+        options.sanitizers[0], 1, wrapper_source, options
     )
 
     if options.incremental_compilation:
@@ -121,12 +126,6 @@ def compile_user_program(options):
             command += ["-o", options.object_pathname]
         options.debug_print("incremental compilation, running: ", " ".join(command))
         return subprocess.run(command, check=False)
-
-    if executable_source:
-        wrapper_source = wrapper_source.replace(
-            "__EXECUTABLE_N_BYTES__", str(executable_n_bytes)
-        )
-        wrapper_source = executable_source + wrapper_source
 
     # _GNU_SOURCE to get fopencookie
     wrapper_source = (
@@ -142,6 +141,7 @@ def compile_user_program(options):
         wrapper_C_source=wrapper_source,
         wrapper_extra_options=[opt for opt in sanitizer_args if opt.startswith("-f")],
         wrapper_cpp_source=wrapper_cpp_source,
+        embedded_objects=embedded_objects,
     )
     if p.returncode != 0 or p.stdout:
         return p
@@ -166,8 +166,51 @@ def compile_user_program(options):
     return p
 
 
+# The Python source and the second executable are made available to the C code
+# as a pair of symbols defined by an object file, rather than as array
+# initializers in the generated C, which the compiler would have to parse on
+# every compilation.
+BLOB_ASSEMBLER_SOURCE = """\
+#ifdef __APPLE__
+# define DCC_BLOB(name) _ ## name
+    .section __TEXT,__const
+#else
+# define DCC_BLOB(name) name
+    .section .rodata
+#endif
+    .p2align 3
+    .globl DCC_BLOB(__SYMBOL__)
+DCC_BLOB(__SYMBOL__):
+    .incbin "__PATHNAME__"
+    .globl DCC_BLOB(__SYMBOL___end)
+DCC_BLOB(__SYMBOL___end):
+"""
+
+
+def embedded_blob_object(options, symbol, contents):
+    """return an object file defining symbol and symbol_end around contents"""
+    pathname = os.path.join(options.temporary_directory, symbol)
+    with open(pathname, "wb") as f:
+        f.write(contents)
+    source = BLOB_ASSEMBLER_SOURCE.replace("__SYMBOL__", symbol)
+    source = source.replace("__PATHNAME__", pathname)
+    object_pathname = pathname + ".o"
+    compiler = options.c_compiler.replace("clang++", "clang").replace("++", "cc")
+    command = [compiler, "-c", "-x", "assembler-with-cpp", "-", "-o", object_pathname]
+    process = run(command, options, input_text=source)
+    if process.stdout or process.returncode != 0:
+        options.die("Internal error embedding " + symbol + "\n" + process.stdout)
+    if options.debug > 1:
+        # so the recorded compile command can be re-run
+        try:
+            shutil.copyfile(object_pathname, os.path.basename(object_pathname))
+        except OSError as e:
+            options.debug_print(e)
+    return object_pathname
+
+
 # customize wrapper source for a particular sanitizer
-def update_wrapper_source(sanitizer, sanitizer_n, src, tar_source, options):
+def update_wrapper_source(sanitizer, sanitizer_n, src, options):
     src = src.replace("__SANITIZER__", sanitizer.upper())
     if sanitizer == "valgrind":
         sanitizer_args = []
@@ -211,7 +254,6 @@ def update_wrapper_source(sanitizer, sanitizer_n, src, tar_source, options):
         "__WHICH_SANITIZER__", "sanitizer2" if sanitizer_n == 2 else "sanitizer1"
     )
 
-    src = tar_source + src
     return src, sanitizer_args
 
 
@@ -225,6 +267,7 @@ def execute_compiler(
     wrapper_cpp_source="",
     wrapper_extra_options=None,
     debug_cpp_wrapper_file="tmp_dcc_sanitizer1.cpp",
+    embedded_objects=(),
 ):
     wrapper_extra_options = wrapper_extra_options or []
     extra_c_arguments, extra_c_arguments_debug = compile_wrapper_source(
@@ -249,6 +292,7 @@ def execute_compiler(
         + dcc_supplied_arguments
         + extra_c_arguments
         + extra_cpp_arguments
+        + list(embedded_objects)
         + options.user_supplied_compiler_args
         + options.dcc_supplied_linker_args
     )
@@ -258,6 +302,7 @@ def execute_compiler(
             + dcc_supplied_arguments
             + extra_c_arguments_debug
             + extra_cpp_arguments_debug
+            + list(embedded_objects)
             + options.user_supplied_compiler_args
             + options.dcc_supplied_linker_args
         )
@@ -306,6 +351,7 @@ def execute_compiler(
             wrapper_cpp_source=wrapper_cpp_source,
             wrapper_extra_options=wrapper_extra_options,
             debug_cpp_wrapper_file=debug_cpp_wrapper_file,
+            embedded_objects=embedded_objects,
         )
     return p
 
@@ -447,9 +493,7 @@ def get_wrapper_code(options):
         ]
     )
     wrapper_source = add_constants_to_source_code(wrapper_source, options)
-    wrapper_source, tar_source = add_embedded_tarfile_handling_to_source_code(
-        wrapper_source, options
-    )
+    wrapper_source = add_embedded_tarfile_handling_to_source_code(wrapper_source)
     wrapper_cpp_source = ""
     if options.cpp_mode:
         wrapper_cpp_source = "".join(
@@ -458,7 +502,7 @@ def get_wrapper_code(options):
                 "dcc_io.cpp",
             ]
         )
-    return wrapper_source, tar_source, wrapper_cpp_source
+    return wrapper_source, wrapper_cpp_source
 
 
 def add_constants_to_source_code(src, options):
@@ -486,20 +530,21 @@ def add_constants_to_source_code(src, options):
     return src
 
 
-def add_embedded_tarfile_handling_to_source_code(src, options):
-    tar_n_bytes, tar_source = source_for_embedded_tarfile(options)
-    watcher = rf"PATH=$PATH:/bin:/usr/bin:/usr/local/bin exec python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
+def add_embedded_tarfile_handling_to_source_code(src):
+    # the size of the tar file is passed in the environment, because the
+    # bytes are linked in rather than being part of this source
+    watcher = r"""PATH=$PATH:/bin:/usr/bin:/usr/local/bin exec python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
 with tempfile.TemporaryDirectory() as temp_dir:\n\
- buffer = io.BytesIO(sys.stdin.buffer.raw.read({tar_n_bytes}))\n\
- if len(buffer.getbuffer()) == {tar_n_bytes}:\n\
-  k = {{'filter':'data'}} if hasattr(tarfile, 'data_filter') else {{}}\n\
-  tarfile.open(fileobj=buffer, bufsize={tar_n_bytes}, mode='r|xz').extractall(temp_dir, **k)\n\
+ n = int(os.environ['DCC_TAR_N_BYTES'])\n\
+ buffer = io.BytesIO(sys.stdin.buffer.raw.read(n))\n\
+ if len(buffer.getbuffer()) == n:\n\
+  k = {'filter':'data'} if hasattr(tarfile, 'data_filter') else {}\n\
+  tarfile.open(fileobj=buffer, bufsize=n, mode='r|xz').extractall(temp_dir, **k)\n\
   os.environ['DCC_PWD'] = os.getcwd()\n\
   os.chdir(temp_dir)\n\
   exec(open('watch_valgrind.py').read())\n\
-\""
-    src = src.replace("__MONITOR_VALGRIND__", watcher)
-    return src, tar_source
+\""""
+    return src.replace("__MONITOR_VALGRIND__", watcher)
 
 
 def embeded_environment_variables(options):
@@ -545,44 +590,15 @@ def run(
     )
 
 
-def source_for_sanitizer2_executable(executable):
-    source = "\nstatic uint64_t sanitizer2_executable[] = {"
-    source += bytes2hex64_initializers(executable)
-    source += "};\n"
-    n_bytes = len(executable)
-    return n_bytes, source
-
-
-def source_for_embedded_tarfile(options):
+def embedded_tarfile_bytes(options):
+    """return the xz-compressed tar of the Python which explains errors"""
     for file in FILES_EMBEDDED_IN_BINARY:
         contents = pkgutil.get_data("embedded_src", file)
         if file.endswith(".py"):
             contents = minify(contents)
         add_tar_file(options.tar, file, contents)
     options.tar.close()
-    n_bytes = options.tar_buffer.tell()
-    options.tar_buffer.seek(0)
-
-    source = "\nstatic uint64_t tar_data[] = {"
-    while True:
-        bytes_read = options.tar_buffer.read(1024)
-        if not bytes_read:
-            break
-        source += bytes2hex64_initializers(bytes_read) + ",\n"
-    source += "};\n"
-    return n_bytes, source
-
-
-def bytes2hex64_initializers(b):
-    chunk = 8
-    n_bytes = len(b)
-    if n_bytes % chunk:
-        b += bytes([0] * (chunk - n_bytes % chunk))
-    hex_int64 = [
-        hex(int.from_bytes(b[i : i + chunk], sys.byteorder))
-        for i in range(0, len(b), chunk)
-    ]
-    return ",".join(hex_int64)
+    return options.tar_buffer.getvalue()
 
 
 # Remove comment lines from Python source before embedding it in the binary.
