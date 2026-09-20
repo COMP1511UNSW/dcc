@@ -1,0 +1,4 @@
+dcc: compilation of stdin not supported
+dcc: compilation of stdin not supported
+dcc: compilation of stdin not supported
+dcc: compilation of stdin not supported

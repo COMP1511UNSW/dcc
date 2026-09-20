@@ -467,7 +467,7 @@ def parse_arg(arg, remaining_args, options):
         options.user_supplied_compiler_args += [arg, library]
         if library not in ["m", "c"]:
             options.libraries_being_linked = True
-    elif arg in ["-", "/dev/stdin"]:
+    elif arg == "-" or names_stdin(arg):
         options.die("compilation of stdin not supported")
     else:
         parse_clang_arg(arg, options)
@@ -570,6 +570,30 @@ def process_possible_source_file(pathname, options, processed_files):
         if options.debug:
             print("process_possible_source_file", pathname, e)
         return
+
+
+def names_stdin(pathname):
+    # /dev/stdin is a symlink to /proc/self/fd/0 on Linux, so a student can
+    # name the same file several ways, and only what it is identifies it.
+    # The literals are kept for when stdin is closed and can not be compared.
+    if pathname in ["/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"]:
+        return True
+    if not pathname.startswith(("/dev/", "/proc/")):
+        return False
+    try:
+        return os.path.samestat(os.stat(pathname), os.stat(0))
+    except OSError:
+        return False
+
+
+def is_compiled_program(pathname):
+    # the execute bit is unreliable, e.g. on a file just copied from Windows,
+    # so look at what is in the file
+    try:
+        with open(pathname, "rb") as f:
+            return f.read(4) in EXECUTABLE_MAGIC_NUMBERS
+    except OSError:
+        return False
 
 
 def test_clang_version_exists(compiler, options):
