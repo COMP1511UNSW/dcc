@@ -152,15 +152,40 @@ def explain_ubsan_error(loc, color):
         else:
             what = "*p or p[index]"
 
-        message = f"{access} a value via a {problem} pointer"
-        explanation = "You are using a pointer which "
-
-        if problem == "uninitialized":
-            explanation += "has not been initialized\n"
-            explanation += f"  A common error is {access} {what} without first assigning a value to p.\n"
+        # ubsan reports pointer arithmetic itself, so an "applying ... offset"
+        # message doesn't mean anything was dereferenced - only say it was if
+        # the source line also indexes, uses -> or has a unary *.  a * is
+        # binary if an operand precedes it, so it is unary at the start of a
+        # statement or after an operator; return/else/do are the only keywords
+        # a statement can follow on the same line.  after a ) only the tight
+        # binding of unary * tells it apart from multiplication.
+        # problem is always NULL here - every "applying" message ends in
+        # "null pointer" - but guard it so the wording can't contradict itself
+        if (
+            m.group(1) == "applying"
+            and problem == "NULL"
+            and not (
+                "[" in source
+                or "->" in source
+                or re.search(
+                    r"(^|[^\w\s)]|\b(return|else|do)\b)\s*\*|\)\s*\*(?=[\w(])",
+                    source,
+                )
+            )
+        ):
+            message = "pointer arithmetic on a NULL pointer"
+            explanation = """You are using a pointer which is NULL
+  You can only do arithmetic on a pointer that points into an array.\n"""
         else:
-            explanation += "is NULL\n"
-            explanation += f"  A common error is {access} {what} when p == NULL.\n"
+            message = f"{access} a value via a {problem} pointer"
+            explanation = "You are using a pointer which "
+
+            if problem == "uninitialized":
+                explanation += "has not been initialized\n"
+                explanation += f"  A common error is {access} {what} without first assigning a value to p.\n"
+            else:
+                explanation += "is NULL\n"
+                explanation += f"  A common error is {access} {what} when p == NULL.\n"
 
     if not explanation:
         m = re.search(

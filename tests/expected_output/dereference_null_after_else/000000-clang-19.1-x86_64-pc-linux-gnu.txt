@@ -1,0 +1,20 @@
+
+Runtime error: accessing a value via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is accessing *p when p == NULL.
+
+Execution stopped in main() in dereference_null_after_else.c at line 6:
+
+int main(void) {
+    int *a = NULL;
+    int n = 1;
+    if (n < 0) n = 0;
+--> else *(a + 1) = 5;
+    return n;
+}
+
+Values when execution stopped:
+
+a = NULL
+n = 1
+

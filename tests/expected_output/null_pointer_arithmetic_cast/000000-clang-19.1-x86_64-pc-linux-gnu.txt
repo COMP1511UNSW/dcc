@@ -1,0 +1,12 @@
+
+Runtime error: pointer arithmetic on a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  You can only do arithmetic on a pointer that points into an array.
+
+Execution stopped in main() in null_pointer_arithmetic_cast.c at line 2:
+
+int main(void) {
+--> (void)((int *)0 + 1);
+    return 0;
+}
+
