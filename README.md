@@ -115,6 +115,47 @@ uses a library other than the C standard library (`-l`, apart from `-lm` and `-l
 object files, or a system header outside the C standard library (such as `unistd.h` or `signal.h`),
 and on macOS.  Only AddressSanitizer is then used.
  
+# Scope
+
+dcc is a teaching tool for introductory C courses.  It is meant for the small
+self-contained programs written in such a course, compiled and run on a Linux or macOS
+machine which also has clang, gdb and python3 installed (and valgrind on Linux, for
+uninitialized-variable detection).  It is not a general-purpose compiler driver.
+
+- **Embedded targets and cross-compilation are not supported.**  The executable dcc
+  produces is a hosted dynamically-linked binary which links AddressSanitizer, by default
+  runs a second copy of the program under valgrind, and runs python3 and gdb on the
+  machine executing it to report an error.  `--target` and similar options are passed
+  through to clang, but nothing else about cross-compilation is handled.
+
+- **dcc does not compile the same as gcc.**  It compiles with clang, by default forcing on
+  AddressSanitizer, UndefinedBehaviorSanitizer and `-ftrivial-auto-var-init=pattern`, and
+  compiling the program a second time without sanitizers for the valgrind process.  gcc is
+  run, where it is available, only to collect extra warnings.  Which warnings appear, what
+  a program with undefined behaviour does, and which options are accepted all differ from
+  a gcc build.
+
+- **Code compiled with dcc is much slower than code compiled with gcc.**  Measured on an
+  AMD Ryzen 9 9950X3D running Debian with clang 19.1.7 and gcc 14.2.0, a nested
+  floating-point loop benchmark took 0.39 seconds compiled with `gcc -O0`, 0.085 seconds
+  with `gcc -O2` and 3.9 seconds compiled with dcc in the default two-process mode.  Most
+  of that is the second process: when only AddressSanitizer is used (see above) the same
+  benchmark takes less than twice as long as `gcc -O0`.  The two-process mode also adds
+  about 0.25 seconds of fixed start-up cost to every run; when the second process is
+  disabled that cost is not incurred.  Compilation is slower too: 0.43 seconds instead of
+  0.02 seconds for a hello-world program.  `-O` options are passed to clang and reduce,
+  but do not remove, the sanitizer and valgrind overhead.
+
+- **Executables dcc produces are not meant to be shipped.**  They need python3 and gdb
+  installed on the machine running them in order to report an error, and valgrind as well
+  in the default two-process mode, and they contain an xz-compressed copy of the program's
+  source, which is extracted to a temporary directory when an error occurs.  Use clang or
+  gcc directly for anything you release.
+
+- **dcc is not a security tool.**  It does stop a program on an out-of-bounds array
+  access, but it does so with AddressSanitizer, which its authors document as a debugging
+  aid rather than a hardening measure.  Do not rely on it to make unsafe code safe.
+
 # Leak checking
 
 dcc can also embed code to check for memory leaks:

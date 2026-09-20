@@ -11,6 +11,7 @@ and run programs with dcc and compare its output against expected output.
 import contextlib
 import io
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -544,6 +545,34 @@ class StackParsingTests(unittest.TestCase):
             "#0  0x00007ffff7e2 in __strlen_avx2 () from /lib/x86_64-linux-gnu/libc.so.6",
         ]:
             self.assertIsNone(explain_error.parse_gdb_stack_frame(line), line)
+
+
+class DocumentationTests(unittest.TestCase):
+    """the README and the man page state what dcc is and is not for, see issue #97"""
+
+    # topics issue #97 asked about, in whichever order the prose puts them
+    TOPICS = ["cross-compilation", "gcc", "slower", "shipped", "security"]
+
+    def test_readme_has_a_scope_section(self):
+        with open(os.path.join(ROOT_DIR, "README.md"), encoding="utf-8") as f:
+            readme = f.read()
+        heading = re.search(r"^# +scope\b.*$", readme, re.IGNORECASE | re.MULTILINE)
+        self.assertIsNotNone(heading, "no '# Scope' section")
+        rest = readme[heading.end() :]
+        next_heading = re.search(r"^# ", rest, re.MULTILINE)
+        scope = (rest[: next_heading.start()] if next_heading else rest).lower()
+        for topic in self.TOPICS:
+            self.assertIn(topic, scope)
+
+    def test_man_page_include_has_a_description(self):
+        path = os.path.join(ROOT_DIR, "lib", "help2man_include.txt")
+        with open(path, encoding="utf-8") as f:
+            include = f.read()
+        self.assertTrue("[DESCRIPTION]" in include, "no [DESCRIPTION] section")
+        # the section must say something, not just carry the header - issue #100
+        description = include.split("[DESCRIPTION]")[1].split("\n[")[0].lower()
+        for topic in self.TOPICS:
+            self.assertIn(topic, description)
 
 
 if __name__ == "__main__":

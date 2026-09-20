@@ -1,3 +1,38 @@
+[DESCRIPTION]
+.PP
+dcc is a teaching tool for introductory C courses.  It is meant for the small
+self-contained programs written in such a course, compiled and run on a Linux or
+macOS machine which also has clang, gdb and python3 installed (and valgrind on
+Linux, for uninitialized-variable detection).  It is not a general-purpose
+compiler driver.
+.PP
+Embedded targets and cross-compilation are not supported.  The executable dcc
+produces is a hosted dynamically-linked binary which links AddressSanitizer, by
+default runs a second copy of the program under valgrind, and runs python3 and gdb
+on the machine executing it to report an error.
+.PP
+dcc does not compile the same as gcc.  It compiles with clang, by default forcing
+on AddressSanitizer, UndefinedBehaviorSanitizer and
+\fB\-ftrivial\-auto\-var\-init=pattern\fR, and compiling the program a second time
+without sanitizers for the valgrind process; gcc is run, where it is available,
+only to collect extra warnings.
+.PP
+Code compiled with dcc is much slower than code compiled with gcc.  In the default
+two-process mode a floating-point loop benchmark took roughly ten times as long as
+\fBgcc \-O0\fR, and each run has about a quarter of a second of fixed start-up cost
+for the second process.  When only AddressSanitizer is used the same benchmark took
+less than twice as long as \fBgcc \-O0\fR, and the start-up cost is not incurred.
+.PP
+Executables dcc produces are not meant to be shipped: they need python3 and gdb
+installed on the machine running them in order to report an error, and valgrind as
+well in the default two-process mode, and they contain an xz-compressed copy of the
+program's source, which is extracted to a temporary directory when an error occurs.
+.PP
+dcc is not a security tool.  It does stop a program on an out-of-bounds array
+access, but it does so with AddressSanitizer, which its authors document as a
+debugging aid rather than a hardening measure.
+.PP
+
 [EXAMPLES]
 
     $ dcc buffer_overflow.c
