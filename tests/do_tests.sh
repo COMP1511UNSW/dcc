@@ -2,13 +2,14 @@
 unset CDPATH
 export PATH=/bin:/usr/bin:.
 
-for var in $(env|egrep -v 'PATH|LOCALE|LC_|LANG'|grep '^[a-zA-Z0-9_]*='|cut -d= -f1)
+for var in $(env|grep -E -v 'PATH|LOCALE|LC_|LANG'|grep '^[a-zA-Z0-9_]*='|cut -d= -f1)
 do
 	unset $var
 done
 
-export tests_dir="$(dirname $(readlink -f $0))"
-export dcc="$(readlink -f ${1:-"./dcc"})"
+tests_dir=$(dirname "$(readlink -f "$0")")
+dcc=$(readlink -f "${1:-./dcc}")
+export tests_dir dcc
 export c_compiler="${2:-clang}"
 export cpp_compiler="${3:-clang++}"
 
@@ -16,6 +17,9 @@ command -v "$dcc" > /dev/null || {
 	echo "$0: error: $dcc not found"
 	exit 1
 }
+
+# the fast unit tests of the Python code run first
+python3 "$tests_dir/python_unit_tests.py" || exit 1
 
 e="$tests_dir/extracted_compile_time_errors"
 mkdir -p "$e"
@@ -25,10 +29,11 @@ mkdir -p "$e"
 	python3 ../../compile_time_python/compiler_explanations.py --create_test_files
 )
 
-export clang_version=$($c_compiler -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
-export platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
+clang_version=$($c_compiler -v 2>&1|sed 's/.* version *//;s/ .*//;1q'|cut -d. -f1,2)
+platform=$($c_compiler -v 2>&1|sed '1d;s/.* //;2q')
+export clang_version platform
 n_processes=$(($(getconf _NPROCESSORS_ONLN) / 2 + 1))
-initial_run=$(
+all_tests=$(
 	{
 		ls "$tests_dir"/run_time_errors/*.*
 		ls "$tests_dir"/extracted_compile_time_errors/*.c
@@ -36,13 +41,28 @@ initial_run=$(
 		ls "$tests_dir"/run_time_no_errors/*.*
 		ls "$tests_dir"/check_output/*.sh
 	}|
-	grep -E '\.(sh|c|cpp)$'|
+	grep -E '\.(sh|c|cpp)$'
+	)
+
+# the tests are first run in parallel, quietly
+# xargs stops if a command is killed by a signal or exits with 255,
+# so each test is run via sh so that xargs always sees a normal exit
+initial_run=$(
+	echo "$all_tests"|
 	shuf|
-	xargs -P$n_processes -n1 "$tests_dir"/single_test.sh --quick|
+	xargs -P$n_processes -n1 sh -c '"$0" --quick "$1" || true' "$tests_dir"/single_test.sh|
 	sort
 	)
-	
+
 echo "$initial_run"|grep '^Passed'|sort
+
+# any test which produced no result at all is treated as failed
+reported=$(echo "$initial_run"|sed 's/ *#.*$//; s/ *$//; s/.* //'|sort -u)
+not_run=$(comm -23 <(echo "$all_tests"|sort -u) <(echo "$reported"))
+for src_file in $not_run
+do
+	echo "NO RESULT: $src_file # re-running"
+done
 
 second_run=$(
 	echo "$initial_run"|
@@ -53,16 +73,17 @@ second_run=$(
 		s/.* //
 		'
 	)
-	
+
 tests_failed=0
-for src_file in $second_run
+for src_file in $second_run $not_run
 do
 	"$tests_dir"/single_test.sh "$src_file"
 	test_result="$?"
-	test "$test_result" = 0 && 
+	test "$test_result" = 0 &&
 		continue
-	test "$test_result" = 2 && 
-		break
 	tests_failed=$((tests_failed + 1))
+	test "$test_result" = 2 &&
+		break
 done
 echo $tests_failed tests failed
+test "$tests_failed" = 0
