@@ -1,0 +1,8 @@
+1 cout
+2 clog
+3 cerr
+4 wcout
+5 wclog
+6 wcerr
+7 cout
+read 42 apples
