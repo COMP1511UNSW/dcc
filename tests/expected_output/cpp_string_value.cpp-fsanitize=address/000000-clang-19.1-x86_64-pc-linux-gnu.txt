@@ -1,0 +1,21 @@
+
+Runtime error: index 3 out of bounds for type 'int[1]'
+dcc explanation: You are using an illegal array index: 3
+  Valid indices for an array of size 1 are 0..0
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in main() in cpp_string_value.cpp at line 9:
+
+int main(int argc, char *argv[]) {
+    std::string s = "hi";
+    int a[1] = {0};
+--> return a[argc + 2];
+}
+
+Values when execution stopped:
+
+a = {0}
+argc = 1
+s = "hi"
+

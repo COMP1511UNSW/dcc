@@ -65,7 +65,10 @@ do
 		expected_output_basename="`basename $src_file .c`$suffix"
 		#echo "$dcc" --c-compiler=$compiler $dcc_flags "$src_file"
 		"$dcc" --c-compiler=$compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
-		test ! -s tmp.actual_stderr && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
+		# dcc prints a note when it can not use both sanitizers, which is not a
+		# diagnostic about the program, so the program is still run
+		grep -v '^[a-z+]*: note: ' tmp.actual_stderr >tmp.compiler_messages
+		test ! -s tmp.compiler_messages && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
 		;;
 
 	*.sh)

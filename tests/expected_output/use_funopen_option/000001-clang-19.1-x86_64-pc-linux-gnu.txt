@@ -1,0 +1,1 @@
+libbsd available, --use-funopen compiled

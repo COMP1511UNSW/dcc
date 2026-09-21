@@ -1,3 +1,4 @@
+dcc: note: uninitialized variables will not be detected (sys/wait.h used)
 *** Test 1 - output of child and parent together is correct
 *** Test 2 - a child which exits normally does not check output itself
 *** Test 3 - incorrect parent output is still detected
@@ -24,6 +25,6 @@ Execution stopped in main() in tmp.c at line 18:
 Values when execution stopped:
 
 argc = 1
-pid = 1238045
+pid = 2049093
 
 All Tests Correct

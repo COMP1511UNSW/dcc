@@ -32,7 +32,9 @@ int main() {
 }
 eof2
 
-"$dcc" wide_stream_conversion.cpp -o wide_stream_conversion || exit 1
+# these use C++ headers dcc can not run two sanitizers with, and the note
+# saying so is not what this test is about, so one sanitizer is named
+"$dcc" -fsanitize=address wide_stream_conversion.cpp -o wide_stream_conversion || exit 1
 
 printf 'hello there\n' | ./wide_stream_conversion
 

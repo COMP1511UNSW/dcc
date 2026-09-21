@@ -23,7 +23,9 @@ int main() {
 }
 eof2
 
-"$dcc" cin_to_end_of_file.cpp -o cin_to_end_of_file || exit 1
+# <string> leaves dcc a single sanitizer, naming it keeps the note about
+# uninitialized variables out of this test's output
+"$dcc" -fsanitize=address cin_to_end_of_file.cpp -o cin_to_end_of_file || exit 1
 
 printf '1 2 3\n' | ./cin_to_end_of_file
 # the last line having no newline must also end the input
@@ -49,7 +51,7 @@ int main() {
 }
 eof2
 
-"$dcc" getline_to_end_of_file.cpp -o getline_to_end_of_file || exit 1
+"$dcc" -fsanitize=address getline_to_end_of_file.cpp -o getline_to_end_of_file || exit 1
 printf 'a\nb\nc\n' | ./getline_to_end_of_file
 
 rm -f cin_to_end_of_file.cpp cin_to_end_of_file

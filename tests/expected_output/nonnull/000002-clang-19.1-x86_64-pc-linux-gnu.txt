@@ -1,3 +1,4 @@
+dcc: note: uninitialized variables will not be detected (unistd.h used)
 nonnull.c: In function ‘main’:
 nonnull.c:5:5: warning: argument 2 null where non-null expected [-Wnonnull]
     5 |     faccessat(0, pathname, 0, 0);

@@ -111,6 +111,10 @@ def usage():
 
 COMPILE_LOGGER_BASENAME = "dcc-compile-logger"
 
+# marks where an expanded response file's arguments end - a NUL can not
+# reach here from argv or from a response file, so this can not be forged
+END_OF_RESPONSE_FILE = "\0end-of-response-file:"
+
 
 # gcc detects some typical novice programmer mistakes that clang doesn't
 # We run gcc has an extra checking pass with several warnings options enabled
@@ -122,17 +126,18 @@ COMPILE_LOGGER_BASENAME = "dcc-compile-logger"
 # The option -Wnull-dererefence looks be useful but when it flags potential paths
 # the errors look confusing for novice programmers,
 # and there appears no way to get only definite null-derefs
-#
-# -O is needed with gcc to get warnings for some things
 
-GCC_ONLY_ARGS = """
+GCC_ONLY_WARNING_ARGS = """
 	-Wunused-but-set-variable
 	-Wduplicated-cond
 	-Wduplicated-branches
 	-Wlogical-op
-	-O
-	-o /dev/null
 	""".split()
+
+# -O is needed with gcc to get warnings for some things, but it must not reach
+# the student's program: optimized code hides errors from the sanitizers and
+# costs the line numbers and variable values the error message is made of
+GCC_ONLY_ARGS = GCC_ONLY_WARNING_ARGS + "-O -o /dev/null".split()
 
 
 class Options:
@@ -239,8 +244,10 @@ class Options:
         # pylint: disable=consider-using-with
         self.tar = tarfile.open(fileobj=self.tar_buffer, mode="w|xz", dereference=True)
 
+        self.syntax_only = False
         self.threads_used = False
         self.treat_warnings_as_errors = False
+        self.undefined_sanitizer_requested = False
         self.user_supplied_compiler_args = []
         self.compile_helper = os.environ.get("DCC_COMPILE_HELPER", "") or search_path(
             COMPILE_HELPER_BASENAME
@@ -302,7 +309,8 @@ def get_options():
             options.dcc_supplied_compiler_args += ["-fdiagnostics-color"]
         options.gcc_args += ["-fdiagnostics-color=always"]
 
-    options.unsafe_system_includes = list(
+    # sorted so the header named in the note below is the same on every run
+    options.unsafe_system_includes = sorted(
         options.system_includes_used - options.dual_sanitizer_safe_system_includes
     )
 
@@ -329,12 +337,9 @@ def get_options():
                 )
             else:
                 options.sanitizers = ["address"]
-                # -c already warns, the link step was silent about
-                # AddressSanitizer alone not detecting uninitialized variables
-                if (
-                    options.object_files_being_linked
-                    and not options.incremental_compilation
-                ):
+                # -c already warns that it costs error detection, and
+                # -fsyntax-only produces nothing which could be run
+                if not options.incremental_compilation and not options.syntax_only:
                     options.warn(
                         f"note: uninitialized variables will not be detected ({reason})"
                     )
@@ -345,6 +350,13 @@ def get_options():
             options.debug_print(
                 "warning: valgrind does not seem be installed, using MemorySanitizer instead"
             )
+
+    if options.undefined_sanitizer_requested and options.sanitizers == ["memory"]:
+        # MemorySanitizer reports an undefined behaviour check's own branch as
+        # an uninitialized value, so dcc never enables the two together
+        options.warn(
+            "warning: undefined behaviour is not checked with -fsanitize=memory"
+        )
 
     if "valgrind" in options.sanitizers and options.suppressions_file != os.devnull:
         if os.path.isdir(options.suppressions_file) or not os.access(
@@ -361,8 +373,12 @@ def get_options():
 
     if "clang" in options.c_compiler:
         options.dcc_supplied_compiler_args += CLANG_ONLY_ARGS
+        if options.cpp_mode:
+            # clang's default limited debug info omits std::string's members, so
+            # gdb's pretty-printer fails and its exception is printed as the value
+            options.dcc_supplied_compiler_args += ["-fstandalone-debug"]
     elif "gcc" in options.c_compiler:
-        options.dcc_supplied_compiler_args += GCC_ONLY_ARGS
+        options.dcc_supplied_compiler_args += GCC_ONLY_WARNING_ARGS
     if "address" in options.sanitizers and platform.architecture()[0][0:2] == "32":
         libc_version = get_libc_version(options)
 
@@ -383,6 +399,11 @@ def get_options():
         options.shared_libasan = True
 
     if options.use_funopen and sys.platform == "linux":
+        if not funopen_available(options):
+            options.die(
+                "--use-funopen needs libbsd-dev (libbsd-devel) installed,\n"
+                "omit the option to use fopencookie instead"
+            )
         options.dcc_supplied_linker_args += ["-lbsd"]
 
     if options.ifdef_instead_of_wrap:
@@ -402,14 +423,34 @@ def parse_args(commandline_args):
         print(usage(), file=sys.stderr)
         sys.exit(1)
 
+    response_files_being_expanded = set()
+
     while commandline_args:
         arg = commandline_args.pop(0)
+        if arg.startswith(END_OF_RESPONSE_FILE):
+            # a response file's arguments have all been consumed, so naming
+            # it again from here on is a repeat and not a cycle
+            response_files_being_expanded.discard(arg[len(END_OF_RESPONSE_FILE) :])
+            continue
         if arg.startswith("@"):
             # a response file - its contents replace the argument
             # it must not be passed on to clang which would expand it again
             try:
+                response_file = os.path.realpath(arg[1:])
+                if response_file in response_files_being_expanded:
+                    # without this a response file naming itself expands forever
+                    options.die(f"recursive expansion of response file {arg[1:]}")
                 with open(arg[1:], encoding="utf-8") as argfile:
-                    commandline_args = shlex.split(argfile.read()) + commandline_args
+                    contents = argfile.read()
+                if "\0" in contents:
+                    # a NUL reaches neither open() nor the compiler as a pathname
+                    raise ValueError("embedded null byte")
+                response_files_being_expanded.add(response_file)
+                commandline_args = (
+                    shlex.split(contents)
+                    + [END_OF_RESPONSE_FILE + response_file]
+                    + commandline_args
+                )
             except (OSError, ValueError) as e:
                 options.die(f"can not read response file {arg[1:]}: {e}")
             continue
@@ -430,9 +471,13 @@ def parse_arg(arg, remaining_args, options):
                 if sanitizer == "valgrind" and not search_path("valgrind"):
                     options.warn("warning: valgrind does not seem be installed")
                 options.sanitizers.append(sanitizer)
-            elif sanitizer not in ["undefined"]:
+            elif sanitizer == "undefined":
+                # undefined is not one of the pair, it is added to whichever of
+                # them can carry it, so on its own it leaves the default pair
+                options.undefined_sanitizer_requested = True
+            else:
                 options.die("unknown sanitizer", sanitizer)
-        if len(options.sanitizers) not in [1, 2]:
+        if len(options.sanitizers) > 2:
             options.die("only 1 or 2 sanitizers supported")
     elif arg in ["--memory"]:  # for backwards compatibility
         options.sanitizers = ["memory"]
@@ -443,11 +488,10 @@ def parse_arg(arg, remaining_args, options):
     elif arg.startswith("--suppressions="):
         # the program may be run from a different directory
         options.suppressions_file = os.path.abspath(arg[len("--suppressions=") :])
-    elif (
-        arg == "--explanations" or arg == "--no_explanation"
-    ):  # backwards compatibility
+    # the singular spellings are for backwards compatibility
+    elif arg == "--explanations" or arg == "--explanation":
         options.explanations = True
-    elif arg == "--no-explanations":
+    elif arg in ["--no-explanations", "--no-explanation", "--no_explanation"]:
         options.explanations = False
     elif arg == "--shared-libasan" or arg == "-shared-libasan":
         options.shared_libasan = True
@@ -542,6 +586,8 @@ def parse_clang_arg(arg, options):
         options.treat_warnings_as_errors = True
     elif arg == "-pthread":
         options.threads_used = True
+    elif arg == "-fsyntax-only":
+        options.syntax_only = True
     else:
         process_possible_source_file(arg, options, set())
 
@@ -559,13 +605,18 @@ def process_possible_source_file(pathname, options, processed_files):
     if re.search(r"\.(a|o|so|dylib)(\.\d+)*$", pathname, flags=re.IGNORECASE):
         options.object_files_being_linked = True
         return
+    if extension.lower() in [".cpp", ".c++"]:
+        options.cpp_mode = True
+    if not os.path.isfile(pathname):
+        # scanning a character device below would never finish, and an argument
+        # which is not a file at all has nothing to scan
+        options.debug_print("skipping", pathname, "not a regular file", level=2)
+        return
     if is_compiled_program(pathname):
         options.die(
             f"'{pathname}' is a compiled program, not source code\n"
             f"if you want to create the program '{pathname}', use: -o {pathname}"
         )
-    if extension.lower() in [".cpp", ".c++"]:
-        options.cpp_mode = True
     try:
         with open(pathname, encoding="utf-8", errors="replace") as f:
             for line in f:
@@ -602,9 +653,6 @@ def process_possible_source_file(pathname, options, processed_files):
     if pathname in options.source_files:
         return
     try:
-        if not os.path.isfile(pathname):
-            options.debug_print("skipping", pathname, "not a regular file", level=2)
-            return
         if os.path.getsize(pathname) > options.maximum_source_file_embedded_bytes:
             options.debug_print("skipping", pathname, "too large", level=2)
             return
@@ -670,6 +718,31 @@ def test_clang_version_exists(compiler, options):
         if options.debug:
             print(f"can not get version information for '{options.c_compiler}'")
     return False
+
+
+def funopen_available(options):
+    # funopen is a BSD function which libbsd supplies on Linux, and libbsd may
+    # not be installed - without this the wrapper source fails to compile and
+    # dcc reports it as an internal error against a file the user can not see
+    try:
+        process = subprocess.run(
+            [options.c_compiler]
+            # the user may have told us where their libbsd is
+            + [a for a in options.user_supplied_compiler_args if a[0:2] in ("-I", "-L")]
+            + ["-x", "c", "-", "-lbsd", "-o", os.devnull],
+            # funopen must be called: a libbsd which lacks it still has the header
+            input="#include <bsd/stdio.h>\n"
+            "int main(void) { return funopen(0, 0, 0, 0, 0) != 0; }\n",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            check=False,
+        )
+    except OSError as e:
+        options.debug_print("funopen test:", e)
+        return False
+    options.debug_print("funopen test:", process.stdout)
+    return process.returncode == 0
 
 
 def get_libc_version(options):

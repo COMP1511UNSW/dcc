@@ -1,5 +1,7 @@
-//dcc_flags=-pthread
+//dcc_flags="-pthread -fsanitize=address"
 // -pthread selects a single sanitizer and is accepted by the gcc checking pass
+// naming the sanitizer keeps the note about uninitialized variables out of
+// this test's output
 #include <stdio.h>
 #include <pthread.h>
 

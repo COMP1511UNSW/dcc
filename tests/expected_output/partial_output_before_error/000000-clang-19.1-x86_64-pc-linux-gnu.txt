@@ -1,3 +1,4 @@
+dcc: note: uninitialized variables will not be detected (signal.h used)
 *** partial_signal
 Execution stopped because of an invalid pointer or string.
 partial_signal: explained and stopped

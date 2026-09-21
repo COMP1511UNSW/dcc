@@ -1,0 +1,10 @@
+*** character device
+exit status 1
+*** recursive response file
+dcc: recursive expansion of response file bad_source_file.rsp
+*** null byte in response file
+dcc: can not read response file bad_source_file_nul.rsp: embedded null byte
+*** same response file twice
+exit status 0
+*** two response files naming a third
+exit status 0

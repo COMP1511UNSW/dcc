@@ -1,0 +1,14 @@
+*** single_sanitizer_note.c
+dcc: note: uninitialized variables will not be detected (unistd.h used)
+*** single_sanitizer_note.cpp
+dcc: note: uninitialized variables will not be detected (vector used)
+*** -pthread
+dcc: note: uninitialized variables will not be detected (threads used)
+*** spawn.h
+dcc: note: uninitialized variables will not be detected (spawn.h used)
+*** distinct notes over 8 runs with several unsafe headers
+1
+*** -fsanitize=address
+0
+*** -fsyntax-only
+0

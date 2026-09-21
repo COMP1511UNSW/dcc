@@ -1,3 +1,4 @@
+dcc: note: uninitialized variables will not be detected (studio.h used)
 h_file_not_found.c:1:10: fatal error: 'studio.h' file not found
 #include <studio.h>
          ^~~~~~~~~~
