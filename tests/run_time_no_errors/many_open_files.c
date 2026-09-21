@@ -1,6 +1,5 @@
-// more files open at once than dcc has stream cookies (FOPEN_MAX)
-// the dual sanitizers lose synchronization, which must be silent,
-// and the program must still run correctly
+// more files open at once than dcc's initial table of stream cookies holds,
+// so cookies are allocated for them and the program runs correctly
 #include <stdio.h>
 #include <stdlib.h>
 

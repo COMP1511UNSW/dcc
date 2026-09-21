@@ -1,5 +1,4 @@
 pure virtual method called
-pure virtual method called
 terminate called without an active exception
 
 Execution stopped by the C++ library, which printed the reason above.

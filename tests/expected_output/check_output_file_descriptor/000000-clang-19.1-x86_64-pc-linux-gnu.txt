@@ -1,0 +1,27 @@
+*** write to file descriptor 1
+exit status 0
+printed 'a'
+*** write mixed with printf
+exit status 0
+printed 'a
+b
+c'
+*** wrong line written to file descriptor 1
+exit status 141
+printed 'a
+b'
+Execution stopped because of an incorrect output line.
+Byte 1 of line 2 of program output was incorrect.
+The correct output line was:
+X
+Your program printed this line:
+b
+*** output of a child process
+exit status 0
+printed 'a'
+*** child process started mid-line
+exit status 0
+printed 'Enter a number: 42'
+*** write to file descriptor 1 mid-line
+exit status 0
+printed 'ab'

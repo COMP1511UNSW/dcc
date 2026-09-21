@@ -1,0 +1,23 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in many_open_files_uninitialized.c at line 14:
+
+            printf("fopen failed\n");
+            return 1;
+        }
+    }
+    int a[2];
+    a[0] = 0;
+--> if (a[argc] > 0) {
+        printf("uninitialized positive\n");
+    }
+    return 0;
+
+Values when execution stopped:
+
+a = {0, <uninitialized value>}
+argc = 1
+a[0] = 0
+a[argc] = <uninitialized value>
+

@@ -4,6 +4,7 @@ struct cookie {
 	FILE *stream;
 	FILE *cookie_stream;
 	int fd;
+	struct cookie *next;
 };
 #if DCC_N_SANITIZERS > 1
 static void synchronization_failed(void);
@@ -11,26 +12,67 @@ static void synchronization_failed(void);
 static FILE *open_cookie(void *cookie, const char *mode);
 
 
+// three of these are taken permanently by stdin, stdout and stderr
 static struct cookie file_cookies[FOPEN_MAX];
+// a program may have more streams open than that, and giving up on a cookie
+// would turn off the checking sanitizer2 does, so extra cookies are allocated
+// a cookie is handed to fopencookie, so it can not be moved and the
+// allocated ones are kept and reused rather than freed
+static struct cookie *extra_file_cookies;
+
+static struct cookie *get_unused_cookie(void) {
+	for (int i = 0; i < FOPEN_MAX; i++) {
+		if (!file_cookies[i].stream) {
+			return &file_cookies[i];
+		}
+	}
+	for (struct cookie *c = extra_file_cookies; c; c = c->next) {
+		if (!c->stream) {
+			return c;
+		}
+	}
+	struct cookie *c = calloc(1, sizeof *c);
+	if (c) {
+		c->next = extra_file_cookies;
+		extra_file_cookies = c;
+	}
+	return c;
+}
+
+static struct cookie *find_cookie(FILE *stream) {
+	if (!stream) {
+		return NULL;
+	}
+	for (int i = 0; i < FOPEN_MAX; i++) {
+		if (file_cookies[i].cookie_stream == stream) {
+			return &file_cookies[i];
+		}
+	}
+	for (struct cookie *c = extra_file_cookies; c; c = c->next) {
+		if (c->cookie_stream == stream) {
+			return c;
+		}
+	}
+	return NULL;
+}
 
 static FILE *get_cookie(FILE *f, const char *mode) {
 	if (!f) {
 		return f;
 	}
-	for (int i = 0; i < FOPEN_MAX; i++) {
-		if (!file_cookies[i].stream) {
-			extern int __real_fileno(FILE *stream);
-			file_cookies[i].fd = __real_fileno(f);
-			file_cookies[i].stream = f;
-			file_cookies[i].cookie_stream = open_cookie(&file_cookies[i], mode);
-			return file_cookies[i].cookie_stream;
-		}
-	}
-	debug_printf(1, "out of fopen cookies\n");
+	struct cookie *c = get_unused_cookie();
+	if (!c) {
+		debug_printf(1, "out of fopen cookies\n");
 #if DCC_N_SANITIZERS > 1
-	synchronization_failed();
+		synchronization_failed();
 #endif
-	return f;
+		return f;
+	}
+	extern int __real_fileno(FILE *stream);
+	c->fd = __real_fileno(f);
+	c->stream = f;
+	c->cookie_stream = open_cookie(c, mode);
+	return c->cookie_stream;
 }
 
 
@@ -472,6 +514,35 @@ static ssize_t __dcc_cookie_read(void *v, char *buf, size_t size) {
 
 static void __dcc_check_output(int fd, const char *buf, size_t size);
 static void __dcc_check_close(int fd);
+// defined with the checker, which clears it when checking is turned off
+static unsigned char *expected_stdout;
+
+#ifdef __linux__
+#define DCC_OVERRIDE_WRITE 1
+#endif
+
+#if DCC_OVERRIDE_WRITE
+#include <dlfcn.h>
+
+// the write below is called for the program's writes to stdout, so the
+// wrapper's own writes have to go to the next write in the library search
+// order, which is the sanitizer's, so it still checks the bytes written
+static ssize_t raw_write(int fd, const void *buf, size_t size) {
+	static ssize_t (*next_write)(int fd, const void *buf, size_t size);
+	if (!next_write) {
+		next_write = (ssize_t (*)(int, const void *, size_t))dlsym(RTLD_NEXT, "write");
+		if (!next_write) {
+			debug_printf(1, "dlsym(RTLD_NEXT, \"write\") failed\n");
+		}
+	}
+	if (!next_write) {
+		return syscall(SYS_write, fd, buf, size);
+	}
+	return next_write(fd, buf, size);
+}
+#else
+#define raw_write write
+#endif
 
 #if DCC_USE_FUNOPEN
 static int __dcc_cookie_write(void *v, const char *buf, int size) {
@@ -481,7 +552,7 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 	synchronize_system_call(sc_write, size);
 #if DCC_I_AM_SANITIZER1
 	struct cookie *cookie = (struct cookie *)v;
-	size_t n_bytes_written = write(cookie->fd, buf, size);
+	size_t n_bytes_written = raw_write(cookie->fd, buf, size);
 
 	__dcc_check_output(cookie->fd, buf, size);
 	(void)synchronize_system_call_result(sc_write, n_bytes_written);
@@ -496,6 +567,39 @@ static ssize_t __dcc_cookie_write(void *v, const char *buf, size_t size) {
 	quick_clear_stack();
 	return n_bytes_written;
 }
+
+
+#if DCC_OVERRIDE_WRITE
+// bytes written straight to file descriptor 1 or 2 are the program's output
+// too, but they do not pass through the stdout or stderr stream, so they would
+// not be compared with the expected output and both sanitizers would write them
+//
+// weak so a program defining its own write is still linked
+__attribute__((weak)) ssize_t write(int fd, const void *buf, size_t size) {
+	if (fd != 1 && fd != 2) {
+		return raw_write(fd, buf, size);
+	}
+	// what the program has printed to the stream for this descriptor is
+	// flushed first so these bytes are not moved ahead of it, and both
+	// sanitizers do it so the write it may cause still pairs up
+	fflush(fd == 1 ? stdout : stderr);
+	synchronize_system_call(sc_write, size);
+#if DCC_I_AM_SANITIZER1
+	ssize_t n_bytes_written = raw_write(fd, buf, size);
+	if (n_bytes_written > 0) {
+		// bytes a short or failed write did not produce are not the program's output
+		__dcc_check_output(fd, (const char *)buf, (size_t)n_bytes_written);
+	}
+	(void)synchronize_system_call_result(sc_write, n_bytes_written);
+#else
+	(void)buf; // avoid unused parameter warning
+	int64_t result = synchronize_system_call_result(sc_write);
+	ssize_t n_bytes_written = result > (int64_t)size ? (ssize_t)size : (ssize_t)result;
+#endif
+	quick_clear_stack();
+	return n_bytes_written;
+}
+#endif
 
 
 #if DCC_USE_FUNOPEN
@@ -636,12 +740,40 @@ int __wrap_rename(const char *oldpath, const char *newpath) {
 
 // pass results of a call to system  sanitizer 1 -> sanitizer 2
 
+#if DCC_I_AM_SANITIZER1
+// the output of a child process is the program's output too, but it is
+// written to file descriptor 1 by another process, so while output is being
+// checked the command is run with its output coming back through a pipe
+static int run_system_command(const char *command) {
+	extern int __real_system(const char *command);
+#if DCC_CHECK_OUTPUT
+	if (command && expected_stdout) {
+		extern FILE *__real_popen(const char *command, const char *type);
+		FILE *f = __real_popen(command, "r");
+		if (f) {
+			char buf[4096];
+			size_t n_bytes_read;
+			while ((n_bytes_read = fread(buf, 1, sizeof buf, f)) > 0) {
+				raw_write(1, buf, n_bytes_read);
+				__dcc_check_output(1, buf, n_bytes_read);
+			}
+			return pclose(f);
+		}
+	}
+#endif
+	return __real_system(command);
+}
+#endif
+
 #undef system
 int __wrap_system(const char *command) {
+	// what the program has printed is flushed before the handshake, so the
+	// command's output is not moved ahead of it, and so the write the flush
+	// may cause still pairs up between the sanitizers
+	fflush(stdout);
 	synchronize_system_call(sc_system, 0);
 #if DCC_I_AM_SANITIZER1
-	int __real_system(const char *command);
-	return synchronize_system_call_result(sc_system, __real_system(command));
+	return synchronize_system_call_result(sc_system, run_system_command(command));
 #else
 	(void)command; // avoid unused parameter warning
 	return synchronize_system_call_result(sc_system);
@@ -713,24 +845,19 @@ FILE *__wrap_freopen(const char *pathname, const char *mode, FILE *stream) {
 		(void)synchronize_system_call_result(sc_freopen, 0);
 		return NULL;
 	}
-	int i;
-	for (i = 0; i < FOPEN_MAX; i++) {
-		if (file_cookies[i].cookie_stream == stream) {
-			break;
-		}
-	}
-	if (i == FOPEN_MAX) {
+	struct cookie *c = find_cookie(stream);
+	if (!c) {
 		debug_printf(0, "freopen can not find stream");
 		__dcc_error_exit();
 	}
 	extern FILE *__real_freopen(const char *pathname, const char *mode, FILE *stream);
-	FILE *f1 = __real_freopen(pathname, mode, file_cookies[i].stream);
+	FILE *f1 = __real_freopen(pathname, mode, c->stream);
 	if (f1) {
-		file_cookies[i].stream = f1;
+		c->stream = f1;
 		extern int __real_fileno(FILE *stream);
-		file_cookies[i].fd = __real_fileno(f1);
+		c->fd = __real_fileno(f1);
 		(void)synchronize_system_call_result(sc_freopen, 1);
-		return file_cookies[i].cookie_stream;
+		return c->cookie_stream;
 	} else {
 		(void)synchronize_system_call_result(sc_freopen, 0);
 		return NULL;
@@ -761,13 +888,8 @@ static void unlink_sanitizer2_executable(void) {
 
 static int cookie_stream_to_fd(FILE *stream) MAYBE_UNUSED;
 static int cookie_stream_to_fd(FILE *stream) {
-	int fd = -1;
-	for (int i = 0; i < FOPEN_MAX; i++) {
-		if (file_cookies[i].cookie_stream == stream) {
-			fd = file_cookies[i].fd;
-			break;
-		}
-	}
+	struct cookie *c = find_cookie(stream);
+	int fd = c ? c->fd : -1;
 
 	// in single santizer mode cookies are used for stdin, stdout & stderr not files
 	if (fd == -1) {
