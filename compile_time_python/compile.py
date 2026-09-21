@@ -1,4 +1,4 @@
-import hashlib, io, json, os, pkgutil, platform, re, shutil, stat
+import errno, hashlib, io, json, os, pkgutil, platform, re, shutil, stat
 import shlex, subprocess, sys, tarfile, tempfile
 import colors
 
@@ -39,8 +39,21 @@ def main():
         + os.environ.get("PATH", "")
     )
     options = get_options()
+    try:
+        compile_and_explain(options)
+    except OSError as e:
+        # dcc exists to replace toolchain output with something a novice can
+        # act on, so a Python traceback must never reach one
+        options.die(str(e))
+
+
+def compile_and_explain(options):
     with tempfile.TemporaryDirectory(prefix="dcc") as d:
         options.temporary_directory = d
+        # the compilers dcc runs inherit TMPDIR, and a broken one makes them fail
+        # in dcc's own code, which looks like dcc being broken.  this directory
+        # has just been shown to be usable
+        os.environ["TMPDIR"] = d
         p = compile_user_program(options)
         explanation_labels = []
         if p.stdout:
@@ -49,8 +62,42 @@ def main():
                 explanation_labels = [e.label for e in explanations if e and e.label]
             else:
                 print(p.stdout, end="", file=sys.stderr)
+        if p.returncode == 0:
+            check_program_was_produced(options)
         run_compile_time_logger(p, explanation_labels, options)
         sys.exit(p.returncode)
+
+
+# options which ask the compiler for something which is not a program
+NON_LINKING_COMPILER_ARGS = [
+    "--analyze",
+    "-###",
+    "-E",
+    "-fsyntax-only",
+    "-M",
+    "-MM",
+    "-S",
+]
+
+# options which make the compiler print information and exit, e.g.
+# -print-file-name=libm.a, -dumpmachine
+NON_LINKING_COMPILER_ARG_PREFIXES = ("-dump", "-print")
+
+
+def check_program_was_produced(options):
+    """die if a compiler exited 0 but linked nothing, e.g. --c-compiler=/bin/true"""
+    if options.incremental_compilation:
+        return
+    if any(asks_for_no_program(a) for a in options.user_supplied_compiler_args):
+        return
+    if not os.path.exists(options.object_pathname):
+        options.die(f"{options.c_compiler} did not produce {options.object_pathname}")
+
+
+def asks_for_no_program(argument):
+    return argument in NON_LINKING_COMPILER_ARGS or argument.startswith(
+        NON_LINKING_COMPILER_ARG_PREFIXES
+    )
 
 
 def compile_user_program(options):
@@ -124,8 +171,8 @@ def compile_user_program(options):
         command = [options.c_compiler] + incremental_compilation_args
         if options.object_pathname != "a.out":
             command += ["-o", options.object_pathname]
-        options.debug_print("incremental compilation, running: ", " ".join(command))
-        return subprocess.run(command, check=False)
+        options.debug_print("incremental compilation")
+        return run(command, options, input_text=None, stdout=None, stderr=None)
 
     # _GNU_SOURCE to get fopencookie
     wrapper_source = (
@@ -205,8 +252,10 @@ def embedded_blob_object(options, symbol, contents):
     compiler = options.c_compiler.replace("clang++", "clang").replace("++", "cc")
     command = [compiler, "-c", "-x", "assembler-with-cpp", "-", "-o", object_pathname]
     process = run(command, options, input_text=source)
+    # a failure here is the compiler being unusable, not dcc being broken,
+    # and the symbol name means nothing to the person reading the message
     if process.stdout or process.returncode != 0:
-        options.die("Internal error embedding " + symbol + "\n" + process.stdout)
+        options.die(f"{compiler} can not compile dcc's own code\n" + process.stdout)
     if options.debug > 1:
         # so the recorded compile command can be re-run
         try:
@@ -388,9 +437,9 @@ def execute_compiler(
     # a user call to a renamed unistd.h function appears to be undefined
     # so recompile without renames
 
-    if rename_functions and "undefined reference to `__renamed_" in p.stdout:
+    if rename_functions and linker_reports_renamed_function(p.stdout):
         options.debug_print(
-            "undefined reference to `__renamed_' recompiling without -D renames"
+            "undefined reference to a __renamed_ function, recompiling without -D renames"
         )
         return execute_compiler(
             compiler,
@@ -405,6 +454,17 @@ def execute_compiler(
             embedded_objects=embedded_objects,
         )
     return p
+
+
+# the name is not always alone after the backtick: ld demangles C++, so a
+# renamed member function is reported as e.g. `std::istream::__renamed_read(...)'
+def linker_reports_renamed_function(linker_output):
+    """return True if a linker reports a __renamed_ function is undefined"""
+    return bool(
+        re.search(
+            r"undefined (reference to `|symbol: )[^'\n]*__renamed_", linker_output, re.M
+        )
+    )
 
 
 def linker_reports_missing_main(linker_output):
@@ -460,10 +520,7 @@ def compile_wrapper_source(
         relocatable_pathname,
     ] + WRAPPER_SOURCE_COMPILER_ARGS + wrapper_extra_options
     options.debug_print("wrapper options", wrapper_extra_options)
-    cached_pathname = cached_wrapper_object(options, source, command)
-    if cached_pathname:
-        relocatable_pathname = cached_pathname
-    else:
+    if not cached_wrapper_object(options, source, command, relocatable_pathname):
         process = run(command, options, input_text=source)
         if process.stdout or process.returncode != 0:
             options.die("Internal error\n" + process.stdout)
@@ -530,30 +587,40 @@ def command_without_output_pathname(command):
     return arguments
 
 
-def cached_wrapper_object(options, source, command):
-    """return the pathname of a usable cached object, or None"""
+def cached_wrapper_object(options, source, command, relocatable_pathname):
+    """copy a usable cached object to relocatable_pathname, and say if it did
+
+    The bytes are copied into dcc's own temporary directory rather than the
+    cached pathname being linked, so that another dcc removing the entry a
+    moment later can not make this compilation fail.
+    """
     pathname = wrapper_object_cache_pathname(options, source, command)
     if not pathname:
-        return None
+        return False
     try:
         information = os.lstat(pathname)
         # a file which is not an ordinary file of our own could have been put
         # there by anyone, and a damaged one would fail at the linker
         if not stat.S_ISREG(information.st_mode) or information.st_uid != os.getuid():
             options.debug_print("ignoring cached object not owned by us", pathname)
-            return None
+            return False
         with open(pathname, "rb") as f:
             contents = f.read()
         with open(pathname + ".sha256", encoding="ascii") as f:
             expected_digest = f.read().strip()
         if hashlib.sha256(contents).hexdigest() != expected_digest:
             options.debug_print("ignoring damaged cached object", pathname)
-            return None
+            return False
+        # the touch is what keeps this entry from being the least recently
+        # used one, and like every other access it can lose a race with the
+        # dcc doing the removing
+        os.utime(pathname, None)
+        with open(relocatable_pathname, "wb") as f:
+            f.write(contents)
     except OSError:
-        return None
+        return False
     options.debug_print("using cached object", pathname)
-    os.utime(pathname, None)
-    return pathname
+    return True
 
 
 def save_wrapper_object(options, source, command, relocatable_pathname):
@@ -797,15 +864,23 @@ def run(
     check=False,
 ):
     options.debug_print(" ".join(command))
-    return subprocess.run(
-        command,
-        input=input_text,
-        stdout=stdout,
-        stderr=stderr,
-        text=text,
-        errors=errors,
-        check=check,
-    )
+    try:
+        return subprocess.run(
+            command,
+            input=input_text,
+            stdout=stdout,
+            stderr=stderr,
+            text=text,
+            errors=errors,
+            check=check,
+        )
+    except OSError as e:
+        if e.errno == errno.E2BIG:
+            options.die(
+                "the command line is too long for the compiler"
+                " - try fewer arguments or source files"
+            )
+        options.die(f"can not run {command[0]}: {e.strerror or e}")
 
 
 def embedded_tarfile_bytes(options):

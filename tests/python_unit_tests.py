@@ -141,6 +141,21 @@ class EmbeddingTests(unittest.TestCase):
         self.assertFalse(dcc_compile.linker_reports_missing_main("x.c:(.text+0x10): undefined reference to `main_menu'"))
         self.assertFalse(dcc_compile.linker_reports_missing_main("ld.lld: error: undefined symbol: mainloop\n"))
 
+    def test_linker_reports_renamed_function(self):
+        c = "/usr/bin/ld: x.o: undefined reference to `__renamed_read'\n"
+        lld = "ld.lld: error: undefined symbol: __renamed_read\n"
+        # ld demangles C++, so the renamed name is not alone after the backtick
+        demangled = "/usr/bin/ld: x.o: undefined reference to `std::istream::__renamed_read(char*, long)'\n"
+        template = "/usr/bin/ld: undefined reference to `std::basic_istream<char, std::char_traits<char> >::__renamed_read(char*, long)'\n"
+        lld_demangled = "ld.lld: error: undefined symbol: std::basic_ostream<char, std::char_traits<char> >::__renamed_write(char const*, long)\n"
+        self.assertTrue(dcc_compile.linker_reports_renamed_function(c))
+        self.assertTrue(dcc_compile.linker_reports_renamed_function(lld))
+        self.assertTrue(dcc_compile.linker_reports_renamed_function(demangled))
+        self.assertTrue(dcc_compile.linker_reports_renamed_function(template))
+        self.assertTrue(dcc_compile.linker_reports_renamed_function(lld_demangled))
+        self.assertFalse(dcc_compile.linker_reports_renamed_function("undefined reference to `read'\n"))
+        self.assertFalse(dcc_compile.linker_reports_renamed_function("__renamed_read is fine\n"))
+
 
 class CleanCSourceTests(unittest.TestCase):
     """clean_c_source removes literals and comments before variables are extracted from a line"""

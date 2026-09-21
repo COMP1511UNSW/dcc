@@ -1,0 +1,2 @@
+dcc said: dcc: /bin/true did not produce compiler_produced_nothing
+nothing asked for, nothing reported
