@@ -314,7 +314,11 @@ const char *__msan_default_options(void) {
 void __ubsan_on_report(void) {
     debug_printf(2, "__ubsan_on_report\n");
 
-#if DCC_UBSAN_IN_USE && DCC_CLANG_VERSION_MAJOR >= 7
+// gcc's libubsan exports these too, and DCC_CLANG_VERSION_MAJOR is 0 there,
+// so the version test only excludes clang releases older than 7.  The accessor
+// is weak because some builds of the sanitizer runtime do not export it, and a
+// missing symbol would otherwise stop every program linking
+#if DCC_UBSAN_IN_USE && (DCC_CLANG_VERSION_MAJOR == 0 || DCC_CLANG_VERSION_MAJOR >= 7)
     char *OutIssueKind;
     char *OutMessage;
     char *OutFilename;
@@ -323,8 +327,13 @@ void __ubsan_on_report(void) {
     char *OutMemoryAddr;
     extern void __ubsan_get_current_report_data(
         char **OutIssueKind, char **OutMessage, char **OutFilename,
-        unsigned int *OutLine, unsigned int *OutCol, char **OutMemoryAddr);
+        unsigned int *OutLine, unsigned int *OutCol, char **OutMemoryAddr)
+        __attribute__((weak));
 
+    if (!__ubsan_get_current_report_data) {
+        debug_printf(2, "__ubsan_get_current_report_data not available\n");
+        return;
+    }
     __ubsan_get_current_report_data(&OutIssueKind, &OutMessage, &OutFilename,
                                     &OutLine, &OutCol, &OutMemoryAddr);
 
