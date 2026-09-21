@@ -238,6 +238,9 @@ DCC_BLOB(__SYMBOL__):
     .incbin "__PATHNAME__"
     .globl DCC_BLOB(__SYMBOL___end)
 DCC_BLOB(__SYMBOL___end):
+#ifndef __APPLE__
+    .section .note.GNU-stack,"",@progbits
+#endif
 """
 
 
