@@ -326,7 +326,14 @@ class RuntimeExplanationTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop("DCC_STACK_OVERFLOW", None)
             self.assertIn("invalid pointer", explain_error.explain_signal(signals.SIGSEGV))
-        self.assertIn("assert", explain_error.explain_signal(signals.SIGABRT))
+        # abort() is only blamed on assert() when assert() really did call it
+        assert_stack = "#15 0x7f in __assert_fail_base () at ./assert/assert.c:118"
+        self.assertIn("assert", explain_error.explain_signal(signals.SIGABRT, assert_stack))
+        throw_stack = "#14 0x7f in __cxa_throw () from /lib/libstdc++.so.6"
+        abort_explanation = explain_error.explain_signal(signals.SIGABRT, throw_stack)
+        self.assertIn("exception", abort_explanation)
+        self.assertNotIn("assert", abort_explanation)
+        self.assertNotIn("assert", explain_error.explain_signal(signals.SIGABRT))
 
     def test_debug_level_from_environment(self):
         with mock.patch.dict(os.environ, {"DCC_DEBUG": "2"}):
@@ -583,8 +590,36 @@ class StackParsingTests(unittest.TestCase):
             "#0  __GI_raise (sig=6) at ../sysdeps/unix/sysv/linux/raise.c:50",
             "#2  0x00007ffff7 in __libc_start_main () at /usr/lib/libc.c:300",
             "#0  0x00007ffff7e2 in __strlen_avx2 () from /lib/x86_64-linux-gnu/libc.so.6",
+            "#5  0x00007ffff7 in _IO_new_file_close_it (fp=0x51) at ./libio/libioP.h:1041",
+            "#8  0x00005ed1d8 in _explain_error () at <stdin>:1685",
         ]:
             self.assertIsNone(explain_error.parse_gdb_stack_frame(line), line)
+
+    def test_paths_with_spaces_and_underscored_functions(self):
+        # a student's file may be called "assignment 1.c" and their function _f
+        for line, expected in [
+            ("#13 0x00005ed1d8 in main () at assignment 1.c:4", ("main", "assignment 1.c", 4)),
+            ("#13 0x00005ed1d8 in main () at lab 3/prog.c:4", ("main", "lab 3/prog.c", 4)),
+            ("#13 0x00005ed1d8 in main () at wei:rd.c:2", ("main", "wei:rd.c", 2)),
+            ("#13 0x00005ed1d8 in _f () at min.c:1", ("_f", "min.c", 1)),
+            ("#13 0x00005ed1d8 in __f (n=5) at dunder.c:4", ("__f", "dunder.c", 4)),
+            ("#13 0x00005ed1d8 in _Deref (n=3) at dunder.c:3", ("_Deref", "dunder.c", 3)),
+        ]:
+            frame = explain_error.parse_gdb_stack_frame(line)
+            self.assertIsNotNone(frame, line)
+            self.assertEqual((frame.function, frame.filename, frame.line_number), expected)
+
+    def test_a_stack_with_no_user_source_does_not_fall_back_to_a_library_frame(self):
+        # exiting main runs the C library's _dl_call_fini, whose source dcc can
+        # not see, so there is no frame it can usefully report
+        stack = """#0  0x00007ffff7 in _dl_call_fini (closure_map=0x7ffff7) at ./elf/dl-call_fini.c:43
+#1  0x00007ffff7 in _dl_fini () at ./elf/dl-fini.c:120
+#2  0x00007ffff7 in __run_exit_handlers (status=0) at ./stdlib/exit.c:108"""
+        with mock.patch.object(explain_error.gdb_interface, "gdb_execute", return_value=stack):
+            with mock.patch.object(explain_error.gdb_interface, "gdb_set_frame"):
+                frames, _, text = explain_error.parse_stack()
+        self.assertEqual(frames, [])
+        self.assertEqual(text, stack)
 
 
 class DocumentationTests(unittest.TestCase):

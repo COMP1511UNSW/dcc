@@ -33,12 +33,12 @@ def explain_error(output_stream, color):
                     gdb_interface.gdb_execute(f"thread {m.group(1)}")
                 break
 
-    stack, stack_truncated = parse_stack()
+    stack, stack_truncated, stack_text = parse_stack()
     location = stack[0] if stack else None
     signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
     explanation = ""
     if "DCC_SIGNAL" in os.environ:
-        explanation = explain_signal(signal_number)
+        explanation = explain_signal(signal_number, stack_text)
     elif "DCC_ASAN_ERROR" in os.environ:
         explanation = explain_asan_error(color)
     elif "DCC_UBSAN_ERROR_KIND" in os.environ:
@@ -116,8 +116,13 @@ def explain_ubsan_error(loc, color):
 
     if loc:
         if filename and line_number:
-            loc.filename = filename
-            loc.line_number = line_number
+            # compare basenames, gdb and ubsan can spell the same path differently
+            if os.path.basename(loc.filename) != os.path.basename(filename):
+                # the error is in another file, so the frame gdb gave us is not
+                # the function it happened in - better no name than the wrong one
+                loc = util.Location(filename, line_number)
+            else:
+                loc.line_number = line_number
     else:
         loc = util.Location(filename, line_number)
     if column:
@@ -312,11 +317,11 @@ ASAN_EXPLANATIONS = [
 ]
 
 
-def explain_signal(signal_number):
+def explain_signal(signal_number, stack_text=""):
     if signal_number == signal.SIGSEGV and os.environ.get("DCC_STACK_OVERFLOW"):
         return "Execution stopped by a stack overflow.\nA common cause of this error is infinite recursion."
     if signal_number == signal.SIGABRT:
-        return "Execution stopped by a call to abort().\nA failed assert() calls abort()."
+        return explain_abort(stack_text)
     if signal_number == signal.SIGINT:
         return "Execution was interrupted"
     elif signal_number == signal.SIGFPE:
@@ -329,6 +334,28 @@ def explain_signal(signal_number):
         return "Execution stopped because of an invalid pointer or string."
     else:
         return f"Execution terminated by signal {signal_number}"
+
+
+def explain_abort(stack_text):
+    """abort() is reached several ways - assert() is only one of them"""
+    if "__assert_fail" in stack_text:
+        return (
+            "Execution stopped by a call to abort().\nA failed assert() calls abort()."
+        )
+    # an exception escaping a noexcept function reaches terminate from the
+    # landing pad, so __cxa_throw is no longer on the stack
+    if re.search(
+        r"__cxa_throw|__cxa_call_terminate|__clang_call_terminate", stack_text
+    ):
+        return """Execution stopped because an exception was thrown and never caught.
+The C++ library printed the type of the exception above.
+An exception has to be caught by a try/catch block or it stops the program."""
+    # the C++ library also calls terminate with no exception in flight,
+    # e.g. for a pure virtual method call or a throw with nothing to rethrow
+    if re.search(r"__verbose_terminate_handler|std::terminate", stack_text):
+        return """Execution stopped by the C++ library, which printed the reason above.
+The most common reason is an exception which was thrown and never caught."""
+    return "Execution stopped by a call to abort()."
 
 
 def run_runtime_helper(
@@ -452,7 +479,8 @@ def get_argv(stack):
 
 
 def parse_stack():
-    """return the stack frames in user code, and whether gdb left frames out"""
+    """return the frames in user code, whether gdb left frames out, and the raw stack"""
+    stack = ""
     try:
         # a very deep stack, e.g. from infinite recursion, takes gdb a long time to print
         stack = gdb_interface.gdb_execute(f"where {MAX_STACK_FRAMES}")
@@ -466,9 +494,13 @@ def parse_stack():
                 frames.append(frame)
         if not frames:
             # FIXME - does this code make sense?
+            # no frame has a source file we can see, so there is nothing to
+            # tell a student's _helper from the library's _dl_call_fini
             frame = None
             for line in reversed_stack_lines:
-                frame = parse_gdb_stack_frame(line) or frame
+                parsed = parse_gdb_stack_frame(line)
+                if parsed is not None and not parsed.function.startswith("_"):
+                    frame = parsed
             if frame is not None:
                 frames = [frame]
         if frames:
@@ -480,25 +512,29 @@ def parse_stack():
         truncated = len(stack_lines) >= MAX_STACK_FRAMES and (
             not frames or frames[-1].function != "main"
         )
-        return frames, truncated
+        return frames, truncated, stack
     except Exception:
         if util.get_debug_level():
             traceback.print_exc(file=sys.stderr)
-        return [], False
+        return [], False, stack
 
 
 def parse_gdb_stack_frame(line):
-    # note don't match function names starting with _ these are not user functions
     line = re.sub("__real_main", "main", line)
+    # the filename is whatever precedes the trailing :line-number, so that a
+    # path containing a space or a colon is still a match; library frames are
+    # rejected below by their source file, not by their function name
     m = re.match(
         r"^\s*#(?P<frame_number>\d+)\s+(0x[0-9a-f]+\s+in+\s+)?"
-        r"(?P<function>[a-zA-Z][^\s\(]*).*\((?P<params>.*)\)\s+at\s+"
-        r"(?P<filename>[^\s:]+):(?P<line_number>\d+)\s*$",
+        r"(?P<function>[A-Za-z_][^\s\(]*).*\((?P<params>.*)\)\s+at\s+"
+        r"(?P<filename>.+):(?P<line_number>\d+)\s*$",
         line,
     )
     dprint(3, "parse_gdb_stack_frame", m is not None, line)
     if m:
         filename = m.group("filename")
+        # a leading _ does not make a function the library's - a student may
+        # well call one _helper or __helper - so filter on the source file
         if (
             filename.startswith("/usr/")
             or filename.startswith("../sysdeps/")

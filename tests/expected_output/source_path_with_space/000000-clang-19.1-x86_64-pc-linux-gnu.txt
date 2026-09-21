@@ -1,0 +1,40 @@
+
+Runtime error: accessing a value via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is accessing *p when p == NULL.
+
+Execution stopped in deref(p=NULL) in assignment 1.c at line 2:
+
+int deref(int *p) {
+--> return *p;
+}
+
+Values when execution stopped:
+
+p = NULL
+
+Function call traceback:
+
+deref(p=NULL) called at line 6 of assignment 1.c
+main()
+
+
+Runtime error: accessing a value via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is accessing *p when p == NULL.
+
+Execution stopped in deref(p=NULL) in wei:rd.c at line 2:
+
+int deref(int *p) {
+--> return *p;
+}
+
+Values when execution stopped:
+
+p = NULL
+
+Function call traceback:
+
+deref(p=NULL) called at line 6 of wei:rd.c
+main()
+

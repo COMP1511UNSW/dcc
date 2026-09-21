@@ -1,0 +1,24 @@
+terminate called after throwing an instance of 'std::out_of_range'
+  what():  index too large
+
+Execution stopped because an exception was thrown and never caught.
+The C++ library printed the type of the exception above.
+An exception has to be caught by a try/catch block or it stops the program.
+Execution stopped in get(i=5) in uncaught_exception.cpp at line 7:
+
+static int get(int i) {
+    if (i > 2) {
+-->     throw std::out_of_range("index too large");
+    }
+    return i;
+}
+
+Values when execution stopped:
+
+i = 5
+
+Function call traceback:
+
+get(i=5) called at line 13 of uncaught_exception.cpp
+main()
+
