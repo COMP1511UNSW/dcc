@@ -4,5 +4,5 @@ struct student;
 struct student cohort[10];
 
 int main(void) {
-    return cohort[0] == NULL;
+    return 0;
 }

@@ -610,7 +610,7 @@ def parse_clang_arg(arg, options):
         options.warn(
             "warning: "
             "using incremental compilation (-c) is not recommended with dcc\n"
-            "Signficant parts of dcc error detection do not work with incremental compilation."
+            "Significant parts of dcc error detection do not work with incremental compilation."
         )
         options.incremental_compilation = True
     elif arg.startswith("-l") and arg[2:] not in ["m", "c"]:

@@ -354,7 +354,7 @@ An exception has to be caught by a try/catch block or it stops the program."""
     # e.g. for a pure virtual method call or a throw with nothing to rethrow
     if re.search(r"__verbose_terminate_handler|std::terminate", stack_text):
         return """Execution stopped by the C++ library, which printed the reason above.
-The most common reason is an exception which was thrown and never caught."""
+The specific reason is shown in the library message above."""
     return "Execution stopped by a call to abort()."
 
 
