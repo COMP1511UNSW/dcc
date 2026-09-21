@@ -416,15 +416,12 @@ def get_options():
             )
             options.sanitizers = [a for a in options.sanitizers if a != "address"]
 
-    # shared_libasan breaks easily ,e.g if there are libraries in  /etc/ld.so.preload
-    # and we can't override with verify_asan_link_order=0 for clang version < 5
-    # and with clang-6 on debian __asan_default_options not called with shared_libasan
-    if (
-        options.shared_libasan is None
-        and options.clang_version_float >= 7.0
-        and "clang" in options.c_compiler
-    ):
-        options.shared_libasan = True
+    # shared_libasan breaks easily, e.g. if there are libraries in
+    # /etc/ld.so.preload, and with clang-18 on Ubuntu it stops dcc's
+    # sanitizer callbacks from being called, so runtime explanations are lost.
+    # Keep it available as an explicit option but do not enable it by default.
+    if options.shared_libasan is None:
+        options.shared_libasan = False
 
     if options.use_funopen and sys.platform == "linux":
         if not funopen_available(options):
