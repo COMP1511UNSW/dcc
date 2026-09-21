@@ -242,6 +242,70 @@ class CompilerMessageParsingTests(unittest.TestCase):
         self.assertEqual((message.line_number, message.type, message.highlighted_word), ("9", "error", "count"))
         self.assertEqual(lines, [])
 
+    def test_a_filename_beginning_with_whitespace(self):
+        # a leading space is part of the filename, not the indent of a quoted line
+        output = (
+            " prog.c:4:11: warning: variable 'i' is uninitialized when used here [-Wuninitialized]\n"
+            "    4 |     scanf(\"%d\", i);\n"
+            "      |                 ^\n"
+        )
+        message, lines = explain_compiler_output.get_next_message(output.splitlines())
+        self.assertEqual((message.file, message.line_number, message.column, message.type), (" prog.c", "4", "11", "warning"))
+        self.assertEqual(lines, [])
+
+    def test_a_quoted_source_line_is_not_a_message(self):
+        # the quoted source of the message below is shaped like a diagnostic
+        output = (
+            "prog.c:2:37: error: use of undeclared identifier 'count'\n"
+            '    2 |     printf("prog.c:2: error: %d", count);\n'
+            "      |                                   ^\n"
+        )
+        message, lines = explain_compiler_output.get_next_message(output.splitlines())
+        self.assertEqual(message.text, output.splitlines())
+        self.assertEqual(message.highlighted_word, "count")
+        self.assertEqual(lines, [])
+
+    def test_a_quoted_source_line_without_a_line_number_gutter(self):
+        # -fno-diagnostics-show-line-numbers quotes the source with no "2 | "
+        output = (
+            "prog.c:2:5: error: use of undeclared identifier 'q'\n"
+            "    q++; // see log.c:7: note: bumped\n"
+            "    ^\n"
+        )
+        message, lines = explain_compiler_output.get_next_message(output.splitlines())
+        self.assertEqual(message.text, output.splitlines())
+        self.assertEqual(message.highlighted_word, "q")
+        self.assertEqual(lines, [])
+
+    def test_a_quoted_source_line_ending_a_note_is_not_a_message(self):
+        # gcc's fix-it repeats the source after the "+++ |+" line, with no
+        # caret line after it to say it is quoted source
+        output = (
+            "prog.c:1:18: error: implicit declaration of function \u2018printf\u2019\n"
+            '    1 | int main(void) { printf("a.c:1: error: x"); }\n'
+            "      |                  ^~~~~~\n"
+            "prog.c:1:1: note: include \u2018<stdio.h>\u2019 or provide a declaration of \u2018printf\u2019\n"
+            "  +++ |+#include <stdio.h>\n"
+            '    1 | int main(void) { printf("a.c:1: error: x"); }\n'
+        )
+        message, lines = explain_compiler_output.get_next_message(output.splitlines())
+        self.assertEqual(message.text, output.splitlines()[:3])
+        self.assertEqual(message.note, output.splitlines()[3:])
+        self.assertEqual(lines, [])
+
+    def test_an_unindented_quoted_source_line_is_not_a_message(self):
+        # with no gutter the quoted source starts in column 1, like a message
+        output = (
+            "prog.c:1:18: error: call to undeclared library function 'printf'\n"
+            'int main(void) { printf("a.c:1: error: x"); }\n'
+            "                 ^\n"
+            "prog.c:1:18: note: include the header <stdio.h> or explicitly provide a declaration for 'printf'\n"
+        )
+        message, lines = explain_compiler_output.get_next_message(output.splitlines())
+        self.assertEqual(message.text, output.splitlines()[:3])
+        self.assertEqual(message.highlighted_word, "printf")
+        self.assertEqual(lines, [])
+
     def test_notes_are_kept_separately(self):
         output = (
             "prog.c:3:5: error: call to undeclared function 'f'\n"
@@ -379,6 +443,36 @@ class ExplanationTests(unittest.TestCase):
         # gcc uses smart quotes and dropped "in this function" from the message in gcc 10
         e = self.explanation_for("prog.c:3:13: warning: ‘a’ is used uninitialized [-Wuninitialized]\n    3 |     return a[0];\n")
         self.assertEqual(e.label, "uninitialized-local-variable")
+
+    def test_gcc_missing_include_wording(self):
+        # gcc does not call printf a library function, so its note is what
+        # distinguishes a missing #include from an unknown function
+        e = self.explanation_for(
+            "prog.c:1:18: error: implicit declaration of function \u2018printf\u2019 [-Wimplicit-function-declaration]\n"
+            "    1 | int main(void) { printf(\"hello\"); }\n"
+            "      |                  ^~~~~~\n"
+            "prog.c:1:1: note: include \u2018<stdio.h>\u2019 or provide a declaration of \u2018printf\u2019\n"
+        )
+        self.assertEqual(e.label, "missing_library_include")
+        self.assertIn("#include <stdio.h>", e.text)
+
+    def test_printf_is_not_reported_as_a_misspelling_of_itself(self):
+        # clang says "library" only for a function it has a builtin for
+        e = self.explanation_for(
+            "prog.c:1:18: error: call to undeclared function 'printf'; ISO C99 and later do not support implicit function declarations\n"
+            "    1 | int main(void) { printf(\"hello\"); }\n"
+            "      |                  ^\n"
+        )
+        self.assertEqual(e.label, "implicit_function_declaration")
+        self.assertNotIn("Maybe you meant", e.text)
+
+    def test_a_function_the_student_has_not_written_is_not_a_missing_include(self):
+        e = self.explanation_for(
+            "prog.c:1:18: error: implicit declaration of function \u2018myfunc\u2019 [-Wimplicit-function-declaration]\n"
+            "    1 | int main(void) { myfunc(); }\n"
+            "      |                  ^~~~~~\n"
+        )
+        self.assertEqual(e.label, "implicit_function_declaration")
 
     def test_colours_are_used_only_when_asked_for(self):
         # a helper script is given the explanation as plain text

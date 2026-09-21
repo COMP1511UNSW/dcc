@@ -1,0 +1,7 @@
+caret_in_source_line.c:6:7: warning: expression result unused [-Wunused-value]
+    6 |     1 ^
+      |     ~ ^
+    7 |     y;
+      |     ~
+dcc explanation: you are doing nothing with a value on line 6 of caret_in_source_line.c.
+Did you mean to assign it to a varable?

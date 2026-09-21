@@ -356,11 +356,17 @@ int main(int argc, char *argv[]) {
     ),
     Explanation(
         label="missing_library_include",
-        regex=r"(implicitly declaring library function|call to undeclared library function) '(\w+)'",
+        regex=r"(implicitly declaring library function|call to undeclared library function|implicit declaration of function|call to undeclared function) '(\w+)'",
+        # gcc, and clang without its builtins, don't say "library", so the note
+        # naming a system header is all that distinguishes a missing #include
+        # from a function the student has yet to write
+        precondition=lambda message, match: suggested_system_include_file(
+            message.note_without_ansi_codes
+        ),
         explanation="""\
 you are calling **{match.group(2)}** on line {line_number} of {file} but
 dcc does not recognize **{match.group(2)}** as a function.
-Do you have {emphasize('#include <' + extract_system_include_file(note) + '>')} at the top of your file?
+Do you have {emphasize('#include <' + suggested_system_include_file(note_without_ansi_codes) + '>')} at the top of your file?
 """,
         show_note=False,
         reproduce="""\
@@ -372,6 +378,8 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="misspelt_printf",
         regex=r"(implicit declaration of|call to undeclared) function '(print.?.?)'",
+        # print.?.? also matches printf itself, which is not a misspelling
+        precondition=lambda message, match: match.group(2) != "printf",
         explanation="""\
 you are calling a function named **{match.group(2)}** on line {line_number} of {file} but dcc does not recognize **{match.group(2)}** as a function.
 Maybe you meant **printf**?
@@ -1255,6 +1263,22 @@ def extract_argument_variable(string, argument_number, emphasize):
 def extract_system_include_file(string):
     m = re.search(r"<(.*?)>", str(string))
     return m.group(1) if m else ""
+
+
+def suggested_system_include_file(note):
+    """the header a note tells the student to include, if it does
+
+    Only the compiler's own note lines are looked at.  A note also echoes the
+    line of the program it points at, and a comment there mentioning a header
+    would otherwise be read as the compiler suggesting it.
+    """
+    for line in note:
+        if ": note:" not in line or "include" not in line:
+            continue
+        header = extract_system_include_file(line)
+        if header:
+            return header
+    return ""
 
 
 def truncate_number(num):

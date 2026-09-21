@@ -1,0 +1,8 @@
+implicit_printf_declaration.c:5:5: error: call to undeclared function 'printf'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    5 |     printf("hello\n");
+      |     ^
+dcc explanation: you are calling a function named printf line 5 of implicit_printf_declaration.c but dcc does not recognize printf as a function.
+There are several possible causes:
+  a) You might have misspelt the function name.
+  b) You might need to add a #include line at the top of implicit_printf_declaration.c.
+  c) You might need to add a prototype for printf.

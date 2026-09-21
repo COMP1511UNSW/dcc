@@ -173,9 +173,35 @@ SYSTEM_HEADER_RE = re.compile(r"^(/usr/|/Library/|/opt/|.*/include/)")
 
 INCLUDED_FROM_RE = re.compile(r"^(In file included from|\s+from)\s")
 
+MESSAGE_START_RE = re.compile(r"^(\S.*?):(\d+):")
+
+# a source filename may begin with whitespace, but an indented line is only a
+# message if it is also shaped like one, or a quoted source line containing
+# ":42:" would be taken for the start of a new message.  a filename does not
+# contain '|', so this can not run across the "42 | " gutter of a quoted line
+INDENTED_MESSAGE_START_RE = re.compile(
+    r"^(\s+\S[^|]*?):(\d+):(?:\d+:)?\s*(?:\w+ )?(?:error|warning|note):"
+)
+
+# the line the compiler prints under a message to point at a word in it.  The
+# digits and the bar are the gutter the source line is echoed in, and only
+# spaces and tildes may follow it, so that a line of the student's program
+# which itself contains a ^ is not mistaken for one
+CARET_RE = re.compile(r"^ *\d* *\|?[ ~]*\^[ ~]*$")
+
 # a bound on cost: looking for a repeating block is quadratic in its size, so a
 # cycle whose chain is longer than this is left uncollapsed
 MAX_REPEATED_BLOCK_LINES = 32
+
+
+def match_message_start(colorless_line, following_line=""):
+    if CARET_RE.match(colors.strip_color(following_line)):
+        # the compiler underlines source it quoted, never its own message, so
+        # this is the student's code however much it looks like a diagnostic
+        return None
+    return MESSAGE_START_RE.match(colorless_line) or INDENTED_MESSAGE_START_RE.match(
+        colorless_line
+    )
 
 
 def character_index(line, column):
@@ -244,7 +270,7 @@ def get_next_message(lines):
         return (None, lines)
     line = lines[0]
     colorless_line = convert_smart_quotes_to_dumb_quotes(colors.strip_color(line))
-    m = re.match(r"^(\S.*?):(\d+):", colorless_line)
+    m = match_message_start(colorless_line, lines[1] if len(lines) > 1 else "")
     if not m or INCLUDED_FROM_RE.match(colorless_line):
         # "In file included from x.c:1:" looks like a message but only names
         # the chain the next message arrived through
@@ -252,7 +278,7 @@ def get_next_message(lines):
     lines.pop(0)
     e = Message()
     e.file, e.line_number = m.groups()
-    m = re.match(r"^\S.*?:\d+:(\d+):\s*(.*?):", colorless_line)
+    m = re.match(r"^\s*\S.*?:\d+:(\d+):\s*(.*?):", colorless_line)
     if m:
         e.column, e.type = m.groups()
 
@@ -266,9 +292,9 @@ def get_next_message(lines):
         if not next_line:
             break
         colorless_next_line = colors.strip_color(lines[0])
-        m = re.match(r"^\S.*:\d+:", colorless_next_line)
+        m = match_message_start(colorless_next_line, lines[1] if len(lines) > 1 else "")
         if m:
-            note = re.match(r"^(\S.*?):\d+:\d+:\s*note:", colorless_next_line)
+            note = re.match(r"^\s*(\S.*?):\d+:\d+:\s*note:", colorless_next_line)
             if note:
                 parsing_note = True
                 # a note about a library header tells a novice nothing they
@@ -292,7 +318,7 @@ def get_next_message(lines):
                 e.note_without_ansi_codes.append(colorless_next_line)
             continue
 
-        if re.match(r"^[ ~\d|]*\^[ ~]*$", colorless_next_line):
+        if CARET_RE.match(colorless_next_line):
             previous_line = e.text_without_ansi_codes[-1]
             m = re.match(r"^(.*)\^~+", colorless_next_line)
             if m:
