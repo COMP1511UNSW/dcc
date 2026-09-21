@@ -32,6 +32,11 @@ dcc is not a security tool.  It does stop a program on an out-of-bounds array
 access, but it does so with AddressSanitizer, which its authors document as a
 debugging aid rather than a hardening measure.
 .PP
+Detecting uninitialized variables needs the second process, which is disabled
+when the program links a library, uses threads, compiles incrementally, links an
+object file, or includes a system header outside the C standard library, and on
+macOS.  dcc prints a note saying so, because the loss is otherwise invisible.
+.PP
 
 [EXAMPLES]
 

@@ -97,6 +97,8 @@ Options:
   --help                   print this message and exit
 
 All other options are passed to clang.
+Options with an underscore or a different number of words, e.g. --leakcheck or
+--use_after_return, are accepted for compatibility with earlier releases.
 
 Environment variables:
   DCC_DEBUG                level of debugging output (default: 0)

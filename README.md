@@ -114,6 +114,19 @@ Detection of uninitialized variables needs this second process, so it is disable
 uses a library other than the C standard library (`-l`, apart from `-lm` and `-lc`), threads (`-pthread`), incremental compilation (`-c`),
 object files, or a system header outside the C standard library (such as `unistd.h` or `signal.h`),
 and on macOS.  Only AddressSanitizer is then used.
+
+When that happens dcc says so, because otherwise a student loses their best
+diagnostic without knowing:
+
+```
+$ dcc prog.c -o prog
+dcc: note: uninitialized variables will not be detected (unistd.h used)
+```
+
+In C this is uncommon: `stdio.h`, `stdlib.h`, `string.h`, `math.h`, `assert.h`,
+`ctype.h` and `time.h` all keep both sanitizers.  In C++ it is the usual case,
+since everything except `<iostream>` and the `c...` wrappers needs the second
+process disabled.
  
 # Scope
 
@@ -276,7 +289,19 @@ Environment variables are considered true if their value is a non-empty string s
 
 Output is compared line by line, so newlines can not be ignored, but a Windows line ending (`\r\n`) is treated as a newline.
 A line longer than 65536 bytes or a zero byte in the output is always an error.
+The expected output is subject to the same line length limit, and dcc says so
+rather than reporting an error against the program.
 Output checking only happens when `DCC_EXPECTED_STDOUT` is set.
+
+Everything the program writes to standard output is checked, not only what it
+writes through the `stdout` stream: bytes written with `write(1, ...)` count,
+and so does the output of a command run with `system()`.  A program which
+passes by writing through a channel the checker can not see would be judged on
+what it actually wrote.
+
+The one exception is `-fsanitize=memory`, where MemorySanitizer's own `write`
+takes precedence over dcc's, so bytes written directly to file descriptor 1 are
+not seen by the checker.
 
 # Local Variable Use After Function Return Detection
 
@@ -394,6 +419,16 @@ Install by creating a symbolic link, e.g.:
 sudo ln  -sf dcc /usr/local/bin/d++
 ```
 
+`cin`, `cout`, `cerr`, `clog` and the wide streams are redirected through dcc's
+own streams so the two processes stay in step and their output is checked; a
+program which replaces a stream's buffer itself keeps the one it installed.
+Reading to the end of the input with `cin >>` or `getline` stops there, as it
+does with g++.
+
+An uncaught exception, a pure virtual call, and an exception escaping a
+`noexcept` function are each explained as what they are rather than as a failed
+`assert`.
+
 
 # Run-time Error Handling Implementation
 
@@ -468,7 +503,9 @@ cp -p ./dcc /usr/local/bin/dcc
   enabled by default in a new compiler version would break every compilation
 * `tests/python_unit_tests.py`
 
-`make tests` runs the end-to-end tests in `tests/`.  Each test is a C program or a shell script;
+`make tests` runs the end-to-end tests in `tests/`.  Set `DCC_TEST_JOBS` to run
+fewer at once than the default of half the processors, on a machine with little
+memory or one shared with other work.  Each test is a C program or a shell script;
 dcc's output is compared with the accepted outputs in `tests/expected_output`, which are kept per
 clang version because compiler messages change.  A new or changed output is shown and can be
 accepted interactively.  The tests for compile-time explanations are generated from the
