@@ -10,7 +10,9 @@ static void launch_valgrind(int argc, char *argv[]) {
     setenvd_int("DCC_TAR_N_BYTES", (int)DCC_TAR_N_BYTES);
 #if DCC_N_SANITIZERS > 1
     extern FILE *__real_popen(const char *command, const char *type);
+    dcc_forking = 1;
     FILE *valgrind_error_pipe = __real_popen(DCC_MONITOR_VALGRIND, "w");
+    dcc_forking = 0;
 #else
     FILE *valgrind_error_pipe = popen(DCC_MONITOR_VALGRIND, "w");
 #endif
@@ -74,6 +76,118 @@ static char *stack_top;
 // the thread stack_top belongs to
 static long main_thread_id;
 
+#if DCC_N_SANITIZERS > 1
+// a program which forks leaves the child a copy of sanitizer2_pid, and the
+// child running exit or returning from main would then have its cleanup wait
+// for and kill its parent's sanitizer2, ending the checking the parent is
+// still relying on
+static void __dcc_forked_child(void) NO_SANITIZE;
+static void __dcc_forked_child(void) {
+    if (dcc_forking) {
+        // dcc's own fork, which is about to exec, and which needs what it
+        // inherited
+        return;
+    }
+#if DCC_I_AM_SANITIZER1
+    sanitizer2_killed = 1;
+#endif
+    // the same cleanup unlinks the pathname in DCC_UNLINK, which is the
+    // executable sanitizer2 is still running and the one gdb is given to
+    // explain an error in it; the value is emptied rather than unset because
+    // unsetenv takes a lock which a fork from a thread can leave held
+    char *sanitizer2_executable_pathname = getenv("DCC_UNLINK");
+    if (sanitizer2_executable_pathname) {
+        *sanitizer2_executable_pathname = '\0';
+    }
+}
+#endif
+
+#if DCC_SANITIZER == ADDRESS
+static void restore_sanitizer_report_fd(void) {
+    extern void __sanitizer_set_report_fd(void *fd);
+    __sanitizer_set_report_fd((void *)(intptr_t)2);
+}
+
+// compiler-rt prints a line of 65 '=' characters before it calls
+// __asan_on_error, and no option turns it off, so its report stream is sent
+// to /dev/null - dcc writes the student's explanation itself
+//
+// leak reports are the sanitizer's own output and are wanted, so the stream
+// is put back before a leak check, including the one the sanitizer runs at
+// exit: this handler is registered after the sanitizer's, and atexit runs
+// handlers in reverse order of registration
+//
+// this is a constructor rather than part of __dcc_start because an error can
+// happen in a constructor of the student's, before main; the priority is
+// higher than the compiler's own (1) and lower than a plain constructor's,
+// so the sanitizer is initialized and no user constructor has run yet
+static void suppress_sanitizer_report(void) NO_SANITIZE
+    __attribute__((constructor(101)));
+static void suppress_sanitizer_report(void) {
+    char *debug_level_string = getenv("DCC_DEBUG");
+    if (debug_level_string && atoi(debug_level_string)) {
+        return;
+    }
+    int null_fd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+    if (null_fd < 0) {
+        return;
+    }
+    // _explain_error closes 4 to 31 before it starts gdb
+    int kept_fd = fcntl(null_fd, F_DUPFD_CLOEXEC, 32);
+    if (kept_fd >= 0) {
+        close(null_fd);
+        null_fd = kept_fd;
+    }
+    extern void __sanitizer_set_report_fd(void *fd);
+    __sanitizer_set_report_fd((void *)(intptr_t)null_fd);
+    atexit(restore_sanitizer_report_fd);
+}
+#endif
+
+#if DCC_SANITIZER != MEMORY
+
+#if defined(__linux__) && !DCC_I_AM_SANITIZER2
+// where the program is, for an error which happened before __wrap_main could
+// record it from argv[0]
+static void set_binary_from_proc(void) NO_SANITIZE;
+static void set_binary_from_proc(void) {
+    static char executable_pathname[PATH_MAX];
+    ssize_t n_bytes = readlink("/proc/self/exe", executable_pathname, sizeof executable_pathname - 1);
+    if (n_bytes > 0) {
+        executable_pathname[n_bytes] = '\0';
+        setenvd("DCC_BINARY", executable_pathname);
+    }
+}
+#endif
+
+// a run-time error can happen before main, in a constructor function or in the
+// initializer of a C++ global object, where __dcc_start has not run and the
+// explanation has neither a program to look at nor a process to attach to,
+// so the student was shown nothing at all
+//
+// not done for MemorySanitizer: nothing has run there to say what went wrong,
+// and explain_error.py would call any error it is handed an uninitialized
+// variable, so a null pointer write would be explained as the wrong thing
+//
+// this runs when the error is explained rather than from a constructor of
+// dcc's own, because a constructor's frame is where main's frame will be and
+// what it leaves behind is what a later out of bounds read shows the student
+static void __dcc_error_before_main(void) NO_SANITIZE;
+static void __dcc_error_before_main(void) {
+    char *debug_level_string = getenv("DCC_DEBUG");
+    if (debug_level_string) {
+        debug_level = atoi(debug_level_string);
+    }
+    setenvd("DCC_SANITIZER", DCC_SANITIZER_NAME);
+    setenvd("DCC_PATH", DCC_PATH_LITERAL);
+    setenvd_int("DCC_PID", getpid());
+#if defined(__linux__) && !DCC_I_AM_SANITIZER2
+    set_binary_from_proc();
+#endif
+}
+
+#endif
+
 static void __dcc_start(void) {
     char *debug_level_string = getenv("DCC_DEBUG");
     if (debug_level_string) {
@@ -88,6 +202,9 @@ static void __dcc_start(void) {
 
     signal(SIGABRT, __dcc_signal_handler);
     signal(SIGINT, __dcc_signal_handler);
+#if DCC_N_SANITIZERS > 1
+    pthread_atfork(NULL, NULL, __dcc_forked_child);
+#endif
 
     // a stack overflow, e.g. from infinite recursion, leaves no stack for a
     // signal handler to run on, so SIGSEGV is handled on an alternate stack
@@ -226,6 +343,14 @@ void __ubsan_on_report(void) {
              OutMemoryAddr);
     for (int i = 0; i < (int)(sizeof buffer / sizeof buffer[0]); i++)
         putenvd(buffer[i]);
+
+    // the thread the error happened in, as __asan_on_error and the signal
+    // handler publish theirs: the frame the values are read from is the
+    // faulting one only if gdb is moved to it first
+    static char thread_buffer[64];
+    snprintf(thread_buffer, sizeof thread_buffer, "DCC_UBSAN_THREAD=%ld",
+             __dcc_gettid());
+    putenvd(thread_buffer);
 #endif
     _explain_error();
     // not reached
@@ -337,6 +462,24 @@ static void __dcc_segv_handler(int signum, siginfo_t *info, void *context) {
     __dcc_signal_handler(signum);
 }
 
+#if DCC_N_SANITIZERS > 1 && DCC_I_AM_SANITIZER1
+// sanitizer2_pid is 0 until the fork in __wrap_main succeeds, and on every
+// path where that fork does not happen, so stop_sanitizer2 would kill(0, ...)
+// -- every process in the group, i.e. the shell or marking script which ran
+// the program and its other jobs
+static void stop_sanitizer2_if_any(void) {
+    if (sanitizer2_pid > 0) {
+        stop_sanitizer2();
+    } else {
+        // nothing to wait for or to signal when exiting either, and the
+        // stdio wrappers must stop trying to synchronize with a sanitizer2
+        // which is not there
+        disconnect_sanitizers();
+        sanitizer2_killed = 1;
+    }
+}
+#endif
+
 static void __dcc_signal_handler(int signum) {
     debug_printf(2, "received signal %d\n", signum);
     set_signals_default();
@@ -345,9 +488,12 @@ static void __dcc_signal_handler(int signum) {
     }
 #if DCC_N_SANITIZERS > 1
 #if DCC_I_AM_SANITIZER1
-    if (signum == SIGPIPE) {
+    if (i_am_sanitizer2) {
+        // forked to become sanitizer2 but still running sanitizer1's code
+        __dcc_error_exit();
+    } else if (signum == SIGPIPE) {
         if (!synchronization_terminated) {
-            stop_sanitizer2();
+            stop_sanitizer2_if_any();
         } else {
             __dcc_error_exit();
         }
@@ -388,8 +534,14 @@ with tempfile.TemporaryDirectory() as temp_dir:\n\
 
 static void _explain_error(void) {
     __dcc_clearing_stack_suppressed = 0;
+#if DCC_SANITIZER != MEMORY
+    if (!getenv("DCC_BINARY")) {
+        // the error happened before __wrap_main recorded where the program is
+        __dcc_error_before_main();
+    }
+#endif
 #if DCC_N_SANITIZERS > 1 && DCC_I_AM_SANITIZER1
-    stop_sanitizer2();
+    stop_sanitizer2_if_any();
 #endif
     // output the program has buffered but not written is lost here:
     // flushing it is not safe on this path, because the stdio cookies
@@ -410,7 +562,9 @@ static void _explain_error(void) {
     debug_printf(2, "running %s\n", run_tar_file);
 #if DCC_N_SANITIZERS > 1
     extern FILE *__real_popen(const char *command, const char *type);
+    dcc_forking = 1;
     FILE *python_pipe = __real_popen(run_tar_file, "w");
+    dcc_forking = 0;
 #else
     FILE *python_pipe = popen(run_tar_file, "w");
 #endif

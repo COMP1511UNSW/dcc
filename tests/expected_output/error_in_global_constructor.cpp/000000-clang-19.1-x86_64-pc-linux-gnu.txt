@@ -1,0 +1,23 @@
+
+Runtime error: assigning to a value via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is assigning to *p when p == NULL.
+
+Execution stopped in counter::counter(this=0x55da36cd9ec0 <c>) in error_in_global_constructor.cpp at line 7:
+
+struct counter {
+    counter() {
+        int *p = 0;
+-->     *p = 1;
+    }
+};
+
+Values when execution stopped:
+
+p = NULL
+
+Function call traceback:
+
+counter::counter(this=0x55da36cd9ec0 <c>) called at line 11 of error_in_global_constructor.cpp
+__cxx_global_var_init()
+

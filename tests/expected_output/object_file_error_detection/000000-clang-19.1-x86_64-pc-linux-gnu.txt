@@ -1,5 +1,4 @@
 dcc: note: uninitialized variables will not be detected (object files being linked)
-=================================================================
 
 Runtime error: stack buffer overflow
 dcc explanation: access past the end of a local variable.

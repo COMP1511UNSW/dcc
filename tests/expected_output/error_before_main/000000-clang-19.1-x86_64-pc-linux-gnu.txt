@@ -1,0 +1,16 @@
+
+Runtime error: assigning to a value via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is assigning to *p when p == NULL.
+
+Execution stopped in initialize() in error_before_main.c at line 7:
+
+__attribute__((constructor)) static void initialize(void) {
+    int *p = 0;
+--> *p = 1;
+}
+
+Values when execution stopped:
+
+p = NULL
+
