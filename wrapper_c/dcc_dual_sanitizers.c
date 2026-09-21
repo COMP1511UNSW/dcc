@@ -664,6 +664,46 @@ static int __dcc_cookie_close(void *v) {
 }
 
 
+#if DCC_I_AM_SANITIZER1
+// the output of a child process is the program's output too, but it is
+// written to file descriptor 1 by another process, so while output is being
+// checked the command is run with its output coming back through a pipe
+static int run_system_command(const char *command) {
+	extern int __real_system(const char *command);
+#if DCC_CHECK_OUTPUT
+	if (command && expected_stdout) {
+#if DCC_N_SANITIZERS > 1
+		// popen is wrapped as well when there are two sanitizers
+		extern FILE *__real_popen(const char *command, const char *type);
+		FILE *f = __real_popen(command, "r");
+#else
+		FILE *f = popen(command, "r");
+#endif
+		if (f) {
+			char buf[4096];
+			size_t n_bytes_read;
+			while ((n_bytes_read = fread(buf, 1, sizeof buf, f)) > 0) {
+				raw_write(1, buf, n_bytes_read);
+				__dcc_check_output(1, buf, n_bytes_read);
+			}
+			return pclose(f);
+		}
+	}
+#endif
+	return __real_system(command);
+}
+#endif
+
+#if DCC_N_SANITIZERS == 1
+#undef system
+// with one sanitizer there is no second process to keep in step with, but a
+// child's output is still the program's output and still has to be checked
+int __wrap_system(const char *command) {
+	fflush(stdout);
+	return run_system_command(command);
+}
+#endif
+
 #if DCC_N_SANITIZERS > 1
 void abort(void) {
 #if DCC_I_AM_SANITIZER2
@@ -740,30 +780,6 @@ int __wrap_rename(const char *oldpath, const char *newpath) {
 
 // pass results of a call to system  sanitizer 1 -> sanitizer 2
 
-#if DCC_I_AM_SANITIZER1
-// the output of a child process is the program's output too, but it is
-// written to file descriptor 1 by another process, so while output is being
-// checked the command is run with its output coming back through a pipe
-static int run_system_command(const char *command) {
-	extern int __real_system(const char *command);
-#if DCC_CHECK_OUTPUT
-	if (command && expected_stdout) {
-		extern FILE *__real_popen(const char *command, const char *type);
-		FILE *f = __real_popen(command, "r");
-		if (f) {
-			char buf[4096];
-			size_t n_bytes_read;
-			while ((n_bytes_read = fread(buf, 1, sizeof buf, f)) > 0) {
-				raw_write(1, buf, n_bytes_read);
-				__dcc_check_output(1, buf, n_bytes_read);
-			}
-			return pclose(f);
-		}
-	}
-#endif
-	return __real_system(command);
-}
-#endif
 
 #undef system
 int __wrap_system(const char *command) {

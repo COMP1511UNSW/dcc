@@ -1,6 +1,6 @@
 *** Test 1 - expected line too long
 
-Execution failed because internal error: expected line too long
+Execution failed because the expected output has a line longer than 65536 bytes, which dcc can not check.
 
 Execution stopped in main() in tmp.c at line 2:
 

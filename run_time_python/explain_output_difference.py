@@ -5,6 +5,19 @@ from util import explanation_url
 # and the program has been stoped because the output was incorrect
 
 
+def comparison_ignores_characters():
+    """is output being compared in a form other than byte for byte"""
+    return any(
+        os.environ.get(name)
+        for name in (
+            "DCC_IGNORE_CASE",
+            "DCC_IGNORE_CHARACTERS",
+            "DCC_IGNORE_WHITE_SPACE",
+            "DCC_COMPARE_ONLY_CHARACTERS",
+        )
+    )
+
+
 def explain_output_difference(color):
     output_stream = io.StringIO()
     # autotest may try to print all errors in red, so disable this
@@ -65,7 +78,14 @@ def explain_output_difference1(output_stream, color):
         print("Execution stopped because ", end="", file=output_stream)
 
     if reason == "expected line too long":
-        print("internal error: expected line too long", file=output_stream)
+        # the limit is dcc's, not a mistake in the program, and the person who
+        # needs to know is whoever supplied the expected output
+        print(
+            "the expected output has a line longer than",
+            str(expected_column) + " bytes,",
+            "which dcc can not check.",
+            file=output_stream,
+        )
         return
 
     if reason == "line too long":
@@ -192,7 +212,15 @@ def explain_output_difference1(output_stream, color):
                 "was missing from the end of the output line.",
                 file=output_stream,
             )
-        elif actual_column > 1:
+        elif actual_column > 1 and (
+            comparison_ignores_characters()
+            or expected_line.rstrip(b"\n").startswith(actual_line.rstrip(b"\n"))
+        ):
+            # the line has to really be the start of the expected one, or
+            # saying the characters were correct when they are not sends a
+            # student looking for a character they have not missed.  Where
+            # characters are being ignored the two are compared in a form this
+            # cannot see, so the wording is left as it was.
             print(
                 "The characters you printed were correct, but more characters were expected.",
                 file=output_stream,

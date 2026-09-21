@@ -683,6 +683,10 @@ def get_rename_arguments(source, options, rename_functions=True):
         rename_arguments += [f"-D{f}=__renamed_{f}" for f in rename_function_names]
 
     override_functions = []
+    if options.check_output and len(options.sanitizers) == 1:
+        # a child's output is the program's output, so it is checked even when
+        # there is no second sanitizer to keep in step with
+        override_functions = ["system"]
     if len(options.sanitizers) > 1:
         override_functions = [
             "clock",

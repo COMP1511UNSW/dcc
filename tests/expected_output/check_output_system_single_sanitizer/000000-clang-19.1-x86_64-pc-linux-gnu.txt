@@ -1,0 +1,48 @@
+
+Execution stopped because of an incorrect output line.
+Byte 1 of line 2 of program output was incorrect.
+The correct output line was:
+wrong
+Your program printed this line:
+b
+
+Execution stopped in main() in system_output.c at line 5:
+
+int main(void) {
+    printf("a\n");
+--> system("echo b");
+    return 0;
+}
+
+
+Execution stopped because of an incorrect output line.
+Byte 1 of line 2 of program output was incorrect.
+The correct output line was:
+wrong
+Your program printed this line:
+b
+
+Execution stopped in main() in system_output.c at line 5:
+
+int main(void) {
+    printf("a\n");
+--> system("echo b");
+    return 0;
+}
+
+
+Execution stopped because of an incorrect output line.
+Byte 1 of line 2 of program output was incorrect.
+The correct output line was:
+wrong
+Your program printed this line:
+b
+
+Execution stopped in main() in system_output.c at line 5:
+
+int main(void) {
+    printf("a\n");
+--> system("echo b");
+    return 0;
+}
+
