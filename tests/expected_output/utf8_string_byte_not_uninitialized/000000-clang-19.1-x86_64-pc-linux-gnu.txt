@@ -1,0 +1,19 @@
+
+Runtime error: accessing a value via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is accessing *p when p == NULL.
+
+Execution stopped in main() in utf8_string_byte_not_uninitialized.c at line 9:
+
+int main(void) {
+    char word[5] = "t\303\252e";
+    int *p = NULL;
+    printf("%s\n", word);
+--> return *p;
+}
+
+Values when execution stopped:
+
+p = NULL
+word = "t\303\252e"
+
