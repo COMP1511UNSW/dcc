@@ -82,18 +82,21 @@ def start_gdb(gdb_driver_file="drive_gdb.py"):
             "\ngdb not available to print program location and variable values\n",
             file=sys.stderr,
         )
+        kill_all(kill_program=True)
     if debug_level > 1:
         print("kill_all()")
-    kill_all()
+    # a gdb which failed has not told the program to exit, and under valgrind
+    # it is stopped waiting for a debugger, so it would wait forever
+    kill_all(kill_program=p.returncode != 0)
 
 
 #
 # ensure the program compiled with dcc terminates after error
 #
-def kill_all():
+def kill_all(kill_program=False):
     kill_sanitizer2()
     kill_env("DCC_SANITIZER1_PID")
-    if not program_stops_itself():
+    if kill_program or not program_stops_itself():
         kill_env("DCC_PID")
     sys.exit(1)
 

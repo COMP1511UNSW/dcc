@@ -1,0 +1,3 @@
+
+Error: free not called for memory allocated with malloc in function make_array in leak_location.c at line 4.
+exit status: 141
