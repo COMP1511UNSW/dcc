@@ -62,6 +62,32 @@ SOURCE_EXTENSIONS = [
     ".i",
 ]
 
+# clang options whose value is the next argument, which is therefore not a
+# source file.  -o and -l are handled separately because dcc inspects them.
+CLANG_ARGS_WITH_SEPARATE_VALUE = [
+    "-x",
+    "-include",
+    "-imacros",
+    "-isystem",
+    "-iquote",
+    "-idirafter",
+    "-isysroot",
+    "--include-directory",
+    "-target",
+    "--target",
+    "-arch",
+    "-Xclang",
+    "-Xlinker",
+    "-Xpreprocessor",
+    "-z",
+    "-u",
+    "-e",
+    "-T",
+    "-MF",
+    "-MT",
+    "-MQ",
+]
+
 COMPILE_HELPER_BASENAME = "dcc-compile-helper"
 
 USAGE = """\
@@ -552,6 +578,12 @@ def parse_arg(arg, remaining_args, options):
         options.user_supplied_compiler_args += [arg, library]
         if library not in ["m", "c"]:
             options.libraries_being_linked = True
+    elif arg in CLANG_ARGS_WITH_SEPARATE_VALUE:
+        # the value belongs to the option, so it must not be looked at as if it
+        # were a source file - a program called c beside a -x c would be
+        if not remaining_args:
+            options.die(f"argument to '{arg}' is missing")
+        options.user_supplied_compiler_args += [arg, remaining_args.pop(0)]
     elif arg == "-" or names_stdin(arg):
         options.die("compilation of stdin not supported")
     else:
