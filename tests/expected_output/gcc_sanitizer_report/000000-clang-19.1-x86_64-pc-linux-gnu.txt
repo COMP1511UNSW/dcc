@@ -1,0 +1,41 @@
+
+Runtime error: index 5 out of bounds for type 'int [3]'
+dcc explanation: You are using an illegal array index: 5
+  Valid indices for an array of size 3 are 0..2
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in main() in gcc_sanitizer_report.c at line 6:
+
+int main(void) {
+    int a[3];
+    a[0] = 0;
+    int i = 5;
+--> printf("%d\n", a[i]);
+    return 0;
+}
+
+Values when execution stopped:
+
+a = {0, -16843010, -16843010}
+i = 5
+a[0] = 0
+a[i] = 32765
+
+
+Runtime error: signed integer overflow: 2147483647 + 1 cannot be represented in type 'int'
+dcc explanation: There are limits in the range of values that can be represented in all types.
+  Your program has produced a value outside that range.
+
+Execution stopped in main() in gcc_sanitizer_overflow.c at line 4:
+
+int main(void) {
+    int x = 2147483647;
+--> printf("%d\n", x + 1);
+    return 0;
+}
+
+Values when execution stopped:
+
+x = 2147483647
+

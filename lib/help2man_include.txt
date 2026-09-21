@@ -1,64 +1,111 @@
+[DESCRIPTION]
+.PP
+dcc is a teaching tool for introductory C courses.  It is meant for the small
+self-contained programs written in such a course, compiled and run on a Linux or
+macOS machine which also has clang, gdb and python3 installed (and valgrind on
+Linux, for uninitialized-variable detection).  It is not a general-purpose
+compiler driver.
+.PP
+Embedded targets and cross-compilation are not supported.  The executable dcc
+produces is a hosted dynamically-linked binary which links AddressSanitizer, by
+default runs a second copy of the program under valgrind, and runs python3 and gdb
+on the machine executing it to report an error.
+.PP
+dcc does not compile the same as gcc.  It compiles with clang, by default forcing
+on AddressSanitizer, UndefinedBehaviorSanitizer and
+\fB\-ftrivial\-auto\-var\-init=pattern\fR, and compiling the program a second time
+without sanitizers for the valgrind process; gcc is run, where it is available,
+only to collect extra warnings.
+.PP
+Code compiled with dcc is much slower than code compiled with gcc.  In the default
+two-process mode a floating-point loop benchmark took roughly ten times as long as
+\fBgcc \-O0\fR, and each run has about a quarter of a second of fixed start-up cost
+for the second process.  When only AddressSanitizer is used the same benchmark took
+less than twice as long as \fBgcc \-O0\fR, and the start-up cost is not incurred.
+.PP
+Executables dcc produces are not meant to be shipped: they need python3 and gdb
+installed on the machine running them in order to report an error, and valgrind as
+well in the default two-process mode, and they contain an xz-compressed copy of the
+program's source, which is extracted to a temporary directory when an error occurs.
+.PP
+dcc is not a security tool.  It does stop a program on an out-of-bounds array
+access, but it does so with AddressSanitizer, which its authors document as a
+debugging aid rather than a hardening measure.
+.PP
+Detecting uninitialized variables needs the second process, which is disabled
+when the program links a library, uses threads, compiles incrementally, links an
+object file, or includes a system header outside the C standard library, and on
+macOS.  dcc prints a note saying so, because the loss is otherwise invisible.
+.PP
+
 [EXAMPLES]
 
     $ dcc buffer_overflow.c
     $ ./a.out
-    a.c:6:3: runtime error: index 10 out of bounds for type 'int [10]'
-    
-    Execution stopped here in main() in buffer_overflow.c at line 6:
-    
+    Runtime error: index 10 out of bounds for type 'int[10]'
+    dcc explanation: You are using an illegal array index: 10
+      Valid indices for an array of size 10 are 0..9
+      Make sure the size of your array is correct.
+      Make sure your array indices are correct.
+
+    Execution stopped in main() in buffer_overflow.c at line 7:
+
+    int main(int argc, char *argv[]) {
         int a[10];
-        for (int i = 0; i <= 10; i++) {
+        int n = 10 + argc;
+        for (int i = 0; i < n; i++) {
     -->     a[i] = i * i;
         }
-    }
-    
+        printf("%d\n", a[0]);
+        return 0;
+
     Values when execution stopped:
-    
+
     a = {0, 1, 4, 9, 16, 25, 36, 49, 64, 81}
+    argc = 1
     i = 10
-    $ dcc --memory uninitialized-array-element.c
-    $ ./a.out
-    uninitialized-array-element:6 runtime error uninitialized variable used
-    
-    Execution stopped here in main() in uninitialized-array-element.c at line 6:
+    n = 11
+    a[0] = 0
+    a[i] = <uninitialized value>
 
+    $ dcc uninitialized.c
+    $ ./a.out
+    Runtime error: uninitialized variable accessed.
+
+    Execution stopped in main() in uninitialized.c at line 6:
+
+    int main(int argc, char *argv[]) {
         int a[1000];
         a[42] = 42;
-    -->    if (a[argc]) {
-        a[43] = 43;
-    }
+    --> if (a[argc]) {
+            a[43] = 43;
+        }
+        printf("%d\n", a[43]);
 
     Values when execution stopped:
 
+    a = {<uninitialized value> <repeats 42 times>, 42, <uninitialized value> <repeats 957 times>}
     argc = 1
     a[42] = 42
-    a[43] = -1094795586 <-- warning appears to be uninitialized value
-    a[argc] = -1094795586 <-- warning appears to be uninitialized value
-    $ dcc --leak-check leak.c
-    $ dcc --valgrind uninitialized-array-element.c
-    uninitialized-array-element:6 runtime error uninitialized variable used
-    
-    Execution stopped here in main() in uninitialized-array-element.c at line 6:
+    a[43] = <uninitialized value>
+    a[argc] = <uninitialized value>
 
-        int a[1000];
-        a[42] = 42;
-    -->    if (a[argc]) {
-        a[43] = 43;
-    }
-
-    Values when execution stopped:
-
-    argc = 1
-    a[42] = 42
-    a[43] = 0
-    a[argc] = 0
-    
     $ dcc --leak-check leak.c
     $ ./a.out
-    Error: free not called for memory allocated with malloc in function main in leak.c at line 3.
+    Error: free not called for memory allocated with malloc in function main in leak.c at line 4.
 
 [ENVIRONMENT]
 DCC_DEBUG level of debugging output
+.br
+DCC_COLORIZE_OUTPUT if not empty, colorize output even if stderr is not a terminal
+.br
+DCC_COMPILE_HELPER program to run after a compiler warning or error
+.br
+DCC_COMPILE_LOGGER program to run after every compilation
+.br
+DCC_RUNTIME_HELPER program run by the compiled program after a runtime error
+.br
+DCC_EXPECTED_STDOUT the compiled program's expected output, see the README for the DCC_IGNORE_* variables that control the comparison
 [AUTHOR]
 Andrew Taylor <andrewt@unsw.edu.au>
 [REPORTING BUGS]

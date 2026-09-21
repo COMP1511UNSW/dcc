@@ -1,0 +1,8 @@
+dcc: warning: using incremental compilation (-c) is not recommended with dcc
+Significant parts of dcc error detection do not work with incremental compilation.
+dcc: warning: using incremental compilation (-c) is not recommended with dcc
+Significant parts of dcc error detection do not work with incremental compilation.
+dcc: note: uninitialized variables will not be detected (object files being linked)
+incremental compilation works
+dcc: note: uninitialized variables will not be detected (object files being linked)
+incremental compilation works

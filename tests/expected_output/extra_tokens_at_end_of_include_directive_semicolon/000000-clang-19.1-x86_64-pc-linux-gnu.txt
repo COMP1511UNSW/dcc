@@ -1,0 +1,6 @@
+extra_tokens_at_end_of_include_directive_semicolon.c:1:19: warning: extra tokens at end of #include directive [-Wextra-tokens]
+    1 | #include <stdio.h>;
+      |                   ^
+      |                   //
+dcc explanation: you have unnecessary characters on your #include statement.
+Remember #include statements don't need a ';'.

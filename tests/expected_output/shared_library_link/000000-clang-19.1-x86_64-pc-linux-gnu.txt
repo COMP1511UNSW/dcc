@@ -1,0 +1,2 @@
+dcc: note: uninitialized variables will not be detected (object files being linked)
+linked and ran: 42

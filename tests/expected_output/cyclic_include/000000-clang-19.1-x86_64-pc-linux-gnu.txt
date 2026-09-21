@@ -1,0 +1,7 @@
+In file included from cyclic_include.c:1:
+In file included from ./cyclic_include.h:1:
+# previous 2 lines repeated 98 more times
+In file included from cyclic_include.c:1:
+./cyclic_include.h:1:10: error: #include nested too deeply
+    1 | #include "cyclic_include.c"
+      |          ^

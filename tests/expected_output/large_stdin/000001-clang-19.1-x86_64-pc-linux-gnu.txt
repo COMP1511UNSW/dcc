@@ -1,0 +1,31 @@
+large_stdin.c:10:9: warning: variable 'x' is uninitialized when used here [-Wuninitialized]
+   10 |     if (x > 0) {
+      |         ^
+large_stdin.c:8:10: note: initialize the variable 'x' to silence this warning
+    8 |     int x;
+      |          ^
+      |           = 0
+dcc explanation: you are using variable 'x' before it has been assigned a value.
+Be sure to assign a value to 'x' before trying to use its value.
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in large_stdin.c at line 10:
+
+    long n_lines = 0;
+    while (fgets(line, sizeof line, stdin) != NULL) {
+        n_lines++;
+    }
+    int x;
+    printf("%ld lines\n", n_lines);
+--> if (x > 0) {
+        printf("positive\n");
+    }
+    return 0;
+
+Values when execution stopped:
+
+line = "line number 4999 with some padding text to make it longer\n\000", <197 uninitialized values>
+n_lines = 5000
+x = <uninitialized value>
+

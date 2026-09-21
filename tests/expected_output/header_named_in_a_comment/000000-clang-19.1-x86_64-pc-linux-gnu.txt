@@ -1,0 +1,17 @@
+header_named_in_a_comment.c:7:5: error: call to undeclared function 'myfunc'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    7 |     myfunc();
+      |     ^
+header_named_in_a_comment.c:7:5: note: did you mean 'myfunc2'?
+header_named_in_a_comment.c:4:6: note: 'myfunc2' declared here
+    4 | void myfunc2(void); // remember to include <stdio.h> first
+      |      ^
+    5 | 
+    6 | int main(void) {
+    7 |     myfunc();
+      |     ~~~~~~
+      |     myfunc2
+dcc explanation: you are calling a function named myfunc line 7 of header_named_in_a_comment.c but dcc does not recognize myfunc as a function.
+There are several possible causes:
+  a) You might have misspelt the function name.
+  b) You might need to add a #include line at the top of header_named_in_a_comment.c.
+  c) You might need to add a prototype for myfunc.

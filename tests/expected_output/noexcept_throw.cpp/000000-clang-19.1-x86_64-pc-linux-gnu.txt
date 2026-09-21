@@ -1,0 +1,22 @@
+dcc: note: uninitialized variables will not be detected (stdexcept used)
+terminate called after throwing an instance of 'std::out_of_range'
+  what():  index too large
+
+Execution stopped because an exception was thrown and never caught.
+The C++ library printed the type of the exception above.
+An exception has to be caught by a try/catch block or it stops the program.
+Execution stopped in safe_get(i=5) in noexcept_throw.cpp at line 13:
+
+static int safe_get(int i) noexcept {
+--> return get(i);
+}
+
+Values when execution stopped:
+
+i = 5
+
+Function call traceback:
+
+safe_get(i=5) called at line 17 of noexcept_throw.cpp
+main()
+

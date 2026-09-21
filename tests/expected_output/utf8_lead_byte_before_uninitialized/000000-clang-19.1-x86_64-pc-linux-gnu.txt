@@ -1,0 +1,24 @@
+
+Runtime error: accessing a value via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is accessing *p when p == NULL.
+
+Execution stopped in main() in utf8_lead_byte_before_uninitialized.c at line 13:
+
+    char high[8];
+    char lead[8];
+    high[0] = (char)0xFF;
+    lead[0] = (char)0xC3;
+    int *p = NULL;
+    printf("%d %d\n", high[0], lead[0]);
+--> return *p;
+}
+
+Values when execution stopped:
+
+high = "\377<7 uninitialized values>"
+lead = "\303<7 uninitialized values>"
+p = NULL
+high[0] = -1 (not valid ASCII)
+lead[0] = -61 (not valid ASCII)
+

@@ -1,0 +1,4 @@
+posix_spawn of a non-existent path 2
+posix_spawnp of a non-existent command 2
+posix_spawnp of a non-existent path 2
+posix_spawn of a directory 13

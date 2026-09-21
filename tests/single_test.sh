@@ -13,9 +13,9 @@ then
 fi
 original_src_file="$1"
 
-rsync -a  $(dirname $(readlink -f "$original_src_file"))/ $tmpdir/
+rsync -a "$(dirname "$(readlink -f "$original_src_file")")/" "$tmpdir/"
 src_file=$(basename "$1")
-cd  $tmpdir
+cd "$tmpdir" || exit 1
 # some values reported in errors are not determinate (e.g. variable addresses)
 # and will vary between execution and definitely between platforms
 # so delete them before diff-ing errors
@@ -45,7 +45,7 @@ REMOVE_NON_DETERMINATE_VALUES='
 '
 
 # don't change the name of the variable src_file some  rely on it
-compile_options_list=$(egrep '^//dcc_flags=' "$src_file"|sed 's?//??;s/ /#/g')
+compile_options_list=$(grep -E '^//dcc_flags=' "$src_file"|sed 's?//??;s/ /#/g')
 compile_options_list=${compile_options_list:-'dcc_flags=""'}
 
 case "$src_file" in
@@ -65,12 +65,15 @@ do
 		expected_output_basename="`basename $src_file .c`$suffix"
 		#echo "$dcc" --c-compiler=$compiler $dcc_flags "$src_file"
 		"$dcc" --c-compiler=$compiler $dcc_flags "$src_file" 2>tmp.actual_stderr >/dev/null
-		test ! -s tmp.actual_stderr && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
+		# dcc prints a note when it can not use both sanitizers, which is not a
+		# diagnostic about the program, so the program is still run
+		grep -v '^[a-z+]*: note: ' tmp.actual_stderr >tmp.compiler_messages
+		test ! -s tmp.compiler_messages && DCC_DEBUG=1 ./a.out </dev/null   2>>tmp.actual_stderr >tmp.actual_stdout
 		;;
 
 	*.sh)
 		expected_output_basename="`basename $src_file .sh`"
-		$src_file </dev/null   2>tmp.actual_stderr >tmp.actual_stdout
+		"./$src_file" </dev/null   2>tmp.actual_stderr >tmp.actual_stdout
 		;;
 		
 	*)
@@ -103,18 +106,23 @@ do
 	mkdir -p "$expected_output_dir"
 	expected_output_last_version=$(ls $expected_output_dir/*.txt 2>/dev/null|sed 1q)
 	
-	default_expected_output_dir="$tests_dir/expected_output/default"
-
-	default_expected_output="$default_expected_output_dir/$expected_output_file"
-	version_expected_output="$version_expected_output_dir/$expected_output_file"
-	
-	
 	if test -z "$expected_output_last_version"
 	then
 		if test -n "$quick"
 		then
 			echo "NEW: $original_src_file "
 			exit 0
+		fi
+		if ! test -t 0
+		then
+			# nobody is there to review the output, e.g. in CI,
+			# so it can not be accepted as the expected output
+			echo "FAILED: dcc $dcc_flags $original_src_file # no expected output, and its output was not reviewed"
+			echo "The output was:"
+			cat "$actual_output_file"
+			rmdir "$expected_output_dir" 2>/dev/null
+			test_failed=1
+			continue
 		fi
 		new_expected_output_file="$expected_output_dir/000000-clang-$clang_version-$platform.txt"
 		echo
@@ -151,20 +159,33 @@ do
 	echo
 	diff --color -u  -iBw tmp.expected_output tmp.corrected_output
 	echo
+	if ! test -t 0
+	then
+		# nobody is there to decide whether this output is correct, e.g. in CI
+		test_failed=1
+		continue
+	fi
+
 	echo "Enter y to add this output to accepted versions."
-	echo "Enter n to leave expected output versions unchanged."
+	echo "Enter n to leave expected output versions unchanged (the test is reported as failed)."
 	echo "Enter q to exit."
-	
+
 	echo -n "Action? "
-	read response
+	# end the line if there is no answer, so following output starts on a new line
+	read response || echo
 	case "$response" in
 	y*)
-		last_version_number=$(basename $expected_output_last_version|cut -d- -f1)
-		version_number=$(printf "%06d" $(($last_version_number + 1)))
+		last_version_number=$(basename "$expected_output_last_version"|cut -d- -f1)
+		version_number=$(printf "%06d" $((last_version_number + 1)))
 		new_expected_output_file="$expected_output_dir/$version_number-clang-$clang_version-$platform.txt"
 		cp -p "$actual_output_file" "$new_expected_output_file"
 		;;
 	q)
 		exit 2
+		;;
+	*)
+		# the output was not accepted, so the test has failed
+		test_failed=1
 	esac
 done
+exit "${test_failed:-0}"

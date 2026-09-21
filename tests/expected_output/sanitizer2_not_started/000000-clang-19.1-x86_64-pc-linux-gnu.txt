@@ -1,0 +1,11 @@
+file descriptor limit 4: still here
+file descriptor limit 5: still here
+file descriptor limit 6: still here
+file descriptor limit 7: still here
+file descriptor limit 8: still here
+file descriptor limit 9: still here
+file descriptor limit 10: still here
+file descriptor limit 11: still here
+file descriptor limit 12: still here
+hello
+exit status 0

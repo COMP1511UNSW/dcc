@@ -1,1 +1,0 @@
-/home/andrewt/w/dcc/src/tests/single_test.sh: ./incremental_compilation.sh: /: bad interpreter: Permission denied

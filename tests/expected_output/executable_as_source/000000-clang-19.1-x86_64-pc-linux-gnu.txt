@@ -1,0 +1,2 @@
+dcc: 'compiled_hello' is a compiled program, not source code
+if you want to create the program 'compiled_hello', use: -o compiled_hello

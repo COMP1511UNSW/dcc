@@ -1,0 +1,18 @@
+error_after_warning.c:4:11: warning: using the result of an assignment as a condition without parentheses [-Wparentheses]
+    4 |     if (a = b) {
+      |         ~~^~~
+error_after_warning.c:4:11: note: place parentheses around the assignment to silence this warning
+    4 |     if (a = b) {
+      |           ^  
+      |         (    )
+error_after_warning.c:4:11: note: use '==' to turn this assignment into an equality comparison
+    4 |     if (a = b) {
+      |           ^
+      |           ==
+dcc explanation: you use '=' to assign to a variable, you use '==' to compare values.
+error_after_warning.c:7:9: error: use of undeclared identifier 'c'
+    7 |     a = c;
+      |         ^
+dcc explanation:  you have used the name 'c' on line 7 of error_after_warning.c without previously declaring it.
+If you meant to use 'c' as a variable, check you have declared it by specifying its type
+Also  check you have spelled 'c' correctly everywhere.

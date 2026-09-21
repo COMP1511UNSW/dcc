@@ -1,3 +1,6 @@
+//dcc_flags=-fsanitize=address
+// spawn.h leaves dcc a single sanitizer anyway, naming it keeps the note
+// about uninitialized variables out of this test's output
 #include <spawn.h>
 #include <assert.h>
 int main(void) {

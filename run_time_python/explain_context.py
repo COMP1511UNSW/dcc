@@ -18,9 +18,30 @@ def explain_location(location, variable_addresses, color):
     return where
 
 
-def explain_stack(stack, variable_addresses, color):
+# the most function calls shown in a traceback, the innermost first
+MAX_CALLS_SHOWN = 10
+
+
+def shown_calls(n_frames, truncated):
+    """indexes of the calls a traceback shows, with None where calls are left out"""
+    if truncated:
+        # gdb did not report the outermost calls, so they can not be shown
+        return list(range(min(n_frames, MAX_CALLS_SHOWN))) + [None]
+    if n_frames > MAX_CALLS_SHOWN + 1:
+        # show the innermost calls and the outermost, which is main
+        return list(range(MAX_CALLS_SHOWN)) + [None, n_frames - 1]
+    return list(range(n_frames))
+
+
+def explain_stack(stack, variable_addresses, color, truncated=False):
     call_stack = ""
-    for frame, caller in zip(stack, stack[1:] + [None]):
+    for index in shown_calls(len(stack), truncated):
+        if index is None:
+            call_stack += "...\n"
+            continue
+        frame = stack[index]
+        # the call which made it, which is still known if calls were left out
+        caller = stack[index + 1] if index + 1 < len(stack) else None
         call = explain_function_call(
             frame.function, frame.params, variable_addresses, color
         )
@@ -40,6 +61,9 @@ def explain_function_call(function, params, variable_addresses, color):
     for p in params.split(", "):
         if m := re.search(r"^(\w+)=(.*)", p):
             variable, value = m.groups()
+            if "<error reading variable" in value:
+                # e.g. the arguments of the call which overflowed the stack
+                value = "<unknown>"
             # should we check variable type here?
             value = convert_variable_address(value, variable_addresses, color)
             value = clarify_values(value, color, variable_addresses)
@@ -62,10 +86,14 @@ KEYWORDS = set(
 def relevant_variables(c_source_lines, color, variable_addresses):
     expressions = []
     for line in c_source_lines:
-        expressions += extract_expressions(line)
+        try:
+            expressions += extract_expressions(line)
+        except Exception as e:
+            # losing one line's variables beats losing the error message
+            dprint(2, "relevant_variables: extract_expressions", e)
 
     # avoid trying to evaluate types/keywords for efficiency/clarity
-    done = KEYWORDS
+    done = set(KEYWORDS)
     explanation = ""
     dprint(3, "relevant_variables expressions=", c_source_lines, expressions)
     for expression in sorted(
@@ -139,80 +167,103 @@ def evaluate_expression(expression, color, variable_addresses):
 
 def balance_bracket(s, depth=0):
     # 	 dprint(2, 'balance_bracket(%s, %s)' % (s, depth))
-    if not s:
-        return ""
-    elif s[0] == "]" or s[0] == ")":
-        depth -= 1
-    elif s[0] == "[" or s[0] == "(":
-        depth += 1
-    if depth < 0 and (len(s) == 1 or s[1] != "["):
-        return ""
-    return s[0] + balance_bracket(s[1:], depth)
+    # iterative because recursing once per character exhausted python's
+    # recursion limit on a long line, losing the whole error message
+    balanced = []
+    for index, c in enumerate(s):
+        if c == "]" or c == ")":
+            depth -= 1
+        elif c == "[" or c == "(":
+            depth += 1
+        if depth < 0 and (index + 1 == len(s) or s[index + 1] != "["):
+            break
+        balanced.append(c)
+    return "".join(balanced)
 
 
 # FIXME - this is very crude
 def extract_expressions(c_source):
-    c_source = c_source.strip()
-    if not c_source:
-        return []
-    dprint(3, "extract_expressions c_source=", c_source)
+    expressions = []
+    # iterative because recursing once per token exhausted python's recursion
+    # limit on a long line, losing the whole error message
+    while True:
+        c_source = c_source.strip()
+        if not c_source:
+            return expressions
+        dprint(3, "extract_expressions c_source=", c_source)
 
-    # match declaration of array (with false positives)
-    # if declaration is e.g int f[2]; do not want to add f[2] as expression
-    # printing its value would confuse novice
-    m = re.match(
-        r"([a-z][a-zA-Z0-9_]*|FILE)\s+\**\s*([a-z][a-zA-Z0-9_]*)\s*\[(.*)",
-        c_source,
-        re.DOTALL,
-    )
-    if m:
-        return extract_expressions(m.group(1)) + extract_expressions(m.group(2))
+        # match declaration of array (with false positives)
+        # if declaration is e.g int f[2]; do not want to add f[2] as expression
+        # printing its value would confuse novice
+        # the optional tag matches e.g. struct s f[2], the capital letter a
+        # typedef such as Point f[2]
+        # a type name here is lower case, or capitalised like a typedef, or FILE.
+        # an all upper case word is a macro, so N * a[i] is a multiplication
+        # rather than a declaration, and treating it as one would throw away the
+        # rest of the line and with it the values which explain the error
+        m = re.match(
+            r"(?:(?:enum|struct|union)\s+)?"
+            r"(?:FILE|[a-z][a-zA-Z0-9_]*|[A-Z][a-zA-Z0-9_]*[a-z][a-zA-Z0-9_]*)"
+            r"\s+\**\s*([a-z][a-zA-Z0-9_]*)\s*\[(.*)",
+            c_source,
+            re.DOTALL,
+        )
+        if m:
+            c_source = m.group(1)
+            continue
 
-    # avoid enum or struct name matching random global value that gdb knows about
-    c_source = re.sub(r"(enum|struct|union)\s+[a-zA-Z][a-zA-Z0-9_]*\s*", "", c_source)
+        # avoid enum or struct name matching random global value that gdb knows about
+        c_source = re.sub(
+            r"(enum|struct|union)\s+[a-zA-Z][a-zA-Z0-9_]*\s*", "", c_source
+        )
 
-    m = re.match(r"([a-z][a-zA-Z0-9_]*)\s*\[(.*)", c_source, re.DOTALL)
-    if m:
-        expressions = []
-        index = balance_bracket(m.group(2))
-        if index:
-            expressions = [m.group(1), index, m.group(1) + "[" + index + "]"]
-        return expressions + extract_expressions(m.group(2))
+        m = re.match(r"([a-z][a-zA-Z0-9_]*)\s*\[(.*)", c_source, re.DOTALL)
+        if m:
+            index = balance_bracket(m.group(2))
+            if index:
+                expressions += [m.group(1), index, m.group(1) + "[" + index + "]"]
+            c_source = m.group(2)
+            continue
 
-    m = re.match(
-        r"[a-z][a-zA-Z0-9_]*(?:\s*(?:->|\.)\s*[a-z][a-zA-Z0-9_]*)+(.*)",
-        c_source,
-        re.DOTALL,
-    )
-    if m:
-        remainder = m.group(1)
-        expressions = []
-        for i in range(0, 8):
-            m = re.match(
-                rf"^[a-z][a-zA-Z0-9_]*(?:\s*(?:->|\.)\s*[a-z][a-zA-Z0-9_]*){{{i}}}",
-                c_source,
-                re.DOTALL,
-            )
-            if m:
-                expressions.append(m.group(0))
-            else:
-                break
+        m = re.match(
+            r"[a-z][a-zA-Z0-9_]*(?:\s*(?:->|\.)\s*[a-z][a-zA-Z0-9_]*)+(.*)",
+            c_source,
+            re.DOTALL,
+        )
+        if m:
+            remainder = m.group(1)
+            members = []
+            for i in range(0, 8):
+                m = re.match(
+                    rf"^[a-z][a-zA-Z0-9_]*(?:\s*(?:->|\.)\s*[a-z][a-zA-Z0-9_]*){{{i}}}",
+                    c_source,
+                    re.DOTALL,
+                )
+                if m:
+                    members.append(m.group(0))
+                else:
+                    break
 
-        dprint(3, "extract_expressions expressions=", list(expressions))
-        return expressions + extract_expressions(remainder)
+            dprint(3, "extract_expressions expressions=", members)
+            expressions += members
+            c_source = remainder
+            continue
 
-    m = re.match(r"([a-zA-Z][a-zA-Z0-9_]*)(.*)", c_source, re.DOTALL)
-    if m:
-        return [m.group(1)] + extract_expressions(m.group(2))
+        m = re.match(r"([a-zA-Z][a-zA-Z0-9_]*)(.*)", c_source, re.DOTALL)
+        if m:
+            expressions.append(m.group(1))
+            c_source = m.group(2)
+            continue
 
-    m = re.match(r"^[^a-zA-Z]+(.*)", c_source, re.DOTALL)
-    if m:
-        return extract_expressions(m.group(1))
+        m = re.match(r"^[^a-zA-Z]+(.*)", c_source, re.DOTALL)
+        if m:
+            c_source = m.group(1)
+            continue
 
-    return []
+        return expressions
 
 
-def get_variable_addresses(stack):
+def get_variable_addresses(stack, truncated=False):
     if not stack:
         return []
     addresses = []
@@ -220,7 +271,12 @@ def get_variable_addresses(stack):
     #    only in recent gdb
     #    current_level = gdb_interface.gdb_get_frame()
     current_level = stack[0].frame_number
-    for frame in stack[1:]:
+    # only the calls the traceback shows, so no value is labelled with a
+    # variable from a function the student can not see
+    for index in shown_calls(len(stack), truncated):
+        if index is None or index == 0:
+            continue
+        frame = stack[index]
         gdb_interface.gdb_set_frame(frame.frame_number)
         get_variables(frame.function, addresses)
     gdb_interface.gdb_set_frame(current_level)
@@ -318,6 +374,22 @@ def clarify_expression_value(
     return clarify_values(expression_value, color, variable_addresses)
 
 
+# gdb escapes a non-ascii byte in a string as \NNN, so a multi-byte utf-8
+# character is a lead byte (\302-\337, \340-\357 or \360-\364) followed by
+# one to three continuation bytes (\200-\277). a sequence immediately followed
+# by more fill is deliberately not matched: it is far more likely to be one
+# student byte before the poison than a character ending exactly at the fill
+UTF8_ESCAPE_RE = re.compile(
+    r"(?:\\3(?:0[2-7]|[123][0-7])\\2[0-7][0-7]"
+    r"|\\3[45][0-7](?:\\2[0-7][0-7]){2}"
+    r"|\\36[0-4](?:\\2[0-7][0-7]){3})(?!\\252)"
+)
+
+# gdb renders every byte of a string as ascii or \NNN, so a raw control
+# character can not clash with a printed value
+UTF8_BYTE_HIDDEN = "\x01"
+
+
 def clarify_values(values, color, variable_addresses):
     # novices will understand 0x0 better as NULL if it is a pointer
     values = re.sub(r"\b0x0\b", "NULL", values)
@@ -329,6 +401,13 @@ def clarify_values(values, color, variable_addresses):
     values = re.sub(r"^\(.*\) ", "", values)
 
     values = re.sub(r"'\000'", r"'\\0'", values)
+
+    # 0xaa is a valid utf-8 continuation byte, so a byte of e.g. a student's
+    # accented letter renders exactly like dcc's fill - hide those bytes while
+    # the fill is being replaced below
+    values = UTF8_ESCAPE_RE.sub(
+        lambda m: m.group(0).replace(MEMORY_FILL["int8_char"], UTF8_BYTE_HIDDEN), values
+    )
 
     for value in MEMORY_FILL.values():
         values = re.sub(
@@ -354,13 +433,9 @@ def clarify_values(values, color, variable_addresses):
     )
     values = re.sub(rf'<uninitialized value>((\{MEMORY_FILL["int8_char"]})+)', lambda m: f"<{len(m.group(1)) // 4 + 1} uninitialized values>", values)
     values = re.sub(rf'((\{MEMORY_FILL["int8_char"]})+)', lambda m: f"<{len(m.group(1)) // 4} uninitialized values>", values)
-    # convert "\376\376\376" ->  <3 uninitialized values>
-    values = re.sub(
-        rf"((\376)+)",
-        lambda m: f"<{len(m.group(1)) // 4} uninitialized values>",
-        values,
-    )
     values = values.replace("<1 uninitialized values>", "<uninitialized value>")
+
+    values = values.replace(UTF8_BYTE_HIDDEN, MEMORY_FILL["int8_char"])
 
     values = re.sub(
         r"(<\d*\s*uninitialized values?>)", lambda m: color(m.group(1), "red"), values

@@ -1,0 +1,27 @@
+
+Runtime error: accessing a field via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is  using p->field when p == NULL.
+
+Execution stopped in sum_list(head=main:&first) in list.c at line 6:
+
+int sum_list(struct node *head) {
+    int total = 0;
+    struct node *p = head;
+    while (total < 100) {
+-->     total += p->value;
+        p = p->next;
+    }
+    return total;
+
+Values when execution stopped:
+
+head = main:&first
+p = NULL
+total = 43
+
+Function call traceback:
+
+sum_list(head=main:&first) called at line 6 of main.c
+main()
+

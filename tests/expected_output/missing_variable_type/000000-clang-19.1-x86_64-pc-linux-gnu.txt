@@ -1,0 +1,6 @@
+missing_variable_type.c:1:1: error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
+    1 | counter = 0;
+      | ^
+      | int
+dcc explanation: have you given a type for counter?
+You must specify the type of a variable when you declare it.

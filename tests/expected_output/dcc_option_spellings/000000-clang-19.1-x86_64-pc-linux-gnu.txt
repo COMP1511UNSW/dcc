@@ -1,0 +1,12 @@
+--explanations explanations: 1
+--explanations exit status 0
+--explanation explanations: 1
+--explanation exit status 0
+--no-explanations explanations: 0
+--no-explanations exit status 0
+--no-explanation explanations: 0
+--no-explanation exit status 0
+--no_explanation explanations: 0
+--no_explanation exit status 0
+-fsanitize=undefined exit status 0
+dcc: only 1 or 2 sanitizers supported

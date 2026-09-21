@@ -1,0 +1,10 @@
+compile_helper.c:2:12: error: use of undeclared identifier 'x'
+    2 |     return x;
+      |            ^
+dcc explanation:  you have used the name 'x' on line 2 of compile_helper.c without previously declaring it.
+If you meant to use 'x' as a variable, check you have declared it by specifying its type
+Also  check you have spelled 'x' correctly everywhere.
+helper: type=error file=compile_helper.c line=2 col=12 label=use_of_undeclared_identifier
+helper: explanation starts:  you have used the name 'x' on line 2 of compile_helper.c without previously declaring it.
+helper: source has 4 lines
+helper: json has label: 1

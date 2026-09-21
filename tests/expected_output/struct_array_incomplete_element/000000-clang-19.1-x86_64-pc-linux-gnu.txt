@@ -1,0 +1,6 @@
+struct_array_incomplete_element.c:4:22: error: array has incomplete element type 'struct student'
+    4 | struct student cohort[10];
+      |                      ^
+struct_array_incomplete_element.c:2:8: note: forward declaration of 'struct student'
+    2 | struct student;
+      |        ^

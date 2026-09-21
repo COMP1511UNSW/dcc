@@ -19,3 +19,4 @@ debian
 # don't accidentally add random test files to repo
 /*.c
 /*.sh
+_build_check

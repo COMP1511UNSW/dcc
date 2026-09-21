@@ -1,0 +1,26 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in probe(n=1000) in uninitialized_after_deep_stack.c at line 20:
+
+int probe(int n) {
+    int arr[2000];
+    arr[0] = 7;
+--> if (arr[n] > 3) {
+        return 1;
+    }
+    return 0;
+
+Values when execution stopped:
+
+arr = {7, <uninitialized value> <repeats 1999 times>}
+n = 1000
+arr[0] = 7
+arr[n] = <uninitialized value>
+
+Function call traceback:
+
+probe(n=1000) called at line 31 of uninitialized_after_deep_stack.c
+call_probe(n=1000) called at line 36 of uninitialized_after_deep_stack.c
+main()
+

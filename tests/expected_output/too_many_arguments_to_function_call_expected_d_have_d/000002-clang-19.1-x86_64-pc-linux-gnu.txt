@@ -1,0 +1,4 @@
+too_many_arguments_to_function_call_expected_d_have_d.c:3:20: error: too many arguments to function call, expected 0, have 3
+    3 |     return getchar(0, 0, 0);
+      |            ~~~~~~~ ^~~~~~~
+dcc explanation: function getchar() takes 0 arguments but you have given it 3 arguments.

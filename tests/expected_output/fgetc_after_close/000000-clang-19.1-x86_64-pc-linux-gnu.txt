@@ -1,0 +1,14 @@
+
+Runtime error: use after free
+dcc explanation: access to memory that has already been freed.
+
+A FILE * can not be used after fclose has been called on it.
+
+
+Execution stopped in main() in fgetc_after_close.c at line 5:
+
+int main(void) {
+    fclose(stdin);
+--> fgetc(stdin);
+}
+

@@ -1,0 +1,2 @@
+Execution stopped by a CPU time limit.
+Execution stopped in main() in cpu_time_limit.c

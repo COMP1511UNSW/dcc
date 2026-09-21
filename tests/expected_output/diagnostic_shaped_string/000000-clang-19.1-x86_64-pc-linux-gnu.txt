@@ -1,0 +1,6 @@
+diagnostic_shaped_string.c:4:5: error: call to undeclared library function 'printf' with type 'int (const char *, ...)'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+    4 |     printf("save.c:10: error: could not open file\n");
+      |     ^
+dcc explanation: you are calling printf on line 4 of diagnostic_shaped_string.c but
+dcc does not recognize printf as a function.
+Do you have #include <stdio.h> at the top of your file?

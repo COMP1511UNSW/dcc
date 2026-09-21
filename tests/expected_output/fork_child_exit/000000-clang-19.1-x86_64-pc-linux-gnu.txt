@@ -1,0 +1,25 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in fork_child_exit.c at line 19:
+
+        exit(0);
+    }
+    int status;
+    wait(&status);
+    int a[100];
+    a[42] = 42;
+--> if (a[argc]) {
+        a[43] = 43;
+    }
+}
+
+Values when execution stopped:
+
+a = {<uninitialized value> <repeats 42 times>, 42, <uninitialized value> <repeats 57 times>}
+argc = 1
+status = 0
+a[42] = 42
+a[43] = <uninitialized value>
+a[argc] = <uninitialized value>
+

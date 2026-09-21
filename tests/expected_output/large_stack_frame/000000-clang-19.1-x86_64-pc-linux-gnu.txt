@@ -1,0 +1,10 @@
+*** dcc 
+Execution stopped by a stack overflow.
+A common cause of this error is infinite recursion.
+Execution stopped in main() in large_stack_frame.c at line 3:
+exit status non-zero: yes
+*** dcc -fsanitize=address
+Execution stopped by a stack overflow.
+A common cause of this error is infinite recursion.
+Execution stopped in main() in large_stack_frame.c at line 3:
+exit status non-zero: yes

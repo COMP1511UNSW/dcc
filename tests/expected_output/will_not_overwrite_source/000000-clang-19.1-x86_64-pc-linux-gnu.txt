@@ -1,0 +1,10 @@
+dcc: will not overwrite keep.c with machine code
+dcc: will not overwrite keep.h with machine code
+dcc: will not overwrite keep.cc with machine code
+dcc: will not overwrite keep.cpp with machine code
+dcc: will not overwrite keep.cxx with machine code
+dcc: will not overwrite keep.c++ with machine code
+dcc: will not overwrite keep.hpp with machine code
+wrote and ran not_source.txt
+dcc: argument to '-o' is missing
+exit status non-zero: yes

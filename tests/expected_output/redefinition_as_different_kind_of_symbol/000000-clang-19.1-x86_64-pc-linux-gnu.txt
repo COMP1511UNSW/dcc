@@ -1,0 +1,9 @@
+redefinition_as_different_kind_of_symbol.c:3:12: error: redefinition of 'Card' as different kind of symbol
+    3 | static int Card(int game);
+      |            ^
+redefinition_as_different_kind_of_symbol.c:1:22: note: previous definition is here
+    1 | typedef struct card *Card;
+      |                      ^
+dcc explanation: 'Card' is already the name of something else, for example a type.
+Check line 3 of redefinition_as_different_kind_of_symbol.c for a mistake such as an extra type before 'Card',
+otherwise give one of the two things a different name.

@@ -1,0 +1,21 @@
+a message on stderr
+Runtime error: malloc buffer overflow
+dcc explanation: access past the end of malloc'ed memory.
+  Make sure you have allocated enough memory for the size of your struct/array.
+  A common error is to use the size of a pointer instead of the size of the struct or array.
+  For more information see: https://comp1511unsw.github.io/dcc/malloc_sizeof.html
+Execution stopped in main() in stderr_before_error.c at line 8:
+int main(int argc, char *argv[]) {
+    int *p = malloc(3 * sizeof(int));
+    fprintf(stderr, "a message on stderr\n");
+    printf("a message on stdout\n");
+    p[2] = 2;
+--> p[argc + 2] = 3;
+    free(p);
+    return 0;
+}
+Values when execution stopped:
+argc = 1
+argc + 2 = 3
+p[2] = 2
+p[argc + 2] = 0

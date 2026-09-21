@@ -1,0 +1,7 @@
+nonnull_null_stream.c: In function ‘main’:
+nonnull_null_stream.c:6:5: warning: argument 2 null where non-null expected [-Wnonnull]
+    6 |     fputs("x", f);
+      |     ^~~~~~~~~~~~~
+nonnull_null_stream.c:6:5: note: in a call to built-in function ‘__builtin_fputc’
+dcc explanation: you are passing the variable f which always contains NULL as argument 2 to 'fputs'.
+Argument 2 to 'fputs' should never be NULL.

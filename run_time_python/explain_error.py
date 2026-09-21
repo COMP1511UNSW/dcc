@@ -5,6 +5,9 @@ from explain_output_difference import explain_output_difference
 
 RUNTIME_HELPER_BASENAME = "dcc-runtime-helper"
 
+# the most stack frames fetched from gdb
+MAX_STACK_FRAMES = 100
+
 
 def explain_error(output_stream, color):
     dprint(2, "explain_error() in drive_gdb.py starting")
@@ -21,20 +24,23 @@ def explain_error(output_stream, color):
     elif "DCC_SIGNAL_THREAD" in os.environ:
         # signal gives us the Linux TID, gdb calls this the LWP
         threads = gdb_interface.gdb_execute("info threads").split("\n")
-        lwp = int(os.environ.get("DCC_SIGNAL_THREAD"))
+        lwp = os.environ.get("DCC_SIGNAL_THREAD")
         # should only be one thread
-        thread_entry = [line for line in threads if f"(LWP {lwp})" in line][0]
-        thread_id = int(thread_entry[2:].split(" ")[0])
-        gdb_interface.gdb_execute(f"thread {thread_id}")
+        for line in threads:
+            if f"(LWP {lwp})" in line:
+                m = re.match(r"^[\s*]*(\d+)", line)
+                if m:
+                    gdb_interface.gdb_execute(f"thread {m.group(1)}")
+                break
 
-    stack = parse_stack()
+    stack, stack_truncated, stack_text = parse_stack()
     location = stack[0] if stack else None
     signal_number = int(os.environ.get("DCC_SIGNAL", signal.SIGABRT))
     explanation = ""
-    if signal_number != signal.SIGABRT:
-        explanation = explain_signal(signal_number)
+    if "DCC_SIGNAL" in os.environ:
+        explanation = explain_signal(signal_number, stack_text)
     elif "DCC_ASAN_ERROR" in os.environ:
-        explanation = explain_asan_error(location, color)
+        explanation = explain_asan_error(color)
     elif "DCC_UBSAN_ERROR_KIND" in os.environ:
         explanation, location = explain_ubsan_error(location, color)
     elif "DCC_OUTPUT_ERROR" in os.environ:
@@ -52,7 +58,9 @@ def explain_error(output_stream, color):
     if not "DCC_VALGRIND_ERROR" in os.environ:
         print(explanation, file=output_stream)
 
-    variable_addresses = explain_context.get_variable_addresses(stack)
+    variable_addresses = explain_context.get_variable_addresses(
+        stack, truncated=stack_truncated
+    )
     variables = ""
     if location:
         where = explain_context.explain_location(location, variable_addresses, color)
@@ -69,7 +77,7 @@ def explain_error(output_stream, color):
     stack_explanation = ""
     if len(stack) > 1:
         stack_explanation = explain_context.explain_stack(
-            stack, variable_addresses, color
+            stack, variable_addresses, color, truncated=stack_truncated
         )
         print(color("\nFunction call traceback:\n", "cyan"), file=output_stream)
         print(stack_explanation, file=output_stream)
@@ -108,8 +116,13 @@ def explain_ubsan_error(loc, color):
 
     if loc:
         if filename and line_number:
-            loc.filename = filename
-            loc.line_number = line_number
+            # compare basenames, gdb and ubsan can spell the same path differently
+            if os.path.basename(loc.filename) != os.path.basename(filename):
+                # the error is in another file, so the frame gdb gave us is not
+                # the function it happened in - better no name than the wrong one
+                loc = util.Location(filename, line_number)
+            else:
+                loc.line_number = line_number
     else:
         loc = util.Location(filename, line_number)
     if column:
@@ -144,15 +157,40 @@ def explain_ubsan_error(loc, color):
         else:
             what = "*p or p[index]"
 
-        message = f"{access} a value via a {problem} pointer"
-        explanation = "You are using a pointer which "
-
-        if problem == "uninitialized":
-            explanation += "has not been initialized\n"
-            explanation += f"  A common error is {access} {what} without first assigning a value to p.\n"
+        # ubsan reports pointer arithmetic itself, so an "applying ... offset"
+        # message doesn't mean anything was dereferenced - only say it was if
+        # the source line also indexes, uses -> or has a unary *.  a * is
+        # binary if an operand precedes it, so it is unary at the start of a
+        # statement or after an operator; return/else/do are the only keywords
+        # a statement can follow on the same line.  after a ) only the tight
+        # binding of unary * tells it apart from multiplication.
+        # problem is always NULL here - every "applying" message ends in
+        # "null pointer" - but guard it so the wording can't contradict itself
+        if (
+            m.group(1) == "applying"
+            and problem == "NULL"
+            and not (
+                "[" in source
+                or "->" in source
+                or re.search(
+                    r"(^|[^\w\s)]|\b(return|else|do)\b)\s*\*|\)\s*\*(?=[\w(])",
+                    source,
+                )
+            )
+        ):
+            message = "pointer arithmetic on a NULL pointer"
+            explanation = """You are using a pointer which is NULL
+  You can only do arithmetic on a pointer that points into an array.\n"""
         else:
-            explanation += "is NULL\n"
-            explanation += f"  A common error is {access} {what} when p == NULL.\n"
+            message = f"{access} a value via a {problem} pointer"
+            explanation = "You are using a pointer which "
+
+            if problem == "uninitialized":
+                explanation += "has not been initialized\n"
+                explanation += f"  A common error is {access} {what} without first assigning a value to p.\n"
+            else:
+                explanation += "is NULL\n"
+                explanation += f"  A common error is {access} {what} when p == NULL.\n"
 
     if not explanation:
         m = re.search(
@@ -232,7 +270,7 @@ def explain_ubsan_error(loc, color):
     return report, loc
 
 
-def explain_asan_error(loc, color):
+def explain_asan_error(color):
     asan_error = os.environ.get("DCC_ASAN_ERROR")
     if asan_error:
         asan_error = asan_error.replace("-", " ")
@@ -279,7 +317,11 @@ ASAN_EXPLANATIONS = [
 ]
 
 
-def explain_signal(signal_number):
+def explain_signal(signal_number, stack_text=""):
+    if signal_number == signal.SIGSEGV and os.environ.get("DCC_STACK_OVERFLOW"):
+        return "Execution stopped by a stack overflow.\nA common cause of this error is infinite recursion."
+    if signal_number == signal.SIGABRT:
+        return explain_abort(stack_text)
     if signal_number == signal.SIGINT:
         return "Execution was interrupted"
     elif signal_number == signal.SIGFPE:
@@ -294,9 +336,33 @@ def explain_signal(signal_number):
         return f"Execution terminated by signal {signal_number}"
 
 
+def explain_abort(stack_text):
+    """abort() is reached several ways - assert() is only one of them"""
+    if "__assert_fail" in stack_text:
+        return (
+            "Execution stopped by a call to abort().\nA failed assert() calls abort()."
+        )
+    # an exception escaping a noexcept function reaches terminate from the
+    # landing pad, so __cxa_throw is no longer on the stack
+    if re.search(
+        r"__cxa_throw|__cxa_call_terminate|__clang_call_terminate", stack_text
+    ):
+        return """Execution stopped because an exception was thrown and never caught.
+The C++ library printed the type of the exception above.
+An exception has to be caught by a try/catch block or it stops the program."""
+    # the C++ library also calls terminate with no exception in flight,
+    # e.g. for a pure virtual method call or a throw with nothing to rethrow
+    if re.search(r"__verbose_terminate_handler|std::terminate", stack_text):
+        return """Execution stopped by the C++ library, which printed the reason above.
+The specific reason is shown in the library message above."""
+    return "Execution stopped by a call to abort()."
+
+
 def run_runtime_helper(
     loc, explanation, variables, stack_explanation, stack, output_stream
 ):
+    # dcc's report is complete, so it is written before anything else is tried
+    output_stream.flush()
     if not loc:
         return
     color = lambda text, _: text
@@ -316,7 +382,7 @@ def run_runtime_helper(
     source = ""
     try:
         if os.path.getsize(loc.filename) < util.MAX_FILE_SIZE_PASSED_TO_HELPER:
-            with open(loc.filename) as f:
+            with open(loc.filename, encoding="utf-8", errors="replace") as f:
                 source = f.read(util.MAX_FILE_SIZE_PASSED_TO_HELPER)
     except OSError:
         pass
@@ -358,7 +424,7 @@ def run_runtime_helper(
 
     dprint(2, f"running {helper}")
     try:
-        subprocess.run([helper], stdout=output_stream, stderr=output_stream)
+        subprocess.run([helper], stdout=output_stream, stderr=output_stream, check=False)
     except OSError as e:
         dprint(1, e)
 
@@ -386,6 +452,9 @@ def get_saved_stdin():
 
 
 def get_argv(stack):
+    if not stack or stack[-1].function != "main":
+        # the outermost frame was not reached, e.g. the stack was too deep
+        return []
     #    only in recent gdb
     #    current_level = gdb_interface.gdb_get_frame()
     current_level = stack[0].frame_number
@@ -399,7 +468,8 @@ def get_argv(stack):
             for i in range(argc)
         ]
 
-    except (IndexError, ValueError):
+    except Exception:  # pylint: disable=broad-exception-caught
+        # the command line arguments are extra information, never essential
         argv = []
     gdb_interface.gdb_set_frame(current_level)
     return argv
@@ -409,8 +479,11 @@ def get_argv(stack):
 
 
 def parse_stack():
+    """return the frames in user code, whether gdb left frames out, and the raw stack"""
+    stack = ""
     try:
-        stack = gdb_interface.gdb_execute("where")
+        # a very deep stack, e.g. from infinite recursion, takes gdb a long time to print
+        stack = gdb_interface.gdb_execute(f"where {MAX_STACK_FRAMES}")
         dprint(3, "\nStack:\n", stack, "\n")
         stack_lines = stack.splitlines()
         reversed_stack_lines = reversed(stack_lines)
@@ -421,34 +494,47 @@ def parse_stack():
                 frames.append(frame)
         if not frames:
             # FIXME - does this code make sense?
+            # no frame has a source file we can see, so there is nothing to
+            # tell a student's _helper from the library's _dl_call_fini
             frame = None
             for line in reversed_stack_lines:
-                frame = parse_gdb_stack_frame(line) or frame
+                parsed = parse_gdb_stack_frame(line)
+                if parsed is not None and not parsed.function.startswith("_"):
+                    frame = parsed
             if frame is not None:
                 frames = [frame]
         if frames:
             gdb_interface.gdb_set_frame(frames[0].frame_number)
         else:
             dprint(3, "gdb_set_frame no frame number")
-        return frames
+        # gdb reports at most this many frames, so on a deeper stack the
+        # outermost calls were left out unless main is among those reported
+        truncated = len(stack_lines) >= MAX_STACK_FRAMES and (
+            not frames or frames[-1].function != "main"
+        )
+        return frames, truncated, stack
     except Exception:
         if util.get_debug_level():
             traceback.print_exc(file=sys.stderr)
-        return None
+        return [], False, stack
 
 
 def parse_gdb_stack_frame(line):
-    # note don't match function names starting with _ these are not user functions
     line = re.sub("__real_main", "main", line)
+    # the filename is whatever precedes the trailing :line-number, so that a
+    # path containing a space or a colon is still a match; library frames are
+    # rejected below by their source file, not by their function name
     m = re.match(
         r"^\s*#(?P<frame_number>\d+)\s+(0x[0-9a-f]+\s+in+\s+)?"
-        r"(?P<function>[a-zA-Z][^\s\(]*).*\((?P<params>.*)\)\s+at\s+"
-        r"(?P<filename>[^\s:]+):(?P<line_number>\d+)\s*$",
+        r"(?P<function>[A-Za-z_][^\s\(]*).*\((?P<params>.*)\)\s+at\s+"
+        r"(?P<filename>.+):(?P<line_number>\d+)\s*$",
         line,
     )
     dprint(3, "parse_gdb_stack_frame", m is not None, line)
     if m:
         filename = m.group("filename")
+        # a leading _ does not make a function the library's - a student may
+        # well call one _helper or __helper - so filter on the source file
         if (
             filename.startswith("/usr/")
             or filename.startswith("../sysdeps/")

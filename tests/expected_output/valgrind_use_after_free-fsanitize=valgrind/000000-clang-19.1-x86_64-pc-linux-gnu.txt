@@ -1,0 +1,22 @@
+
+Runtime error: use after free
+dcc explanation: access to memory that has already been freed.
+
+
+Execution stopped in main() in valgrind_use_after_free.c at line 13:
+
+int main(int argc, char *argv[]) {
+    int *p = (int *)malloc(4 * sizeof *p);
+    p[0] = 1;
+    if (argc > 0) {
+        free(p);
+    }
+--> return p[0];
+}
+
+Values when execution stopped:
+
+argc = 1
+p = 0x4bb18d0
+p[0] = <uninitialized value>
+

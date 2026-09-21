@@ -1,0 +1,6 @@
+ leading_space.c:2:12: error: use of undeclared identifier 'y'
+    2 |     return y;
+      |            ^
+dcc explanation:  you have used the name 'y' on line 2 of  leading_space.c without previously declaring it.
+If you meant to use 'y' as a variable, check you have declared it by specifying its type
+Also  check you have spelled 'y' correctly everywhere.

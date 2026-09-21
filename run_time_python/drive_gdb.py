@@ -7,9 +7,11 @@ import colors, gdb_interface, explain_error, util
 # a beginner programmer
 #
 
-# workaround - avoid warning message from analysers
-if 0:
-    gdb = None
+# this file is executed by gdb's embedded Python, where the gdb module exists
+try:
+    import gdb
+except ImportError:
+    gdb = None  # type: ignore[assignment]
 
 
 def drive_gdb():
@@ -44,18 +46,38 @@ def drive_gdb():
             )
         elif util.get_debug_level():
             traceback.print_exc(file=output_stream)
+        output_stream.flush()
+        stop_program(windows_subsystem_for_linux)
         sys.exit(1)
     except Exception:
         if util.get_debug_level():
             traceback.print_exc(file=output_stream)
+        output_stream.flush()
+        stop_program(windows_subsystem_for_linux)
         sys.exit(1)
 
     output_stream.flush()
-    # __dcc_error_exit hangs for unknown reason on WSL
-    if not windows_subsystem_for_linux:
-        gdb_interface.gdb_execute("call (void)__dcc_error_exit()")
+    stop_program(windows_subsystem_for_linux)
     # 	kill_all()
     gdb_interface.gdb_execute("quit")
+
+
+def stop_program(windows_subsystem_for_linux):
+    """
+    make the program exit
+
+    Under valgrind the program is stopped at valgrind's gdb server waiting
+    for this code, so unless it is told to exit it waits forever - including
+    when this code has given up because explaining the error went wrong.
+    """
+    # __dcc_error_exit hangs for unknown reason on WSL
+    if windows_subsystem_for_linux:
+        return
+    try:
+        gdb_interface.gdb_execute("call (void)__dcc_error_exit()")
+    except Exception:
+        if util.get_debug_level():
+            traceback.print_exc(file=sys.stderr)
 
 
 if __name__ == "__main__":

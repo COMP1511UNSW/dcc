@@ -1,0 +1,10 @@
+incomplete_definition_of_struct.c:4:13: error: incomplete definition of type 'struct card'
+    4 |     return c->value;
+      |            ~^
+incomplete_definition_of_struct.c:1:8: note: forward declaration of 'struct card'
+    1 | struct card;
+      |        ^
+dcc explanation: the definition of struct card is not visible in incomplete_definition_of_struct.c, so its fields can not be used here.
+Check you have spelled the struct name correctly and #included the file which defines it.
+If it is an ADT, its definition is deliberately hidden in the .c file which implements it,
+and you have to use the functions that ADT provides instead of accessing its fields yourself.

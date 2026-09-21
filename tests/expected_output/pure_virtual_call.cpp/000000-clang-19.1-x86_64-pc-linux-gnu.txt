@@ -1,0 +1,19 @@
+pure virtual method called
+terminate called without an active exception
+
+Execution stopped by the C++ library, which printed the reason above.
+The specific reason is shown in the library message above.
+Execution stopped in Shape::setup(this=main:&s) in pure_virtual_call.cpp at line 10:
+
+};
+
+-->void Shape::setup() { draw(); }
+
+struct Square : Shape {
+
+Function call traceback:
+
+Shape::setup(this=main:&s) called at line 4 of pure_virtual_call.cpp
+Shape::Shape(this=main:&s) called at line 12 of pure_virtual_call.cpp
+Square::Square(this=main:&s) called at line 17 of pure_virtual_call.cpp
+main()

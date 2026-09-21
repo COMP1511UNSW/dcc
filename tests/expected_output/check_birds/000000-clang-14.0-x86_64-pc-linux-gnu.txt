@@ -120,7 +120,7 @@ The next expected line was:
 bird-zero-byte.c
 
 Execution failed because a zero byte ('\0') was printed.
-Byte 3 of line 3 of program's output was a zero byte ('\0')
+Byte 4 of line 3 of program's output was a zero byte ('\0')
 Here are the characters on the line before the zero byte:
 ((_
 

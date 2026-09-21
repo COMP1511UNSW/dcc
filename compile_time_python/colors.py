@@ -64,10 +64,6 @@ def _color_code(spec, base):
 		return _join(base + 8, 2, _join(*spec))
 	else:
 		raise ValueError() # not using rgb currently
-		rgb = parse_rgb(spec)
-		# parse_rgb raises ValueError if cannot parse spec
-		# or returns an rgb tuple if it can
-		return _join(base + 8, 2, _join(*rgb))
 
 
 def color(s, fg=None, bg=None, style=None):

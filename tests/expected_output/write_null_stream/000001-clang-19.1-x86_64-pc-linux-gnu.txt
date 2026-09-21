@@ -1,0 +1,6 @@
+write_null_stream.c:4:13: warning: null passed to a callee that requires a non-null argument [-Wnonnull]
+    4 |     fprintf(NULL, "Hello world\n");
+      |             ^~~~
+/usr/lib/llvm-19/lib/clang/19/include/__stddef_null.h:26:14: note: expanded from macro 'NULL'
+   26 | #define NULL ((void*)0)
+      |              ^~~~~~~~~~

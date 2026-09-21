@@ -1,4 +1,5 @@
-import io, json, os, pkgutil, platform, re, subprocess, sys, tarfile, tempfile
+import errno, hashlib, io, json, os, pkgutil, platform, re, shutil, stat
+import shlex, subprocess, sys, tarfile, tempfile
 import colors
 
 from version import VERSION
@@ -38,8 +39,21 @@ def main():
         + os.environ.get("PATH", "")
     )
     options = get_options()
+    try:
+        compile_and_explain(options)
+    except OSError as e:
+        # dcc exists to replace toolchain output with something a novice can
+        # act on, so a Python traceback must never reach one
+        options.die(str(e))
+
+
+def compile_and_explain(options):
     with tempfile.TemporaryDirectory(prefix="dcc") as d:
         options.temporary_directory = d
+        # the compilers dcc runs inherit TMPDIR, and a broken one makes them fail
+        # in dcc's own code, which looks like dcc being broken.  this directory
+        # has just been shown to be usable
+        os.environ["TMPDIR"] = d
         p = compile_user_program(options)
         explanation_labels = []
         if p.stdout:
@@ -48,16 +62,50 @@ def main():
                 explanation_labels = [e.label for e in explanations if e and e.label]
             else:
                 print(p.stdout, end="", file=sys.stderr)
-        if p:
-            run_compile_time_logger(p, explanation_labels, options)
-            sys.exit(p.returncode)
-        else:
-            sys.exit(1)
+        if p.returncode == 0:
+            check_program_was_produced(options)
+        run_compile_time_logger(p, explanation_labels, options)
+        sys.exit(p.returncode)
+
+
+# options which ask the compiler for something which is not a program
+NON_LINKING_COMPILER_ARGS = [
+    "--analyze",
+    "-###",
+    "-E",
+    "-fsyntax-only",
+    "-M",
+    "-MM",
+    "-S",
+]
+
+# options which make the compiler print information and exit, e.g.
+# -print-file-name=libm.a, -dumpmachine
+NON_LINKING_COMPILER_ARG_PREFIXES = ("-dump", "-print")
+
+
+def check_program_was_produced(options):
+    """die if a compiler exited 0 but linked nothing, e.g. --c-compiler=/bin/true"""
+    if options.incremental_compilation:
+        return
+    if any(asks_for_no_program(a) for a in options.user_supplied_compiler_args):
+        return
+    if not os.path.exists(options.object_pathname):
+        options.die(f"{options.c_compiler} did not produce {options.object_pathname}")
+
+
+def asks_for_no_program(argument):
+    return argument in NON_LINKING_COMPILER_ARGS or argument.startswith(
+        NON_LINKING_COMPILER_ARG_PREFIXES
+    )
 
 
 def compile_user_program(options):
-    wrapper_source, tar_source, wrapper_cpp_source = get_wrapper_code(options)
-    executable_source = ""
+    wrapper_source, wrapper_cpp_source = get_wrapper_code(options)
+    # the Python which explains errors travels in the binary as a tar file
+    embedded_objects = [
+        embedded_blob_object(options, "dcc_tar_data", embedded_tarfile_bytes(options))
+    ]
 
     if options.debug > 1:
         try:
@@ -70,42 +118,48 @@ def compile_user_program(options):
 
     if len(options.sanitizers) == 2:
         sanitizer2_wrapper_source, sanitizer2_sanitizer_args = update_wrapper_source(
-            options.sanitizers[1], 2, wrapper_source, tar_source, options
+            options.sanitizers[1], 2, wrapper_source, options
         )
         sanitizer2_wrapper_source = (
             "#undef _GNU_SOURCE\n#define _GNU_SOURCE 1\n#include <stdint.h>\n"
             + sanitizer2_wrapper_source
         )
+        # the executable is placed in dcc's temporary directory
+        # so it is removed even if compilation fails
+        executable = os.path.join(options.temporary_directory, "dcc_sanitizer2")
+        p = execute_compiler(
+            options.c_compiler,
+            options.dcc_supplied_compiler_args
+            + sanitizer2_sanitizer_args
+            + ["-o", executable],
+            options,
+            wrapper_C_source=sanitizer2_wrapper_source,
+            wrapper_cpp_source=wrapper_cpp_source,
+            wrapper_extra_options=[
+                opt for opt in sanitizer2_sanitizer_args if opt.startswith("-f")
+            ],
+            debug_C_wrapper_file="tmp_dcc_sanitizer2.c",
+            embedded_objects=embedded_objects,
+        )
+        if p.returncode != 0:
+            return p
+        # this executable travels inside the one which is about to be built
+        # nothing is produced by e.g. -fsyntax-only, which embeds an empty one
         try:
-            # can't use tempfile.NamedTemporaryFile because may be multiple opens of file
-            executable = tempfile.mkstemp(prefix="dcc_sanitizer2")[1]
-            p = execute_compiler(
-                options.c_compiler,
-                options.dcc_supplied_compiler_args
-                + sanitizer2_sanitizer_args
-                + ["-o", executable],
-                options,
-                wrapper_C_source=sanitizer2_wrapper_source,
-                wrapper_cpp_source=wrapper_cpp_source,
-                wrapper_extra_options=[opt for opt in sanitizer2_sanitizer_args if opt.startswith("-f")],
-                debug_C_wrapper_file="tmp_dcc_sanitizer2.c",
-            )
-            if p.returncode != 0:
-                return p
             with open(executable, "rb") as f:
-                (
-                    executable_n_bytes,
-                    executable_source,
-                ) = source_for_sanitizer2_executable(f.read())
-            os.unlink(executable)
-        except OSError:
-            # compiler may unlink temporary file resulting in this exception
-            return None
+                executable_bytes = f.read()
+        except FileNotFoundError:
+            executable_bytes = b""
+        except OSError as e:
+            options.die(f"internal error: can not read {executable}: {e.strerror}")
+        embedded_objects.append(
+            embedded_blob_object(options, "dcc_sanitizer2_data", executable_bytes)
+        )
 
     # leave leak checking to valgrind if it is running
     # because it currently gives better errors
     wrapper_source, sanitizer_args = update_wrapper_source(
-        options.sanitizers[0], 1, wrapper_source, tar_source, options
+        options.sanitizers[0], 1, wrapper_source, options
     )
 
     if options.incremental_compilation:
@@ -117,14 +171,8 @@ def compile_user_program(options):
         command = [options.c_compiler] + incremental_compilation_args
         if options.object_pathname != "a.out":
             command += ["-o", options.object_pathname]
-        options.debug_print("incremental compilation, running: ", " ".join(command))
-        return subprocess.run(command)
-
-    if executable_source:
-        wrapper_source = wrapper_source.replace(
-            "__EXECUTABLE_N_BYTES__", str(executable_n_bytes)
-        )
-        wrapper_source = executable_source + wrapper_source
+        options.debug_print("incremental compilation")
+        return run(command, options, input_text=None, stdout=None, stderr=None)
 
     # _GNU_SOURCE to get fopencookie
     wrapper_source = (
@@ -140,6 +188,7 @@ def compile_user_program(options):
         wrapper_C_source=wrapper_source,
         wrapper_extra_options=[opt for opt in sanitizer_args if opt.startswith("-f")],
         wrapper_cpp_source=wrapper_cpp_source,
+        embedded_objects=embedded_objects,
     )
     if p.returncode != 0 or p.stdout:
         return p
@@ -154,19 +203,82 @@ def compile_user_program(options):
         and not options.object_files_being_linked
     ):
         options.debug_print("compiling with gcc for extra checking")
-        return execute_compiler(
+        gcc_p = execute_compiler(
             "g++" if options.cpp_mode else "gcc",
             options.gcc_args,
             options,
             rename_functions=False,
         )
+        # gcc links libgcc only, so a multiplication function clang took from
+        # compiler-rt is undefined for gcc - which says nothing about the
+        # program clang has already compiled
+        if UNDEFINED_MULTIPLICATION_REFERENCE in gcc_p.stdout:
+            options.debug_print("ignoring gcc pass, it can not link compiler-rt")
+            return p
+        return gcc_p
 
     return p
 
 
+# The Python source and the second executable are made available to the C code
+# as a pair of symbols defined by an object file, rather than as array
+# initializers in the generated C, which the compiler would have to parse on
+# every compilation.
+BLOB_ASSEMBLER_SOURCE = """\
+#ifdef __APPLE__
+# define DCC_BLOB(name) _ ## name
+    .section __TEXT,__const
+#else
+# define DCC_BLOB(name) name
+    .section .rodata
+#endif
+    .p2align 3
+    .globl DCC_BLOB(__SYMBOL__)
+DCC_BLOB(__SYMBOL__):
+    .incbin "__PATHNAME__"
+    .globl DCC_BLOB(__SYMBOL___end)
+DCC_BLOB(__SYMBOL___end):
+#ifndef __APPLE__
+    .section .note.GNU-stack,"",@progbits
+#endif
+"""
+
+
+def embedded_blob_object(options, symbol, contents):
+    """return an object file defining symbol and symbol_end around contents"""
+    pathname = os.path.join(options.temporary_directory, symbol)
+    with open(pathname, "wb") as f:
+        f.write(contents)
+    source = BLOB_ASSEMBLER_SOURCE.replace("__SYMBOL__", symbol)
+    source = source.replace("__PATHNAME__", pathname)
+    object_pathname = pathname + ".o"
+    compiler = options.c_compiler.replace("clang++", "clang").replace("++", "cc")
+    command = [compiler, "-c", "-x", "assembler-with-cpp", "-", "-o", object_pathname]
+    process = run(command, options, input_text=source)
+    # a failure here is the compiler being unusable, not dcc being broken,
+    # and the symbol name means nothing to the person reading the message
+    if process.stdout or process.returncode != 0:
+        options.die(f"{compiler} can not compile dcc's own code\n" + process.stdout)
+    if options.debug > 1:
+        # so the recorded compile command can be re-run
+        try:
+            shutil.copyfile(object_pathname, os.path.basename(object_pathname))
+        except OSError as e:
+            options.debug_print(e)
+    return object_pathname
+
+
 # customize wrapper source for a particular sanitizer
-def update_wrapper_source(sanitizer, sanitizer_n, src, tar_source, options):
-    src = src.replace("__SANITIZER__", sanitizer.upper())
+def update_wrapper_source(sanitizer, sanitizer_n, src, options):
+    """add the definitions particular to one of the two sanitizers"""
+    definitions = {
+        "DCC_SANITIZER": sanitizer.upper(),
+        "DCC_SANITIZER_NAME": c_repr(sanitizer.upper()),
+        "DCC_I_AM_SANITIZER1": int(sanitizer_n == 1),
+        "DCC_I_AM_SANITIZER2": int(sanitizer_n == 2),
+        "DCC_WHICH_SANITIZER": c_repr(f"sanitizer{sanitizer_n}"),
+        "DCC_UBSAN_IN_USE": 0,
+    }
     if sanitizer == "valgrind":
         sanitizer_args = []
     elif sanitizer == "memory":
@@ -174,11 +286,17 @@ def update_wrapper_source(sanitizer, sanitizer_n, src, tar_source, options):
     else:
         sanitizer_args = ["-fsanitize=address"]
 
-    # 	if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
+    # the valgrind process of a pair is deliberately built without the
+    # undefined behaviour sanitizer, which is why dcc misses some uninitialized
+    # values dcc --valgrind reports: memcheck only complains when such a value
+    # reaches a branch, and an undefined behaviour check is often the only
+    # branch on it.  Building it with the sanitizer is not a fix -- a program
+    # compiled with --use-after-return is then killed by SIGKILL and prints
+    # nothing at all, which is worse than the values it would catch.  See #58.
     if sanitizer != "memory" and not (sanitizer_n == 2 and sanitizer == "valgrind"):
         # FIXME if we enable '-fsanitize=undefined', '-fno-sanitize-recover=undefined,integer' for memory
         # which would be preferable here we get uninitialized variable error message for undefined errors
-        src = src.replace("__UNDEFINED_BEHAVIOUR_SANITIZER_IN_USE__", "1")
+        definitions["DCC_UBSAN_IN_USE"] = 1
         sanitizer_args += ["-fsanitize=undefined"]
     if sanitizer == "address":
         sanitizer_args += ["-ftrivial-auto-var-init=pattern"]
@@ -195,22 +313,28 @@ def update_wrapper_source(sanitizer, sanitizer_n, src, tar_source, options):
         if os.path.exists(lib_dir):
             sanitizer_args += ["-shared-libasan", "-Wl,-rpath," + lib_dir]
 
-    src = src.replace("__LEAK_CHECK_YES_NO__", "yes" if options.leak_check else "no")
+    definitions["DCC_LEAK_CHECK_YES_NO"] = c_repr(
+        "yes" if options.leak_check else "no"
+    )
     leak_check = options.leak_check
     if leak_check and options.sanitizers[1:] == ["valgrind"]:
         # do leak checking in valgrind (only) for (currently) better messages
         leak_check = False
-    src = src.replace("__LEAK_CHECK_1_0__", "1" if leak_check else "0")
-    src = src.replace("__USE_FUNOPEN__", "1" if options.use_funopen else "0")
+    definitions["DCC_LEAK_CHECK"] = int(bool(leak_check))
 
-    src = src.replace("__I_AM_SANITIZER1__", "1" if sanitizer_n == 1 else "0")
-    src = src.replace("__I_AM_SANITIZER2__", "1" if sanitizer_n == 2 else "0")
-    src = src.replace(
-        "__WHICH_SANITIZER__", "sanitizer2" if sanitizer_n == 2 else "sanitizer1"
-    )
+    return source_for_definitions(definitions) + src, sanitizer_args
 
-    src = tar_source + src
-    return src, sanitizer_args
+
+# what the linker says when the program needs a function only compiler-rt has
+UNDEFINED_MULTIPLICATION_REFERENCE = "undefined reference to `__mul"
+
+# -lgcc and -lgcc_s are still needed for unwinding
+COMPILER_RT_ARGUMENTS = ["--rtlib=compiler-rt", "-lgcc", "-lgcc_s"]
+
+
+def source_without_ubsan(source):
+    """the wrapper source with the undefined behaviour sanitizer turned off"""
+    return source.replace("#define DCC_UBSAN_IN_USE 1", "#define DCC_UBSAN_IN_USE 0")
 
 
 def execute_compiler(
@@ -221,9 +345,11 @@ def execute_compiler(
     debug_C_wrapper_file="tmp_dcc_sanitizer1.c",
     rename_functions=True,
     wrapper_cpp_source="",
-    wrapper_extra_options=[],
+    wrapper_extra_options=None,
     debug_cpp_wrapper_file="tmp_dcc_sanitizer1.cpp",
+    embedded_objects=(),
 ):
+    wrapper_extra_options = wrapper_extra_options or []
     extra_c_arguments, extra_c_arguments_debug = compile_wrapper_source(
         wrapper_C_source,
         options,
@@ -246,6 +372,7 @@ def execute_compiler(
         + dcc_supplied_arguments
         + extra_c_arguments
         + extra_cpp_arguments
+        + list(embedded_objects)
         + options.user_supplied_compiler_args
         + options.dcc_supplied_linker_args
     )
@@ -255,37 +382,67 @@ def execute_compiler(
             + dcc_supplied_arguments
             + extra_c_arguments_debug
             + extra_cpp_arguments_debug
+            + list(embedded_objects)
             + options.user_supplied_compiler_args
             + options.dcc_supplied_linker_args
         )
+        # files in the temporary directory are recorded by basename
+        # so the debug script can be re-run after the directory is removed
+        debug_command = [
+            os.path.basename(a) if a.startswith(options.temporary_directory) else a
+            for a in debug_command
+        ]
         append_debug_compile(debug_command)
     p = run(command, options)
 
     # avoid a confusing mess of linker errors
-    if "undefined reference to `main" in p.stdout:
+    if linker_reports_missing_main(p.stdout):
         p.stdout = "error: your program does not contain a main function - a C program must contain a main function"
         p.returncode = 1
         return p
 
-    # workaround for  https://github.com/android-ndk/ndk/issues/184
-    # when not triggered earlier
-    if "undefined reference to `__mul" in p.stdout:
-        command = [
-            c
-            for c in command
-            if c
-            not in ["-fsanitize=undefined", "-fno-sanitize-recover=undefined,integer"]
-        ]
-        options.debug_print("undefined reference to `__mulodi4'")
-        options.debug_print("recompiling", " ".join(command))
-        p = run(command, options)
+    # on some architectures clang emits calls to the overflow-checking
+    # multiplication functions of its own run-time library, which the libgcc
+    # it links by default does not have
+    # https://github.com/android-ndk/ndk/issues/184
+    if UNDEFINED_MULTIPLICATION_REFERENCE in p.stdout:
+        # compiler-rt is already the default run-time library on macOS
+        if "clang" in compiler and sys.platform != "darwin":
+            options.debug_print("relinking with", " ".join(COMPILER_RT_ARGUMENTS))
+            relinked = run(command + COMPILER_RT_ARGUMENTS, options)
+            # an install without compiler-rt must keep the original error,
+            # which is accurate, and still reach the fallback below
+            if relinked.returncode == 0:
+                p = relinked
+        if (
+            UNDEFINED_MULTIPLICATION_REFERENCE in p.stdout
+            and "-fsanitize=undefined" in dcc_supplied_arguments
+        ):
+            # the wrapper is compiled again as well as the program, because a
+            # wrapper compiled for the sanitizer would say it was in use and
+            # its calls to the sanitizer's run-time library would be undefined
+            options.debug_print("recompiling without -fsanitize=undefined")
+            return execute_compiler(
+                compiler,
+                [a for a in dcc_supplied_arguments if a != "-fsanitize=undefined"],
+                options,
+                wrapper_C_source=source_without_ubsan(wrapper_C_source),
+                debug_C_wrapper_file=debug_C_wrapper_file,
+                rename_functions=rename_functions,
+                wrapper_cpp_source=source_without_ubsan(wrapper_cpp_source),
+                wrapper_extra_options=[
+                    a for a in wrapper_extra_options if a != "-fsanitize=undefined"
+                ],
+                debug_cpp_wrapper_file=debug_cpp_wrapper_file,
+                embedded_objects=embedded_objects,
+            )
 
     # a user call to a renamed unistd.h function appears to be undefined
     # so recompile without renames
 
-    if rename_functions and "undefined reference to `__renamed_" in p.stdout:
+    if rename_functions and linker_reports_renamed_function(p.stdout):
         options.debug_print(
-            "undefined reference to `__renamed_' recompiling without -D renames"
+            "undefined reference to a __renamed_ function, recompiling without -D renames"
         )
         return execute_compiler(
             compiler,
@@ -295,9 +452,29 @@ def execute_compiler(
             wrapper_C_source=wrapper_C_source,
             debug_C_wrapper_file=debug_C_wrapper_file,
             wrapper_cpp_source=wrapper_cpp_source,
+            wrapper_extra_options=wrapper_extra_options,
             debug_cpp_wrapper_file=debug_cpp_wrapper_file,
+            embedded_objects=embedded_objects,
         )
     return p
+
+
+# the name is not always alone after the backtick: ld demangles C++, so a
+# renamed member function is reported as e.g. `std::istream::__renamed_read(...)'
+def linker_reports_renamed_function(linker_output):
+    """return True if a linker reports a __renamed_ function is undefined"""
+    return bool(
+        re.search(
+            r"undefined (reference to `|symbol: )[^'\n]*__renamed_", linker_output, re.M
+        )
+    )
+
+
+def linker_reports_missing_main(linker_output):
+    """return True if GNU ld or lld reports that main is undefined"""
+    return bool(
+        re.search(r"undefined (reference to `|symbol: )main(['\s]|$)", linker_output, re.M)
+    )
 
 
 def compile_wrapper_source(
@@ -306,10 +483,11 @@ def compile_wrapper_source(
     debug_wrapper_file,
     cpp=False,
     rename_functions=True,
-    wrapper_extra_options=[],
+    wrapper_extra_options=None,
 ):
     if not source:
         return [], []
+    wrapper_extra_options = wrapper_extra_options or []
     rename_arguments, source = get_rename_arguments(source, options, rename_functions)
     relocatable_basename = (
         "dcc_cpp_wrapper_source.o" if cpp else "dcc_c_wrapper_source.o"
@@ -333,7 +511,7 @@ def compile_wrapper_source(
             debug_wrapper_file,
             "-o",
             relocatable_basename,
-        ] + WRAPPER_SOURCE_COMPILER_ARGS
+        ] + WRAPPER_SOURCE_COMPILER_ARGS + wrapper_extra_options
         append_debug_compile(debug_command)
     command = [
         compiler,
@@ -345,12 +523,146 @@ def compile_wrapper_source(
         relocatable_pathname,
     ] + WRAPPER_SOURCE_COMPILER_ARGS + wrapper_extra_options
     options.debug_print("wrapper options", wrapper_extra_options)
-    process = run(command, options, input=source)
-    if process.stdout or process.returncode != 0:
-        options.die("Internal error\n" + process.stdout)
+    if not cached_wrapper_object(options, source, command, relocatable_pathname):
+        process = run(command, options, input_text=source)
+        if process.stdout or process.returncode != 0:
+            options.die("Internal error\n" + process.stdout)
+        save_wrapper_object(options, source, command, relocatable_pathname)
     return rename_arguments + [relocatable_pathname], rename_arguments + [
         relocatable_basename
     ]
+
+
+# This code is the same for every program compiled by the same dcc with the
+# same compiler and options, so the object file is kept and re-used.  A miss
+# only costs the time to compile it, so anything unexpected is treated as one.
+
+# how many objects are kept before the least recently used are removed
+MAX_CACHED_WRAPPER_OBJECTS = 20
+
+
+def wrapper_object_cache_pathname(options, source, command):
+    """return where the object for this source and command belongs, or None"""
+    if os.environ.get("DCC_NO_WRAPPER_CACHE"):
+        return None
+    try:
+        # the compiler is identified by its version and by the file itself, so
+        # that upgrading it can not re-use an object the old one produced
+        compiler = shutil.which(command[0]) or command[0]
+        information = os.stat(compiler)
+        key = hashlib.sha256()
+        for part in (
+            VERSION,
+            platform.system(),
+            platform.machine(),
+            options.clang_version,
+            compiler,
+            str(information.st_size),
+            str(information.st_mtime_ns),
+            " ".join(command_without_output_pathname(command)),
+            source,
+        ):
+            key.update(part.encode("utf-8", "surrogateescape") + b"\0")
+        directory = os.environ.get("XDG_CACHE_HOME") or os.path.join(
+            os.path.expanduser("~"), ".cache"
+        )
+        return os.path.join(directory, "dcc", "wrapper-" + key.hexdigest() + ".o")
+    except (OSError, TypeError) as e:
+        options.debug_print("wrapper object cache unavailable:", e)
+        return None
+
+
+def command_without_output_pathname(command):
+    """the command with -o and its argument left out
+
+    The object is written to a new temporary directory on every compilation,
+    so its pathname must not be part of what identifies the compilation.
+    """
+    arguments = []
+    skip = False
+    for argument in command:
+        if skip:
+            skip = False
+        elif argument == "-o":
+            skip = True
+        else:
+            arguments.append(argument)
+    return arguments
+
+
+def cached_wrapper_object(options, source, command, relocatable_pathname):
+    """copy a usable cached object to relocatable_pathname, and say if it did
+
+    The bytes are copied into dcc's own temporary directory rather than the
+    cached pathname being linked, so that another dcc removing the entry a
+    moment later can not make this compilation fail.
+    """
+    pathname = wrapper_object_cache_pathname(options, source, command)
+    if not pathname:
+        return False
+    try:
+        information = os.lstat(pathname)
+        # a file which is not an ordinary file of our own could have been put
+        # there by anyone, and a damaged one would fail at the linker
+        if not stat.S_ISREG(information.st_mode) or information.st_uid != os.getuid():
+            options.debug_print("ignoring cached object not owned by us", pathname)
+            return False
+        with open(pathname, "rb") as f:
+            contents = f.read()
+        with open(pathname + ".sha256", encoding="ascii") as f:
+            expected_digest = f.read().strip()
+        if hashlib.sha256(contents).hexdigest() != expected_digest:
+            options.debug_print("ignoring damaged cached object", pathname)
+            return False
+        # the touch is what keeps this entry from being the least recently
+        # used one, and like every other access it can lose a race with the
+        # dcc doing the removing
+        os.utime(pathname, None)
+        with open(relocatable_pathname, "wb") as f:
+            f.write(contents)
+    except OSError:
+        return False
+    options.debug_print("using cached object", pathname)
+    return True
+
+
+def save_wrapper_object(options, source, command, relocatable_pathname):
+    """keep the object just compiled so the next compilation can re-use it"""
+    pathname = wrapper_object_cache_pathname(options, source, command)
+    if not pathname:
+        return
+    try:
+        directory = os.path.dirname(pathname)
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+        with open(relocatable_pathname, "rb") as f:
+            contents = f.read()
+        # written under a private name and renamed, so another compilation
+        # running at the same time never sees a half-written object
+        unique = pathname + f".{os.getpid()}"
+        with open(unique + ".sha256", "w", encoding="ascii") as f:
+            f.write(hashlib.sha256(contents).hexdigest())
+        with open(unique, "wb") as f:
+            f.write(contents)
+        os.replace(unique + ".sha256", pathname + ".sha256")
+        os.replace(unique, pathname)
+        options.debug_print("cached object", pathname)
+        remove_least_recently_used_objects(directory)
+    except OSError as e:
+        options.debug_print("can not cache object:", e)
+
+
+def remove_least_recently_used_objects(directory):
+    objects = [os.path.join(directory, f) for f in os.listdir(directory)]
+    objects = [f for f in objects if f.endswith(".o")]
+    if len(objects) <= MAX_CACHED_WRAPPER_OBJECTS:
+        return
+    objects.sort(key=lambda f: os.stat(f).st_mtime)
+    for pathname in objects[: len(objects) - MAX_CACHED_WRAPPER_OBJECTS]:
+        for f in (pathname, pathname + ".sha256"):
+            try:
+                os.unlink(f)
+            except OSError:
+                pass
 
 
 def get_rename_arguments(source, options, rename_functions=True):
@@ -374,6 +686,10 @@ def get_rename_arguments(source, options, rename_functions=True):
         rename_arguments += [f"-D{f}=__renamed_{f}" for f in rename_function_names]
 
     override_functions = []
+    if options.check_output and len(options.sanitizers) == 1:
+        # a child's output is the program's output, so it is checked even when
+        # there is no second sanitizer to keep in step with
+        override_functions = ["system"]
     if len(options.sanitizers) > 1:
         override_functions = [
             "clock",
@@ -417,20 +733,11 @@ def append_debug_compile(command):
         print(e, file=sys.stderr)
 
 
-def get_wrapper_cpp_code(options):
-    wrapper_source = "".join(
-        pkgutil.get_data("embedded_src", f).decode("utf8")
-        for f in [
-            "dcc_io.c",
-        ]
-    )
-    return add_constants_to_source_code(wrapper_source, options)
-
-
 def get_wrapper_code(options):
     wrapper_source = "".join(
         pkgutil.get_data("embedded_src", f).decode("utf8")
         for f in [
+            "dcc_defines.h",
             "dcc_main.c",
             "dcc_dual_sanitizers.c",
             "dcc_util.c",
@@ -438,9 +745,8 @@ def get_wrapper_code(options):
             "dcc_save_stdin.c",
         ]
     )
-    wrapper_source = add_constants_to_source_code(wrapper_source, options)
-    wrapper_source, tar_source = add_embedded_tarfile_handling_to_source_code(
-        wrapper_source, options
+    wrapper_source = (
+        source_for_definitions(definitions_for_source_code(options)) + wrapper_source
     )
     wrapper_cpp_source = ""
     if options.cpp_mode:
@@ -450,68 +756,114 @@ def get_wrapper_code(options):
                 "dcc_io.cpp",
             ]
         )
-    return wrapper_source, tar_source, wrapper_cpp_source
+    return wrapper_source, wrapper_cpp_source
 
 
-def add_constants_to_source_code(src, options):
-    src = src.replace("__PATH__", options.dcc_path)
-    src = src.replace("__DCC_VERSION__", '"' + VERSION + '"')
-    src = src.replace("__HOSTNAME__", '"' + platform.node() + '"')
-    src = src.replace("__CLANG_VERSION__", f'"{options.clang_version}"')
-    src = src.replace("__SUPRESSIONS_FILE__", options.suppressions_file)
-    src = src.replace(
-        "__STACK_USE_AFTER_RETURN__", "1" if options.stack_use_after_return else "0"
-    )
-    src = src.replace("__CHECK_OUTPUT__", "1" if options.check_output else "0")
-    src = src.replace("__SAVE_STDIN_BUFFER_SIZE__", str(options.save_stdin_buffer_size))
-    src = src.replace("__CPP_MODE__", "1" if options.cpp_mode else "0")
-    src = src.replace(
-        "__WRAP_POSIX_SPAWN__", "1" if options.valgrind_fix_posix_spawn else "0"
-    )
-    src = src.replace("__CLANG_VERSION_MAJOR__", str(options.clang_version_major))
-    src = src.replace("__CLANG_VERSION_MINOR__", str(options.clang_version_minor))
-    src = src.replace("__N_SANITIZERS__", str(len(options.sanitizers)))
-    src = src.replace("__DEBUG__", "1" if options.debug else "0")
-    src = src.replace(
-        "__SET_EMBEDDED_ENVIRONMENT_VARIABLES__", embeded_environment_variables(options)
-    )
+def definitions_for_source_code(options):
+    """the choices dcc has made, as #defines for wrapper_c/dcc_defines.h
+
+    They are definitions rather than text substituted into the code, so that
+    the code is ordinary C which a compiler or an editor can read on its own.
+    """
+    definitions = {
+        "DCC_PATH_LITERAL": c_repr(options.dcc_path),
+        "DCC_SUPPRESSIONS_FILE": c_repr(options.suppressions_file),
+        "DCC_STACK_USE_AFTER_RETURN": int(bool(options.stack_use_after_return)),
+        "DCC_CHECK_OUTPUT": int(bool(options.check_output)),
+        "DCC_SAVE_STDIN_BUFFER_SIZE": options.save_stdin_buffer_size,
+        "DCC_CPP_MODE": int(bool(options.cpp_mode)),
+        "DCC_USE_FUNOPEN": int(bool(options.use_funopen)),
+        "DCC_WRAP_POSIX_SPAWN": int(bool(options.valgrind_fix_posix_spawn)),
+        "DCC_CLANG_VERSION_MAJOR": options.clang_version_major or 0,
+        "DCC_N_SANITIZERS": len(options.sanitizers),
+        "DCC_DEBUG_BUILD": int(bool(options.debug)),
+        "DCC_MONITOR_VALGRIND": c_repr(valgrind_watcher_command()),
+        "DCC_SET_EMBEDDED_ENVIRONMENT_VARIABLES()": embedded_environment_variables(
+            options
+        ),
+    }
     if len(options.sanitizers) > 1:
-        src = src.replace("__SANITIZER_2__", options.sanitizers[1].upper())
-    return src
+        definitions["DCC_SANITIZER_2"] = options.sanitizers[1].upper()
+    return definitions
 
 
-def add_embedded_tarfile_handling_to_source_code(src, options):
-    tar_n_bytes, tar_source = source_for_embedded_tarfile(options)
-    watcher = rf"PATH=$PATH:/bin:/usr/bin:/usr/local/bin exec python3 -E -c \"import io,os,sys,tarfile,tempfile\n\
-with tempfile.TemporaryDirectory() as temp_dir:\n\
- buffer = io.BytesIO(sys.stdin.buffer.raw.read({tar_n_bytes}))\n\
- if len(buffer.getbuffer()) == {tar_n_bytes}:\n\
-  k = {{'filter':'data'}} if hasattr(tarfile, 'data_filter') else {{}}\n\
-  tarfile.open(fileobj=buffer, bufsize={tar_n_bytes}, mode='r|xz').extractall(temp_dir, **k)\n\
-  os.environ['DCC_PWD'] = os.getcwd()\n\
-  os.chdir(temp_dir)\n\
-  exec(open('watch_valgrind.py').read())\n\
-\""
-    src = src.replace("__MONITOR_VALGRIND__", watcher)
-    return src, tar_source
+def source_for_definitions(definitions):
+    return "".join(f"#define {name} {value}\n" for name, value in definitions.items())
 
 
-def embeded_environment_variables(options):
-    ev = options.embedded_environment_variables
-    assignments = [f"setenvd({c_repr(k)}, {c_repr(v)});" for (k, v) in ev]
-    return "\n".join(assignments)
+def valgrind_watcher_command():
+    """the shell command which reads valgrind's output and explains it
 
+    The size of the tar file it is sent reaches it in the environment,
+    because those bytes are linked into the program rather than being part
+    of the source which holds this command.
 
-def c_repr(str):
+    The interpreter dcc is running under is tried before the one in PATH,
+    because if no python3 can be run the program valgrind is watching waits
+    for a debugger this command would have started, and never says why.
+    """
+    python3 = shlex.quote(sys.executable or "python3")
     return (
-        '"' + str.replace("\\", r"\\").replace(r'"', r"\"").replace("\n", r"\n") + '"'
+        "PATH=$PATH:/bin:/usr/bin:/usr/local/bin\n"
+        f"for dcc_python3 in {python3} python3\n"
+        + """do
+ dcc_python3=$(command -v "$dcc_python3") || continue
+ # a candidate can exist and still fail to run, e.g. a shim for a removed
+ # version, so it is tried before the shell is replaced
+ "$dcc_python3" -E -c "" </dev/null >/dev/null 2>&1 || continue
+ exec "$dcc_python3" -E -c "import io,os,sys,tarfile,tempfile
+with tempfile.TemporaryDirectory() as temp_dir:
+ n = int(os.environ['DCC_TAR_N_BYTES'])
+ buffer = io.BytesIO(sys.stdin.buffer.raw.read(n))
+ if len(buffer.getbuffer()) == n:
+  k = {'filter':'data'} if hasattr(tarfile, 'data_filter') else {}
+  tarfile.open(fileobj=buffer, bufsize=n, mode='r|xz').extractall(temp_dir, **k)
+  os.environ['DCC_PWD'] = os.getcwd()
+  os.chdir(temp_dir)
+  exec(open('watch_valgrind.py').read())
+"
+done
+echo "dcc: python3 can not be run, so errors will not be explained" >&2
+head -c "$DCC_TAR_N_BYTES" >/dev/null
+while read -r dcc_error_line
+do
+ echo "$dcc_error_line" >&2
+ case "$dcc_error_line" in
+ # valgrind is now waiting for the debugger which was not started
+ *"vgdb me"*) kill -9 "$PPID"; exit 1;;
+ esac
+done
+"""
     )
+
+
+def embedded_environment_variables(options):
+    assignments = "".join(
+        f"setenvd({c_repr(name)}, {c_repr(value)});"
+        for (name, value) in options.embedded_environment_variables
+    )
+    return "do { " + assignments + " } while (0)"
+
+
+def c_repr(s):
+    """return s as a C string literal"""
+    literal = '"'
+    for c in s:
+        if c in '"\\?':
+            # ? is escaped so that ?? can not form a trigraph
+            literal += "\\" + c
+        elif " " <= c <= "~":
+            literal += c
+        else:
+            # octal escapes are at most 3 digits so a following digit is safe
+            literal += "".join(f"\\{b:03o}" for b in c.encode("utf-8", "surrogateescape"))
+    return literal + '"'
 
 
 def run(
     command,
     options,
-    input="",
+    input_text="",
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
@@ -519,84 +871,42 @@ def run(
     check=False,
 ):
     options.debug_print(" ".join(command))
-    return subprocess.run(
-        command,
-        input=input,
-        stdout=stdout,
-        stderr=stderr,
-        text=text,
-        errors=errors,
-        check=check,
-    )
+    try:
+        return subprocess.run(
+            command,
+            input=input_text,
+            stdout=stdout,
+            stderr=stderr,
+            text=text,
+            errors=errors,
+            check=check,
+        )
+    except OSError as e:
+        if e.errno == errno.E2BIG:
+            options.die(
+                "the command line is too long for the compiler"
+                " - try fewer arguments or source files"
+            )
+        options.die(f"can not run {command[0]}: {e.strerror or e}")
 
 
-def source_for_sanitizer2_executable(executable):
-    source = "\nstatic uint64_t sanitizer2_executable[] = {"
-    source += bytes2hex64_initializers(executable)
-    source += "};\n"
-    n_bytes = len(executable)
-    return n_bytes, source
-
-
-def source_for_embedded_tarfile(options):
+def embedded_tarfile_bytes(options):
+    """return the xz-compressed tar of the Python which explains errors"""
     for file in FILES_EMBEDDED_IN_BINARY:
         contents = pkgutil.get_data("embedded_src", file)
         if file.endswith(".py"):
-            contents = minify(contents, options)
+            contents = minify(contents)
         add_tar_file(options.tar, file, contents)
     options.tar.close()
-    n_bytes = options.tar_buffer.tell()
-    options.tar_buffer.seek(0)
-
-    source = "\nstatic uint64_t tar_data[] = {"
-    while True:
-        bytes_read = options.tar_buffer.read(1024)
-        if not bytes_read:
-            break
-        source += bytes2hex64_initializers(bytes_read) + ",\n"
-    source += "};\n"
-    return n_bytes, source
+    return options.tar_buffer.getvalue()
 
 
-def bytes2hex64_initializers(b):
-    chunk = 8
-    n_bytes = len(b)
-    if n_bytes % chunk:
-        b += bytes([0] * (chunk - n_bytes % chunk))
-    hex_int64 = [
-        hex(int.from_bytes(b[i : i + chunk], sys.byteorder))
-        for i in range(0, len(b), chunk)
-    ]
-    return ",".join(hex_int64)
-
-
-# Do some brittle shrinking of Python source  before embedding in binary.
-# Very limited benefits as source is xz compressed before embedded in binary
-def minify(python_source_bytes, options):
+# Remove comment lines from Python source before embedding it in the binary.
+# Very limited benefit as the source is xz compressed before being embedded.
+def minify(python_source_bytes):
     python_source = python_source_bytes.decode("utf-8")
-    lines = python_source.splitlines()
-    lines1 = []
-    while lines:
-        line = lines.pop(0)
-        if is_doc_string_delimiter(line):
-            line = lines.pop(0)
-            while not is_doc_string_delimiter(line):
-                line = lines.pop(0)
-            line = lines.pop(0)
-        if is_comment(line):
-            continue
-        if not options.debug:
-            line = re.sub(r"^(\s*)debug_print.*", r"\1pass", line)
-        # removing white-space is probably safe but with xz it get us nothing
-        # if line.startswith('\t') and '"' not in line and "'" not in line:
-        # 	line = re.sub(r' *([=,+\-*/%:]) *', r'\1', line)
-        lines1.append(line)
-    python_source = "\n".join(lines1) + "\n"
-    return python_source.encode("utf-8")
-
-
-def is_doc_string_delimiter(line):
-    return re.match(r'^(\t|	   )"""\s*$', line)
+    lines = [line for line in python_source.splitlines() if not is_comment(line)]
+    return ("\n".join(lines) + "\n").encode("utf-8")
 
 
 def is_comment(line):
@@ -630,10 +940,10 @@ def run_compile_time_logger(process, explanation_labels, options):
     source_file = stdout_first_line.split(":")[0]
     try:
         if (
-            source_file.endswith(".c")
+            source_file.endswith((".c", ".cpp", ".cc", ".cxx", ".c++"))
             and os.path.getsize(source_file) < MAX_BYTES_LOG_SOURCE_FILE
         ):
-            with open(source_file) as f:
+            with open(source_file, encoding="utf-8", errors="replace") as f:
                 logger_info["source"] = f.read(MAX_BYTES_LOG_SOURCE_FILE)
     except OSError:
         pass
@@ -650,7 +960,7 @@ def run_compile_time_logger(process, explanation_labels, options):
     try:
         sys.stdout.flush()
         sys.stderr.flush()
-        subprocess.run([options.compile_logger])
+        subprocess.run([options.compile_logger], check=False)
     except OSError as e:
         if options.debug:
             print(e)

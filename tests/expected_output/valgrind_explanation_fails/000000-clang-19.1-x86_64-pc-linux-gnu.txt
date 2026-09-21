@@ -1,0 +1,3 @@
+exit status: 141
+runtime error reported: 1
+Execution stopped in inner(n=1) in long_line.c at line N:

@@ -1,0 +1,6 @@
+no_explanations.c:2:12: error: use of undeclared identifier 'y'
+    2 |     return y;
+      |            ^
+1 error generated.
+exit status: 1
+explanation lines: 0

@@ -1,0 +1,21 @@
+
+Runtime error: assigning to a value via a NULL pointer
+dcc explanation: You are using a pointer which is NULL
+  A common error is assigning to *p or p[index] when p == NULL.
+
+Execution stopped in main() in typedef_array_declaration.c at line 13:
+
+int main(void) {
+    Point q[2];
+    q[0].a = 1;
+    int *p = 0;
+--> *p = q[0].a;
+    return 0;
+}
+
+Values when execution stopped:
+
+p = NULL
+q = {{a = 1}, {<uninitialized values>}}
+q[0] = {a = 1}
+

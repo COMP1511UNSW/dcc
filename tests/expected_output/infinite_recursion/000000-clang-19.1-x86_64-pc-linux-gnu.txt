@@ -1,0 +1,14 @@
+*** dcc 
+...
+A common cause of this error is infinite recursion.
+count(n=N) called at line 7 of infinite_recursion.c
+Execution stopped by a stack overflow.
+Execution stopped in count(n=N) in infinite_recursion.c at line N:
+exit status non-zero: yes
+*** dcc -fsanitize=address
+...
+A common cause of this error is infinite recursion.
+count(n=N) called at line 7 of infinite_recursion.c
+Execution stopped by a stack overflow.
+Execution stopped in count(n=N) in infinite_recursion.c at line N:
+exit status non-zero: yes

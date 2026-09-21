@@ -1,0 +1,7 @@
+nonnull_rewritten_builtin.c: In function ‘main’:
+nonnull_rewritten_builtin.c:7:12: warning: argument 1 null where non-null expected [-Wnonnull]
+    7 |     return strstr(p, "a") != NULL;
+      |            ^~~~~~~~~~~~~~
+nonnull_rewritten_builtin.c:7:12: note: in a call to built-in function ‘__builtin_strchr’
+dcc explanation: you are passing the variable p which always contains NULL as argument 1 to 'strstr'.
+Argument 1 to 'strstr' should never be NULL.

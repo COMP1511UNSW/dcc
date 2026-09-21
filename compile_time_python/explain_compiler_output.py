@@ -1,4 +1,4 @@
-import json, os, re, subprocess, sys
+import json, os, re, subprocess, sys, unicodedata
 import colors, util
 from compiler_explanations import get_explanation
 
@@ -11,6 +11,7 @@ def explain_compiler_output(output, args):
     errors_explained = 0
     messages = []
     explanations = []
+    unexplained_lines = []
     if args.colorize_output:
         color = colors.color
     else:
@@ -22,7 +23,15 @@ def explain_compiler_output(output, args):
         if args.debug > 2:
             print("message", message, file=sys.stderr)
         if not message:
-            print(lines.pop(0), file=sys.stderr)
+            unexplained_lines.append(lines.pop(0))
+            continue
+
+        print_collapsing_repeats(unexplained_lines)
+        unexplained_lines = []
+
+        if message.type == "note" and is_system_header(message.file):
+            # a note about a library header tells a novice nothing they can act
+            # on, and an include chain line leaves it leading its own message
             continue
 
         if (
@@ -82,7 +91,7 @@ def explain_compiler_output(output, args):
         if args.debug:
             print("explanation_text:", explanation_text, file=sys.stderr)
 
-        message_lines = message.text
+        message_lines = list(message.text)
         if not explanation or explanation.show_note:
             message_lines += message.note
 
@@ -120,6 +129,8 @@ def explain_compiler_output(output, args):
                 )
             break
 
+    print_collapsing_repeats(unexplained_lines)
+
     if messages:
         m = messages[-1] if messages[-1].type == "error" else messages[0]
         run_compile_time_helper(m, args)
@@ -147,10 +158,7 @@ class Message:
         )
 
     def has_ansi_codes(self):
-        return (
-            self.text != self.text_without_ansi_codes
-            or self.note != self.note_without_ansi_codes
-        )
+        return any("\x1b" in line for line in self.text + self.note)
 
     def __str__(self):
         t = self.text_without_ansi_codes
@@ -160,34 +168,138 @@ class Message:
         return f"Message(note_without_ansi_codes='{t}', highlighted_word='{h}', underlined_word='{u}',  note_without_ansi_codes='{n}')"
 
 
+# a note pointing into one of these is about the library, not the student's code
+SYSTEM_HEADER_RE = re.compile(r"^(/usr/|/Library/|/opt/|.*/include/)")
+
+INCLUDED_FROM_RE = re.compile(r"^(In file included from|\s+from)\s")
+
+MESSAGE_START_RE = re.compile(r"^(\S.*?):(\d+):")
+
+# a source filename may begin with whitespace, but an indented line is only a
+# message if it is also shaped like one, or a quoted source line containing
+# ":42:" would be taken for the start of a new message.  a filename does not
+# contain '|', so this can not run across the "42 | " gutter of a quoted line
+INDENTED_MESSAGE_START_RE = re.compile(
+    r"^(\s+\S[^|]*?):(\d+):(?:\d+:)?\s*(?:\w+ )?(?:error|warning|note):"
+)
+
+# the line the compiler prints under a message to point at a word in it.  The
+# digits and the bar are the gutter the source line is echoed in, and only
+# spaces and tildes may follow it, so that a line of the student's program
+# which itself contains a ^ is not mistaken for one
+CARET_RE = re.compile(r"^ *\d* *\|?[ ~]*\^[ ~]*$")
+
+# a bound on cost: looking for a repeating block is quadratic in its size, so a
+# cycle whose chain is longer than this is left uncollapsed
+MAX_REPEATED_BLOCK_LINES = 32
+
+
+def match_message_start(colorless_line, following_line=""):
+    if CARET_RE.match(colors.strip_color(following_line)):
+        # the compiler underlines source it quoted, never its own message, so
+        # this is the student's code however much it looks like a diagnostic
+        return None
+    return MESSAGE_START_RE.match(colorless_line) or INDENTED_MESSAGE_START_RE.match(
+        colorless_line
+    )
+
+
+def character_index(line, column):
+    """the index in line of the character the compiler shows at column
+
+    The compiler positions its ^ line by how wide the characters print, so a
+    character which prints two columns wide -- a Chinese character in a string
+    or a comment, for example -- moves everything after it one place, and
+    indexing line by the position of the ^ gives the wrong word.
+    """
+    width = 0
+    for index, character in enumerate(line):
+        if width >= column:
+            return index
+        width += 2 if unicodedata.east_asian_width(character) in "WF" else 1
+    return len(line)
+
+
+def slice_by_column(line, start, end):
+    return line[character_index(line, start) : character_index(line, end)]
+
+
+def is_system_header(pathname):
+    return bool(SYSTEM_HEADER_RE.match(pathname))
+
+
+def print_unexplained_line(line):
+    if "\x1b" in line and INCLUDED_FROM_RE.match(colors.strip_color(line)):
+        # these used to be printed as messages, which reset the colour for them
+        line += ANSI_DEFAULT
+    print(line, file=sys.stderr)
+
+
+def print_collapsing_repeats(lines):
+    """
+    print lines, replacing a consecutively repeated block with a single copy
+    a cyclic #include makes the compiler repeat an include chain ~100 times
+    """
+    index = 0
+    while index < len(lines):
+        longest = min(MAX_REPEATED_BLOCK_LINES, (len(lines) - index) // 2)
+        for size in range(1, longest + 1):
+            block = lines[index : index + size]
+            repeats = 1
+            while lines[index + repeats * size : index + (repeats + 1) * size] == block:
+                repeats += 1
+            # collapse only if that removes more lines than the note it adds
+            if (repeats - 1) * size >= 2:
+                for line in block:
+                    print_unexplained_line(line)
+                what = "line" if size == 1 else f"{size} lines"
+                times = "time" if repeats == 2 else "times"
+                print(
+                    f"# previous {what} repeated {repeats - 1} more {times}",
+                    file=sys.stderr,
+                )
+                index += repeats * size
+                break
+        else:
+            print_unexplained_line(lines[index])
+            index += 1
+
+
 def get_next_message(lines):
     if not lines:
         return (None, lines)
     line = lines[0]
     colorless_line = convert_smart_quotes_to_dumb_quotes(colors.strip_color(line))
-    m = re.match(r"^(\S.*?):(\d+):", colorless_line)
-    if not m:
+    m = match_message_start(colorless_line, lines[1] if len(lines) > 1 else "")
+    if not m or INCLUDED_FROM_RE.match(colorless_line):
+        # "In file included from x.c:1:" looks like a message but only names
+        # the chain the next message arrived through
         return (None, lines)
     lines.pop(0)
     e = Message()
     e.file, e.line_number = m.groups()
-    m = re.match(r"^\S.*?:\d+:(\d+):\s*(.*?):", colorless_line)
+    m = re.match(r"^\s*\S.*?:\d+:(\d+):\s*(.*?):", colorless_line)
     if m:
         e.column, e.type = m.groups()
 
     e.text = [line]
     e.text_without_ansi_codes = [colorless_line]
     parsing_note = False
+    skipping_note = False
 
     while lines:
         next_line = lines[0]
         if not next_line:
             break
         colorless_next_line = colors.strip_color(lines[0])
-        m = re.match(r"^\S.*:\d+:", colorless_next_line)
+        m = match_message_start(colorless_next_line, lines[1] if len(lines) > 1 else "")
         if m:
-            if re.match(r"^\S.*?:\d+:\d+:\s*note:", colorless_next_line):
+            note = re.match(r"^\s*(\S.*?):\d+:\d+:\s*note:", colorless_next_line)
+            if note:
                 parsing_note = True
+                # a note about a library header tells a novice nothing they
+                # can act on, so it and the source it quotes are left out
+                skipping_note = is_system_header(note.group(1))
             else:
                 break
 
@@ -196,25 +308,35 @@ def get_next_message(lines):
         if colorless_next_line.endswith(" generated."):
             break
 
-        if parsing_note:
-            e.note.append(next_line)
-            e.note_without_ansi_codes.append(colorless_next_line)
+        if INCLUDED_FROM_RE.match(colorless_next_line):
+            # this names the header a message came through, not the student's mistake
             continue
 
-        if re.match(r"^[ ~\d|]*\^[ ~]*$", colorless_next_line):
+        if parsing_note:
+            if not skipping_note:
+                e.note.append(next_line)
+                e.note_without_ansi_codes.append(colorless_next_line)
+            continue
+
+        if CARET_RE.match(colorless_next_line):
             previous_line = e.text_without_ansi_codes[-1]
             m = re.match(r"^(.*)\^~+", colorless_next_line)
             if m:
-                e.highlighted_word = previous_line[len(m.group(1)) : len(m.group(0))]
+                e.highlighted_word = slice_by_column(
+                    previous_line, len(m.group(1)), len(m.group(0))
+                )
             else:
                 caret_index = colorless_next_line.index("^")
-                m = re.match(r"^\w*", previous_line[caret_index:])
+                start = character_index(previous_line, caret_index)
+                m = re.match(r"^\w*", previous_line[start:])
                 e.highlighted_word = m.group(0)
 
             e.underlined_word = ""
             m = re.match(r"^(.*?)~+", colorless_next_line)
             if m:
-                e.underlined_word = previous_line[len(m.group(1)) : len(m.group(0))]
+                e.underlined_word = slice_by_column(
+                    previous_line, len(m.group(1)), len(m.group(0))
+                )
 
         e.text.append(next_line)
         e.text_without_ansi_codes.append(colorless_next_line)
@@ -239,7 +361,7 @@ def run_compile_time_helper(message, args):
         return False
 
     message_text = "\n".join(message.text_without_ansi_codes)
-    explanation = get_explanation(message, lambda text, color_name: text)
+    explanation = get_explanation(message, colorize_output=False)
     explanation_text = explanation.text.rstrip("\n") if explanation else ""
     explanation_label = explanation.label if explanation else ""
     loc = util.Location(message.file, message.line_number)
@@ -248,7 +370,7 @@ def run_compile_time_helper(message, args):
     source = ""
     try:
         if os.path.getsize(message.file) < util.MAX_FILE_SIZE_PASSED_TO_HELPER:
-            with open(message.file) as f:
+            with open(message.file, encoding="utf-8", errors="replace") as f:
                 source = f.read(util.MAX_FILE_SIZE_PASSED_TO_HELPER)
     except OSError:
         pass
@@ -283,7 +405,7 @@ def run_compile_time_helper(message, args):
     try:
         sys.stdout.flush()
         sys.stderr.flush()
-        p = subprocess.run([args.compile_helper])
+        p = subprocess.run([args.compile_helper], check=False)
         return p.returncode == 0
     except OSError as e:
         if args.debug:

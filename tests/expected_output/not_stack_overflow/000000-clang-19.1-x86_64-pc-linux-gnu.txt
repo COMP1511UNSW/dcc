@@ -1,0 +1,5 @@
+*** not_stack_overflow_null
+Runtime error: assigning to a value via a NULL pointer
+*** not_stack_overflow_thread
+dcc: note: uninitialized variables will not be detected (pthread.h used)
+Execution stopped because of an invalid pointer or string.

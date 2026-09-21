@@ -1,0 +1,19 @@
+
+Runtime error: uninitialized variable accessed.
+
+Execution stopped in main() in uninitialized_with_lm.c at line 12:
+
+int main(int argc, char *argv[]) {
+    double x[2];
+    x[0] = 4;
+--> printf("%f\n", sqrt(x[argc]));
+    return 0;
+}
+
+Values when execution stopped:
+
+argc = 1
+x = {4, <uninitialized value>}
+x[0] = 4
+x[argc] = <uninitialized value>
+

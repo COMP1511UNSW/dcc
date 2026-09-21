@@ -1,0 +1,9 @@
+missing_semicolon_line_before_assert.c:5:5: error: called object type 'int' is not a function or function pointer
+    4 |     int i = 10
+      |             ~~
+    5 |     assert(i == 10);
+      |     ^
+/usr/include/assert.h:119:3: note: expanded from macro 'assert'
+  119 |   ((void) sizeof ((expr) ? 1 : 0), __extension__ ({                     \
+      |   ^
+dcc explanation: there is probably a syntax error such as missing semi-colon on line 4 of missing_semicolon_line_before_assert.c or an earlier line

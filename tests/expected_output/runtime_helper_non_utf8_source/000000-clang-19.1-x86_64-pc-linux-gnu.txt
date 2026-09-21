@@ -1,0 +1,23 @@
+
+Runtime error: index 10 out of bounds for type 'int[10]'
+dcc explanation: You are using an illegal array index: 10
+  Valid indices for an array of size 10 are 0..9
+  Make sure the size of your array is correct.
+  Make sure your array indices are correct.
+
+Execution stopped in main() in latin1.c at line 5:
+
+int main(void) {
+    int a[10] = {0};
+    int i = 10;
+--> return a[i];
+}
+
+Values when execution stopped:
+
+a = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+i = 10
+
+helper: file=latin1.c line=5
+helper: source lines: 7
+helper: json parses: 5 6

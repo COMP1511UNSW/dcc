@@ -1,0 +1,2 @@
+sanitizer reported the write: 1
+dcc called it uninitialized: 0

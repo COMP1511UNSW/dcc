@@ -1,0 +1,8 @@
+
+Execution stopped by a call to abort().
+Execution stopped in main() in abort_without_assert.c at line 5:
+
+int main(void) {
+--> abort();
+}
+

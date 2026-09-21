@@ -10,11 +10,11 @@ int main(void) {
 }
 eof
 
-"${dcc-dcc}" $temp_dir/print_path.c -o $temp_dir/print_path|| 
-		continue
+"${dcc-dcc}" "$temp_dir/print_path.c" -o "$temp_dir/print_path" ||
+	exit 1
 		
 test_path="hello_dcc"
-stdout=$(PATH="$test_path" $temp_dir/print_path)
+stdout=$(PATH="$test_path" "$temp_dir/print_path")
 
 test "$stdout" = "$test_path" &&
 	exit 0

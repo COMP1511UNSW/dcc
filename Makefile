@@ -1,4 +1,4 @@
-EMBEDDED_SOURCE = $(wildcard run_time_python/*.py wrapper_c/*.c wrapper_c/*.cpp)
+EMBEDDED_SOURCE = $(wildcard run_time_python/*.py wrapper_c/*.c wrapper_c/*.cpp wrapper_c/*.h)
 SOURCE = $(wildcard compile_time_python/*.py)
 BUILD_DIR=_build
 
@@ -25,9 +25,38 @@ dcc.1: dcc lib/help2man_include.txt
 	
 tests: dcc
 	tests/do_tests.sh ./dcc
-	
+
+# static checks of the Python, shell and embedded C code, and the Python unit tests
+PYTHON_SOURCE = $(wildcard compile_time_python/*.py run_time_python/*.py lib/*.py tests/*.py)
+SHELL_SOURCE = $(wildcard tests/*.sh tests/*/*.sh) packaging/debian/build.sh install_scripts/macos_install.sh
+
+CHECK_DIR=_build_check
+
+check:
+	$(MAKE) dcc
+	rm -rf $(CHECK_DIR)
+	mkdir -p $(CHECK_DIR)
+	echo 'VERSION = "check"' >$(CHECK_DIR)/version.py
+	python3 -W error -m py_compile $(PYTHON_SOURCE)
+	PYTHONPATH=$(CHECK_DIR):compile_time_python:run_time_python pylint --rcfile=.pylintrc $(PYTHON_SOURCE)
+	# run_time_python/util.py and colors.py are symlinks, which mypy sees as duplicate modules
+	MYPYPATH=$(CHECK_DIR):compile_time_python python3 -m mypy --ignore-missing-imports $(filter-out run_time_python/util.py run_time_python/colors.py,$(PYTHON_SOURCE))
+	rm -rf $(CHECK_DIR)
+	shellcheck --severity=warning --exclude=SC2154 $(SHELL_SOURCE)
+	tests/check_wrapper_warnings.sh ./dcc
+	python3 tests/python_unit_tests.py
+
+# run the tests with every clang installed, so that a version which words a
+# message differently is found before students meet it
 tests_all_clang_versions: dcc
-	for compiler in /usr/bin/clang-[1-24-9]* ; do echo $$compiler;tests/do_tests.sh ./dcc $$compiler; echo; done
+	@status=0; \
+	for compiler in /usr/bin/clang-[0-9]*; do \
+		version=$${compiler#/usr/bin/clang-}; \
+		test -x "/usr/bin/clang++-$$version" || continue; \
+		echo "=== clang-$$version"; \
+		tests/do_tests.sh ./dcc "$$compiler" "/usr/bin/clang++-$$version" </dev/null || status=1; \
+	done; \
+	exit $$status
 
 
 VERSION=$(shell git describe --tags|sed 's/-/./;s/-.*//')
@@ -44,4 +73,4 @@ packaging/debian/dcc_${VERSION}_all.deb: dcc dcc.1
 	echo Description:  a C compiler which explain errors to novice programmers >>debian/DEBIAN/control
 	packaging/debian/build.sh
 
-.PHONY: deb tests tests_all_clang_versions
+.PHONY: deb tests tests_all_clang_versions check

@@ -1,9 +1,10 @@
 import os, sys, signal, subprocess, time
+from util import debug_level_from_environment
 
 
 def start_gdb(gdb_driver_file="drive_gdb.py"):
     signal.signal(signal.SIGINT, lambda *_: kill_all())
-    debug_level = int(os.environ.get("DCC_DEBUG", "0"))
+    debug_level = debug_level_from_environment()
 
     #
     # if a run-time error has occurred in sanitizer1 kill sanitizer2 now to avoid dupicate error
@@ -15,6 +16,15 @@ def start_gdb(gdb_driver_file="drive_gdb.py"):
     if pid and sanitizer2_pid and sanitizer1_pid:
         if pid == sanitizer1_pid:
             kill_sanitizer2()
+
+    if "DCC_BINARY" not in os.environ:
+        # the program stopped before it could record its pathname,
+        # e.g. a stack overflow while the run-time support was starting
+        if debug_level:
+            print("start_gdb: DCC_BINARY not set", file=sys.stderr)
+        kill_sanitizer2()
+        kill_env("DCC_PID", which_signal=signal.SIGPIPE)
+        sys.exit(1)
 
     if debug_level > 1:
         print("start_gdb: ", end="")
@@ -39,26 +49,14 @@ def start_gdb(gdb_driver_file="drive_gdb.py"):
         "LC_ALL"
     ] = "C"  # stop invalid utf-8  throwing Python exception with gdb - still needed?
 
-    if os.path.exists(gdb_driver_file):
-        command = [
-            "gdb",
-            "--nx",
-            "--batch",
-            "-ex",
-            f"python exec(open('{gdb_driver_file}', encoding='utf-8', errors='replace').read())",
-            os.environ["DCC_BINARY"],
-        ]
-    else:
-        from embedded_source import embedded_source_drive_gdb_py
-
-        command = [
-            "gdb",
-            "--nx",
-            "--batch",
-            "-ex",
-            'python exec(r"""' + embedded_source_drive_gdb_py + '""")',
-            os.environ["DCC_BINARY"],
-        ]
+    command = [
+        "gdb",
+        "--nx",
+        "--batch",
+        "-ex",
+        f"python exec(open('{gdb_driver_file}', encoding='utf-8', errors='replace').read())",
+        os.environ["DCC_BINARY"],
+    ]
 
     if debug_level > 1:
         print("running:", command)
@@ -84,28 +82,42 @@ def start_gdb(gdb_driver_file="drive_gdb.py"):
             "\ngdb not available to print program location and variable values\n",
             file=sys.stderr,
         )
+        kill_all(kill_program=True)
     if debug_level > 1:
         print("kill_all()")
-    kill_all()
+    # a gdb which failed has not told the program to exit, and under valgrind
+    # it is stopped waiting for a debugger, so it would wait forever
+    kill_all(kill_program=p.returncode != 0)
 
 
 #
 # ensure the program compiled with dcc terminates after error
 #
-def kill_all():
+def kill_all(kill_program=False):
     kill_sanitizer2()
     kill_env("DCC_SANITIZER1_PID")
-    kill_env("DCC_PID")
+    if kill_program or not program_stops_itself():
+        kill_env("DCC_PID")
     sys.exit(1)
+
+
+def program_stops_itself():
+    """
+    return True if the program will terminate without being killed
+
+    When valgrind is the only sanitizer the program is the valgrind process,
+    which does not die promptly from the signal used to stop the other
+    sanitizers, so it would be killed instead and the shell would report
+    "Killed".  It runs __dcc_error_exit itself once this code has finished.
+    """
+    return os.environ.get("DCC_SANITIZER", "") == "VALGRIND" and (
+        "DCC_SANITIZER2_PID" not in os.environ
+    )
 
 
 def kill_sanitizer2(which_signal=None):
     unlink_sanitizer2_executable()
     kill_env("DCC_SANITIZER2_PID", which_signal=which_signal)
-
-
-def pause_sanitizer1():
-    kill_env("DCC_SANITIZER1_PID", which_signal=signal.SIGUSR1)
 
 
 def kill_env(environment_variable_name, which_signal=None):

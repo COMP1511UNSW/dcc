@@ -1,0 +1,5 @@
+asan_error: exit status non-zero
+valgrind_error_mid_main: exit status non-zero
+valgrind_error_last_statement: exit status non-zero
+output_error: exit status non-zero
+assert_error: exit status non-zero

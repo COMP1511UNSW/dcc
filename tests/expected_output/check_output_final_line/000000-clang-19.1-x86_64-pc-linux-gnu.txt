@@ -1,0 +1,69 @@
+*** Test 1 - unterminated-identical-1
+expected output: 1 2 3
+actual output  : 1 2 3
+*** Test 2 - unterminated-identical-2
+expected output: a b
+actual output  : a b
+*** Test 3 - unterminated-identical-3
+expected output: total: 7
+actual output  : total: 7
+*** Test 4 - unterminated-last-byte-missing-fail
+expected output: 1 2 3
+actual output  : 1 2
+
+Execution failed because of an incorrect output line.
+Byte 4 of line 1 of program output was incorrect.
+The characters you printed were correct, but more characters were expected.
+The correct output line was:
+1 2 3
+Your program printed this line:
+1 2
+
+
+*** Test 5 - unterminated-trailing-space-1
+expected output: abc
+actual output  : abc   
+*** Test 6 - unterminated-trailing-space-2
+expected output: a b
+actual output  : a b 
+*** Test 7 - unterminated-wrong-byte-fail
+expected output: abcd
+actual output  : abxd
+
+Execution failed because of an incorrect output line.
+Byte 3 of line 1 of program output was incorrect.
+The correct output line was:
+abcd
+Your program printed this line:
+abxd
+
+
+*** Test 8 - partial-line-white-space
+expected output: a
+
+actual output  : a
+  
+*** Test 9 - partial-line-extra-output-fail
+expected output: a
+
+actual output  : a
+b
+
+Execution failed because of unexpected extra output.
+The program produced all the expected output and then produced extra output.
+The extra line was:
+b
+
+
+*** Test 10 - white-space-only-unterminated-fail
+expected output: a
+
+actual output  :    
+
+Execution failed because of missing output lines.
+Your program printed 1 lines of correct output but stopped before printing all the expected output.
+The next expected line was:
+a
+
+
+All Tests Correct

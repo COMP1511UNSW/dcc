@@ -1,0 +1,7 @@
+printf_null_string.c: In function ‘main’:
+printf_null_string.c:5:13: warning: ‘%s’ directive argument is null [-Wformat-overflow=]
+    5 |     printf("%s", p);
+      |             ^~
+dcc explanation: you are using a NULL pointer where %s needs a string.
+%s needs a pointer to a string and NULL is not a string.
+Check the pointer has been assigned a string before you use it here.

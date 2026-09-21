@@ -1,0 +1,6 @@
+struct_not_visible_outside_function.c:1:25: warning: declaration of 'struct list' will not be visible outside of this function [-Wvisibility]
+    1 | void add_to_list(struct list *list, int value);
+      |                         ^
+dcc explanation: struct list has not been declared before it is used on line 1 of struct_not_visible_outside_function.c.
+Move the definition of struct list above this line,
+otherwise it is a different struct to the one of the same name elsewhere in struct_not_visible_outside_function.c.

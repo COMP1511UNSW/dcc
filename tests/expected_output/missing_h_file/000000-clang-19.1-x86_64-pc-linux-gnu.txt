@@ -1,0 +1,4 @@
+dcc: note: uninitialized variables will not be detected (foo.h used)
+missing_h_file.c:1:10: fatal error: 'foo.h' file not found
+    1 | #include <foo.h>
+      |          ^~~~~~~

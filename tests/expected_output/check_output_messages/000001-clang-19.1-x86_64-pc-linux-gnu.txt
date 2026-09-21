@@ -1,0 +1,26 @@
+*** extra characters at the end of the last line
+Execution failed because of an incorrect output line.
+Your program printed extra characters at the end of the line.
+Your program printed this line:
+*** missing last character
+Execution stopped because of an incorrect output line.
+A '!' was missing from the end of the output line.
+Your program printed this line:
+*** missing final newline
+Execution failed because the last newline was missing.
+Your program produced all the expected output, except the last newline ('\n') was missing.
+For more information go to https://comp1511unsw.github.io/dcc/missing_newline.html
+*** non-printable character
+Execution stopped because a non-ASCII byte was printed.
+Byte 2 of line 1 of program output was a non-printable character \x10
+Here is line 1 with non-printable characters replaced with backslash-escaped equivalents:
+*** zero byte
+Execution failed because a zero byte ('\0') was printed.
+Byte 2 of line 1 of program's output was a zero byte ('\0')
+Here are the characters on the line before the zero byte:
+*** too much output
+Execution failed because program produced too much output.
+Your program printed more than 5 bytes.
+Do you have an infinite loop?
+*** no output
+Execution failed because program produced no output.

@@ -2,9 +2,37 @@
 
 import copy, math, re, sys
 import colors
+import util
 from util import explanation_url
 
 BACKSLASH = "\\"
+
+
+def echoed_source_line(message):
+    """the line of the program the compiler echoed under its message, if any"""
+    for line in message.text_without_ansi_codes:
+        m = re.match(r"^\s*\d+\s*\|(.*)", line)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def word_is_called(message):
+    """is the word the compiler highlighted followed by an argument list"""
+    # the word comes from the compiler, so it can contain anything
+    return bool(
+        re.search(
+            rf"\b{re.escape(message.highlighted_word)}\s*\(",
+            "".join(message.text_without_ansi_codes),
+        )
+    )
+
+
+def word_is_in_parentheses(message):
+    """is the word the compiler highlighted inside a parameter list"""
+    line = echoed_source_line(message)
+    index = line.find(message.highlighted_word)
+    return index > 0 and "(" in line[:index]
 
 
 def get_explanation(message, colorize_output):
@@ -84,7 +112,16 @@ class Explanation:
                 return None
 
         if hasattr(self.precondition, "__call__"):
-            r = self.precondition(message, match)
+            try:
+                r = self.precondition(message, match)
+            except Exception:  # pylint: disable=broad-exception-caught
+                # a precondition is given compiler output, so like a template it
+                # must not be able to replace the message with a traceback
+                if util.debug_level_from_environment():
+                    import traceback  # pylint: disable=import-outside-toplevel
+
+                    traceback.print_exc(file=sys.stderr)
+                return None
             if not r:
                 return None
             if isinstance(r, str) and not self.explanation:
@@ -114,7 +151,18 @@ class Explanation:
         f_string = re.sub(r"\*\*(.*?)\*\*", r"{emphasize('\1')}", f_string)
         f_string = 'f"""' + f_string + '"""'
 
-        return eval(f_string, globals(), parameters)
+        try:
+            # the templates are constants in this file, so this is not evaluating user input
+            return eval(f_string, globals(), parameters)  # pylint: disable=eval-used
+        except Exception:  # pylint: disable=broad-exception-caught
+            # a mistake in one template must not replace the compiler's own
+            # message with a Python traceback, so this explanation is skipped
+            if util.debug_level_from_environment():
+                import traceback  # pylint: disable=import-outside-toplevel
+
+                print(f"explanation {self.label} failed:", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+            return None
 
 
 explanations = [
@@ -135,6 +183,9 @@ int main(void) {
         explanation="Your program does not contain a main function - a C program must contain a main function.",
         no_following_explanations=True,
         reproduce="""\
+int f(void) {
+    return 0;
+}
 """,
     ),
     Explanation(
@@ -199,6 +250,22 @@ int main(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
     int i = 6.7;
     return i;
+}
+""",
+    ),
+    Explanation(
+        label="incomplete_array_element_type",
+        regex=r"array (type )?has incomplete element type .[^'’]*\[\][^'’]*['’]",
+        explanation="""\
+you have declared a multidimensional array with no size for a dimension other than the first.
+Every dimension except the first needs a size, for example **int map[][8]** not **int map[][]**,
+because the compiler needs the length of a row to work out where **map[i][j]** is in memory.
+""",
+        reproduce="""\
+void print_map(int map[][]);
+
+int main(void) {
+    return 0;
 }
 """,
     ),
@@ -289,11 +356,17 @@ int main(int argc, char *argv[]) {
     ),
     Explanation(
         label="missing_library_include",
-        regex=r"(implicitly declaring library function|call to undeclared library function) '(\w+)'",
+        regex=r"(implicitly declaring library function|call to undeclared library function|implicit declaration of function|call to undeclared function) '(\w+)'",
+        # gcc, and clang without its builtins, don't say "library", so the note
+        # naming a system header is all that distinguishes a missing #include
+        # from a function the student has yet to write
+        precondition=lambda message, match: suggested_system_include_file(
+            message.note_without_ansi_codes
+        ),
         explanation="""\
 you are calling **{match.group(2)}** on line {line_number} of {file} but
 dcc does not recognize **{match.group(2)}** as a function.
-Do you have {emphasize('#include <' + extract_system_include_file(note) + '>')} at the top of your file?
+Do you have {emphasize('#include <' + suggested_system_include_file(note_without_ansi_codes) + '>')} at the top of your file?
 """,
         show_note=False,
         reproduce="""\
@@ -305,6 +378,8 @@ int main(int argc, char *argv[]) {
     Explanation(
         label="misspelt_printf",
         regex=r"(implicit declaration of|call to undeclared) function '(print.?.?)'",
+        # print.?.? also matches printf itself, which is not a misspelling
+        precondition=lambda message, match: match.group(2) != "printf",
         explanation="""\
 you are calling a function named **{match.group(2)}** on line {line_number} of {file} but dcc does not recognize **{match.group(2)}** as a function.
 Maybe you meant **printf**?
@@ -351,7 +426,7 @@ int main(int argc, char *argv[]) {
     ),
     Explanation(
         label="uninitialized-local-variable",
-        regex=r"'(.*)' is used uninitialized in this function",
+        regex=r"'(.*?)' is used uninitialized",
         explanation="""you are using the value of the variable **{match.group(1)}** before assigning a value to **{match.group(1)}**.""",
         reproduce="""\
 int main(void) {
@@ -498,6 +573,46 @@ int main(int argc, char *argv[]) {
         int argc = 42;
         return argc;
     }
+}
+""",
+    ),
+    Explanation(
+        label="printf_null_string",
+        regex=r"[‘'](%[^’'\n]*)[’'] directive argument is null",
+        explanation="""\
+you are using a NULL pointer where **{match.group(1)}** needs a string.
+**{match.group(1)}** needs a pointer to a string and NULL is not a string.
+Check the pointer has been assigned a string before you use it here.
+""",
+        reproduce="""\
+#include <stdio.h>
+
+int main(void) {
+    char *p = NULL;
+    printf("%s", p);
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="printf_null_argument",
+        regex=r"argument (\d+) null where non-null expected",
+        # only the printf->puts rewrite tells us the NULL argument is the string
+        precondition=lambda message, match: extract_rewritten_builtin(message) == "puts"
+        and extract_function_name(message.highlighted_word) != "puts",
+        explanation="""\
+you are passing a NULL pointer to '**{extract_function_name(highlighted_word)}**' to be printed.
+NULL is not a string, so there is nothing for '**{extract_function_name(highlighted_word)}**' to print.
+Check the pointer has been assigned a string before you print it.
+""",
+        show_note=False,
+        reproduce="""\
+#include <stdio.h>
+
+int main(void) {
+    char *p = NULL;
+    printf("%s\\n", p);
+    return 0;
 }
 """,
     ),
@@ -655,6 +770,7 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
+        label="extra_tokens_at_end_of_include_directive_semicolon",
         regex=r"extra tokens at end of #include directive",
         precondition=lambda message, match: ";"
         in "".join(message.text_without_ansi_codes),
@@ -681,7 +797,7 @@ int main(void) {
     ),
     Explanation(
         label="h_file_not_found",
-        regex=r"s.*o.h' file not found",
+        regex=r"'s\w*o\.h' file not found",
         explanation="""\
 you are attempting to #include a file which does not exist.
 Did you mean: '**#include <stdio.h>**'
@@ -707,23 +823,11 @@ int main(int argc, char *argv[]) {
 """,
     ),
     Explanation(
-        regex=r"ignoring return value of function",
-        explanation="""\
-you are not using the value returned by function **{highlighted_word}** .
-Did you mean to assign it to a variable?
-""",
-        reproduce="""\
-#include <stdlib.h>
-int main(int argc, char *argv[]) {
-    atoi(argv[0]);
-}
-""",
-    ),
-    Explanation(
         label="ignoring_return_value_of_function",
         regex=r"ignoring return value of function",
+        # the arguments are part of the highlighted text with some compilers
         explanation="""\
-you are not using the value returned by function **{highlighted_word}** .
+you are not using the value returned by function **{extract_function_name(highlighted_word)}** .
 Did you mean to assign it to a variable?
 """,
         reproduce="""\
@@ -830,9 +934,7 @@ int main(int argc, char *argv[]) {
     Explanation(
     	label="missing_function_return_type",
         regex=r"type specifier missing, defaults to 'int'",
-        precondition=lambda message, _: re.search(
-            rf"\b{message.highlighted_word}\s*\(", "".join(message.text_without_ansi_codes)
-        ),
+        precondition=lambda message, _: word_is_called(message),
         explanation="""\
 have you given a return type for **{highlighted_word}**?
 You must specify the return type of a function just before its name.
@@ -849,9 +951,8 @@ int main(void) {
     Explanation(
     	label="missing_parameter_type",
         regex=r"type specifier missing, defaults to 'int'",
-        precondition=lambda message, _: not re.search(
-            rf"\b{message.highlighted_word}\s*\(", "".join(message.text_without_ansi_codes)
-        ),
+        precondition=lambda message, _: not word_is_called(message)
+        and word_is_in_parentheses(message),
         explanation="""\
 have you given a type for **{highlighted_word}**?
 You must specify the type of each function parameter.
@@ -866,6 +967,23 @@ int main(void) {
 """,
     ),
     Explanation(
+    	label="missing_variable_type",
+        regex=r"type specifier missing, defaults to 'int'",
+        precondition=lambda message, _: not word_is_called(message)
+        and not word_is_in_parentheses(message),
+        explanation="""\
+have you given a type for **{highlighted_word}**?
+You must specify the type of a variable when you declare it.
+""",
+        reproduce="""\
+counter = 0;
+int main(void) {
+    return counter;
+}
+""",
+    ),
+    Explanation(
+        label="unknown_escape_sequence_space_before_n",
         regex=r" warning: unknown escape sequence '\\ '",
         precondition=lambda message, match: "\\ n"
         in "".join(message.text_without_ansi_codes),
@@ -935,7 +1053,7 @@ you appear to have left out a '#'.
 Use #**include** to include a file, for example: #include <stdio.h>
 """,
         reproduce="""\
-define X 42
+include <stdio.h>
 int main(void) {
 }
 """,
@@ -947,8 +1065,12 @@ you are using variable '**{highlighted_word}**' before it has been assigned a va
 Be sure to assign a value to '**{highlighted_word}**' before trying to use its value.
 """,
         reproduce="""\
+#include <stdio.h>
+
 int main(void) {
     int x;
+    printf("%d\\n", x);
+    return 0;
 }
 """,
     ),
@@ -960,21 +1082,8 @@ You can not use a variable to initialize itself.
 """,
         reproduce="""\
 int main(void) {
-    int x;
-}
-""",
-    ),
-    Explanation(
-        regex=r"void function '(.*)' should not return a value",
-        explanation="""\
-you are trying to **return** a value from function **{match.group(1)}** which is of type **void**.
-You need to change the return type of **{match.group(1)}** or change the **return** statement.
-""",
-        reproduce="""\
-void f(void) {
-    return 1;
-}
-int main(void) {
+    int x = x + 1;
+    return x;
 }
 """,
     ),
@@ -1021,6 +1130,89 @@ int main(void) {
 """,
     ),
     Explanation(
+        label="incomplete_definition_of_struct",
+        regex=r"incomplete definition of type '(struct \w+)'",
+        explanation="""\
+the definition of **{match.group(1)}** is not visible in {file}, so its fields can not be used here.
+Check you have spelled the struct name correctly and #included the file which defines it.
+If it is an ADT, its definition is deliberately hidden in the .c file which implements it,
+and you have to use the functions that ADT provides instead of accessing its fields yourself.
+""",
+        reproduce="""\
+struct card;
+
+int value(struct card *c) {
+    return c->value;
+}
+
+int main(void) {
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="struct_not_visible_outside_function",
+        regex=r"declaration of '(struct \w+)' will not be visible outside of this function",
+        explanation="""\
+**{match.group(1)}** has not been declared before it is used on line {line_number} of {file}.
+Move the definition of **{match.group(1)}** above this line,
+otherwise it is a different struct to the one of the same name elsewhere in {file}.
+""",
+        reproduce="""\
+void add_to_list(struct list *list, int value);
+
+int main(void) {
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="redefinition_as_different_kind_of_symbol",
+        regex=r"redefinition of '(\w+)' as different kind of symbol",
+        explanation="""\
+'**{match.group(1)}**' is already the name of something else, for example a type.
+Check line {line_number} of {file} for a mistake such as an extra type before '**{match.group(1)}**',
+otherwise give one of the two things a different name.
+""",
+        reproduce="""\
+typedef struct card *Card;
+
+static int Card(int game);
+
+int main(void) {
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="unterminated_conditional_directive",
+        regex=r"unterminated conditional directive",
+        explanation="""\
+you have a **#if**, **#ifdef** or **#ifndef** on line {line_number} of {file} with no matching **#endif**.
+""",
+        reproduce="""\
+#ifndef GAME_H
+#define GAME_H
+
+int main(void) {
+    return 0;
+}
+""",
+    ),
+    Explanation(
+        label="endif_without_if",
+        regex=r"#endif without #if",
+        explanation="""\
+you have an **#endif** on line {line_number} of {file} with no matching **#if**, **#ifdef** or **#ifndef**.
+""",
+        reproduce="""\
+int main(void) {
+    return 0;
+}
+#endif
+""",
+    ),
+    Explanation(
         regex=r"unknown escape sequence '\\(.)'",
         explanation="""\
 if you want an actual backslash in your string use **{BACKSLASH * 2}**
@@ -1038,6 +1230,16 @@ int main(void) {
 
 def extract_function_name(string):
     return re.sub(r"\(.*", "", string)
+
+
+# gcc can rewrite a call, for example printf("%s\n", p) into __builtin_puts(p),
+# and then number the arguments of the rewritten call, not the call in the source
+def extract_rewritten_builtin(message):
+    for note in message.note_without_ansi_codes:
+        m = re.search(r"in a call to built-in function .(__builtin_)?(\w+)", note)
+        if m:
+            return m.group(2)
+    return ""
 
 
 def extract_argument_variable(string, argument_number, emphasize):
@@ -1063,6 +1265,22 @@ def extract_system_include_file(string):
     return m.group(1) if m else ""
 
 
+def suggested_system_include_file(note):
+    """the header a note tells the student to include, if it does
+
+    Only the compiler's own note lines are looked at.  A note also echoes the
+    line of the program it points at, and a comment there mentioning a header
+    would otherwise be read as the compiler suggesting it.
+    """
+    for line in note:
+        if ": note:" not in line or "include" not in line:
+            continue
+        header = extract_system_include_file(line)
+        if header:
+            return header
+    return ""
+
+
 def truncate_number(num):
     try:
         return str(math.trunc(float(num)))
@@ -1072,7 +1290,7 @@ def truncate_number(num):
 
 if __name__ == "__main__":
     if sys.argv[1:] and sys.argv[1] == "--create_test_files":
-        for explanation in explanations:
-            if explanation.label and explanation.reproduce:
-                with open(explanation.label + ".c", "w", encoding="utf-8") as f:
-                    f.write(explanation.reproduce)
+        for extracted in explanations:
+            if extracted.label and extracted.reproduce:
+                with open(extracted.label + ".c", "w", encoding="utf-8") as f:
+                    f.write(extracted.reproduce)

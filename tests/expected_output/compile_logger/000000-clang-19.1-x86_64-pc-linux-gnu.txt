@@ -1,0 +1,11 @@
+compile_logger.c:4:17: warning: format specifies type 'int *' but the argument has type 'int' [-Wformat]
+    4 |     scanf("%d", i);
+      |            ~~   ^
+dcc explanation: Perhaps you have forgotten an '&' before 'i' on line 4 of compile_logger.c.
+logger: exit=0 labels=['scanf_missing_ampersand'] argv=['compile_logger.c']
+logger: first line: compile_logger.c:4:17: warning: format specifies type 'int *' but the argument has type 'int' [-Wformat]
+logger: json has source: 1
+logger for a clean compile:
+logger: exit=0 labels=[] argv=['clean.c']
+logger: first line: 
+logger: json has source: 0

@@ -1,0 +1,4 @@
+separator lines: 0
+Runtime error: malloc buffer overflow
+separator lines before main: 0
+Runtime error: wild addr write

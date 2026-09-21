@@ -1,0 +1,4 @@
+unterminated_conditional_directive.c:1:2: error: unterminated conditional directive
+    1 | #ifndef GAME_H
+      |  ^
+dcc explanation: you have a #if, #ifdef or #ifndef on line 1 of unterminated_conditional_directive.c with no matching #endif.

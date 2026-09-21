@@ -1,0 +1,6 @@
+incomplete_array_element_type.c:1:23: error: array has incomplete element type 'int[]'
+    1 | void print_map(int map[][]);
+      |                       ^
+dcc explanation: you have declared a multidimensional array with no size for a dimension other than the first.
+Every dimension except the first needs a size, for example int map[][8] not int map[][],
+because the compiler needs the length of a row to work out where map[i][j] is in memory.
