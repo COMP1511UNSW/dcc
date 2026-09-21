@@ -1,0 +1,29 @@
+*** Test 1 - output of child and parent together is correct
+*** Test 2 - a child which exits normally does not check output itself
+*** Test 3 - incorrect parent output is still detected
+
+Execution stopped because of an incorrect output line.
+Byte 1 of line 2 of program output was incorrect.
+The correct output line was:
+c
+Your program printed this line:
+b
+
+Execution stopped in main() in tmp.c at line 18:
+
+		if (argc > 1) {
+			exit(0);
+		}
+		_exit(0);
+	}
+	waitpid(pid, NULL, 0);
+-->	printf("b\n");
+	return 0;
+}
+
+Values when execution stopped:
+
+argc = 1
+pid = 1238045
+
+All Tests Correct

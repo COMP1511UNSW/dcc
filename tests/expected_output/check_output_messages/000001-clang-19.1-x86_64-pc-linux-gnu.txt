@@ -16,7 +16,7 @@ Byte 2 of line 1 of program output was a non-printable character \x10
 Here is line 1 with non-printable characters replaced with backslash-escaped equivalents:
 *** zero byte
 Execution failed because a zero byte ('\0') was printed.
-Byte 1 of line 1 of program's output was a zero byte ('\0')
+Byte 2 of line 1 of program's output was a zero byte ('\0')
 Here are the characters on the line before the zero byte:
 *** too much output
 Execution failed because program produced too much output.
